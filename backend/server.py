@@ -171,6 +171,20 @@ class IllustrationPromptRequest(BaseModel):
     page_number: int
     page_text: str
 
+class ImprovePageRequest(BaseModel):
+    project_id: str
+    page_id: str
+    page_text: str
+    modifier: str  # funnier, cozier, dialogue, simpler, emotional
+
+class StoryMemoryUpdate(BaseModel):
+    characters: Optional[List[dict]] = None
+    relationships: Optional[List[dict]] = None
+    settings: Optional[List[dict]] = None
+    events: Optional[List[dict]] = None
+    tone_notes: Optional[str] = None
+    style_guide: Optional[str] = None
+
 # ==================== AUTH HELPERS ====================
 
 def hash_password(password: str) -> str:
