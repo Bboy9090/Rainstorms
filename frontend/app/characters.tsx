@@ -15,23 +15,22 @@ import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
-import { useProject } from '../src/context/ProjectContext';
+import { SaveIndicator } from '../src/components/SaveIndicator';
+import { useProject, Character } from '../src/context/ProjectContext';
 import { api } from '../src/utils/api';
-
-interface Character {
-  id: string;
-  project_id: string;
-  name: string;
-  role: string;
-  personality: string;
-  appearance: string;
-  special_trait: string;
-  notes: string;
-}
 
 export default function CharactersScreen() {
   const router = useRouter();
-  const { currentProject, characters, setCharacters, isLoading, setError } = useProject();
+  const { 
+    currentProject, 
+    characters, 
+    setCharacters, 
+    updateCharacter,
+    saveStatus,
+    lastSaved,
+    isLoading, 
+    setError 
+  } = useProject();
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
@@ -61,17 +60,24 @@ export default function CharactersScreen() {
     }
   };
 
+  const handleEditField = (field: keyof Character, value: string) => {
+    if (editingChar) {
+      setEditingChar({ ...editingChar, [field]: value });
+    }
+  };
+
   const handleSaveCharacter = async () => {
     if (!editingChar) return;
-    try {
-      await api.put(`/characters/${editingChar.id}`, editingChar);
-      setCharacters(
-        characters.map((c) => (c.id === editingChar.id ? editingChar : c))
-      );
-      setEditingChar(null);
-    } catch (err) {
-      setError('Failed to save character');
-    }
+    // Use updateCharacter for autosave
+    updateCharacter(editingChar.id, {
+      name: editingChar.name,
+      role: editingChar.role,
+      personality: editingChar.personality,
+      appearance: editingChar.appearance,
+      special_trait: editingChar.special_trait,
+      notes: editingChar.notes,
+    });
+    setEditingChar(null);
   };
 
   const handleAddCharacter = async () => {
@@ -119,9 +125,12 @@ export default function CharactersScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <View style={styles.headerTitle}>
-          <Ionicons name="people" size={28} color={colors.primary} />
-          <Text style={styles.title}>Character Forge</Text>
+        <View style={styles.headerCenter}>
+          <View style={styles.headerTitle}>
+            <Ionicons name="people" size={24} color={colors.primary} />
+            <Text style={styles.title}>Character Forge</Text>
+          </View>
+          <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -244,7 +253,7 @@ export default function CharactersScreen() {
                   <TextInput
                     style={styles.input}
                     value={editingChar.name}
-                    onChangeText={(text) => setEditingChar({ ...editingChar, name: text })}
+                    onChangeText={(text) => handleEditField('name', text)}
                   />
                 </View>
 
@@ -253,7 +262,7 @@ export default function CharactersScreen() {
                   <TextInput
                     style={styles.input}
                     value={editingChar.role}
-                    onChangeText={(text) => setEditingChar({ ...editingChar, role: text })}
+                    onChangeText={(text) => handleEditField('role', text)}
                   />
                 </View>
 
@@ -262,7 +271,7 @@ export default function CharactersScreen() {
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     value={editingChar.personality}
-                    onChangeText={(text) => setEditingChar({ ...editingChar, personality: text })}
+                    onChangeText={(text) => handleEditField('personality', text)}
                     multiline
                   />
                 </View>
@@ -272,7 +281,7 @@ export default function CharactersScreen() {
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     value={editingChar.appearance}
-                    onChangeText={(text) => setEditingChar({ ...editingChar, appearance: text })}
+                    onChangeText={(text) => handleEditField('appearance', text)}
                     multiline
                   />
                 </View>
@@ -282,7 +291,7 @@ export default function CharactersScreen() {
                   <TextInput
                     style={styles.input}
                     value={editingChar.special_trait}
-                    onChangeText={(text) => setEditingChar({ ...editingChar, special_trait: text })}
+                    onChangeText={(text) => handleEditField('special_trait', text)}
                   />
                 </View>
 
@@ -291,7 +300,7 @@ export default function CharactersScreen() {
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     value={editingChar.notes}
-                    onChangeText={(text) => setEditingChar({ ...editingChar, notes: text })}
+                    onChangeText={(text) => handleEditField('notes', text)}
                     multiline
                   />
                 </View>
@@ -409,13 +418,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.sm,
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   headerTitle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.textPrimary,
   },
