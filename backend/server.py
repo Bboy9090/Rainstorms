@@ -890,7 +890,7 @@ async def export_story_pdf(project_id: str):
 
 @api_router.get("/projects/{project_id}/export/prompts-pdf")
 async def export_prompts_pdf(project_id: str):
-    """Export illustration prompts as PDF"""
+    """Export illustration prompts as PDF - art director reference sheet"""
     project = await db.projects.find_one({"id": project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -899,45 +899,150 @@ async def export_prompts_pdf(project_id: str):
     characters = await db.characters.find({"project_id": project_id}).to_list(20)
     
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.75*inch, bottomMargin=0.75*inch)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=letter, 
+        topMargin=0.8*inch, 
+        bottomMargin=0.7*inch,
+        leftMargin=1*inch,
+        rightMargin=1*inch
+    )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('Title', parent=styles['Title'], fontSize=24, spaceAfter=20)
-    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontSize=14, spaceAfter=10)
-    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=11, spaceAfter=8, leading=16)
-    prompt_style = ParagraphStyle('Prompt', parent=styles['Normal'], fontSize=10, spaceAfter=10, 
-                                   leftIndent=20, textColor=HexColor('#4A5568'), leading=14)
+    
+    # Styles
+    main_title_style = ParagraphStyle(
+        'MainTitle',
+        parent=styles['Title'],
+        fontSize=24,
+        spaceAfter=8,
+        textColor=HexColor('#1E293B'),
+        alignment=1
+    )
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=20,
+        textColor=HexColor('#64748B'),
+        alignment=1
+    )
+    section_header_style = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=12,
+        spaceBefore=16,
+        textColor=HexColor('#6366F1'),
+        borderPadding=5
+    )
+    char_name_style = ParagraphStyle(
+        'CharName',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=4,
+        textColor=HexColor('#1E293B'),
+        fontName='Helvetica-Bold'
+    )
+    char_detail_style = ParagraphStyle(
+        'CharDetail',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=12,
+        textColor=HexColor('#475569'),
+        leading=15,
+        leftIndent=10
+    )
+    page_header_style = ParagraphStyle(
+        'PageHeader',
+        parent=styles['Heading3'],
+        fontSize=13,
+        spaceAfter=8,
+        spaceBefore=12,
+        textColor=HexColor('#6366F1'),
+        fontName='Helvetica-Bold'
+    )
+    text_label_style = ParagraphStyle(
+        'TextLabel',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=HexColor('#94A3B8'),
+        fontName='Helvetica-Bold'
+    )
+    page_text_style = ParagraphStyle(
+        'PageText',
+        parent=styles['Normal'],
+        fontSize=11,
+        spaceAfter=10,
+        textColor=HexColor('#374151'),
+        leading=17
+    )
+    prompt_style = ParagraphStyle(
+        'Prompt',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=16,
+        textColor=HexColor('#1E293B'),
+        leading=15,
+        leftIndent=15,
+        rightIndent=15,
+        backColor=HexColor('#F8FAFC'),
+        borderPadding=10
+    )
     
     story = []
     
-    # Title
-    story.append(Paragraph(f"{project['title']} - Illustration Prompts", title_style))
-    story.append(Spacer(1, 0.3*inch))
+    # ========== TITLE ==========
+    story.append(Paragraph(project['title'], main_title_style))
+    story.append(Paragraph("Illustration Prompts & Art Direction", subtitle_style))
+    story.append(Spacer(1, 0.2*inch))
     
-    # Character reference
-    story.append(Paragraph("Character Reference", header_style))
+    # ========== CHARACTER REFERENCE ==========
+    story.append(Paragraph("Character Visual Reference", section_header_style))
+    story.append(Spacer(1, 0.1*inch))
+    
     for char in characters:
-        story.append(Paragraph(f"<b>{char['name']}</b> ({char['role']}): {char['appearance']}", body_style))
-    story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph(f"{char['name']} ({char['role']})", char_name_style))
+        detail_text = f"<b>Appearance:</b> {char['appearance']}"
+        if char.get('special_trait'):
+            detail_text += f"<br/><b>Special Trait:</b> {char['special_trait']}"
+        if char.get('notes'):
+            detail_text += f"<br/><b>Art Notes:</b> {char['notes']}"
+        story.append(Paragraph(detail_text, char_detail_style))
+    
     story.append(PageBreak())
     
-    # Page prompts
+    # ========== PAGE PROMPTS ==========
+    story.append(Paragraph("Page-by-Page Illustration Prompts", section_header_style))
+    story.append(Spacer(1, 0.15*inch))
+    
     for page in pages:
-        story.append(Paragraph(f"Page {page['page_number']}", header_style))
+        story.append(Paragraph(f"Page {page['page_number']}", page_header_style))
+        
         if page.get('page_text'):
-            story.append(Paragraph(f"<b>Text:</b> {page['page_text']}", body_style))
+            story.append(Paragraph("STORY TEXT:", text_label_style))
+            story.append(Paragraph(page['page_text'], page_text_style))
+        
         if page.get('illustration_prompt'):
-            story.append(Paragraph(f"<b>Illustration Prompt:</b>", body_style))
+            story.append(Paragraph("ILLUSTRATION PROMPT:", text_label_style))
             story.append(Paragraph(page['illustration_prompt'], prompt_style))
-        story.append(Spacer(1, 0.3*inch))
+        elif page.get('page_text'):
+            story.append(Paragraph("ILLUSTRATION PROMPT:", text_label_style))
+            story.append(Paragraph("[Not yet generated]", prompt_style))
+        
+        story.append(Spacer(1, 0.15*inch))
     
     doc.build(story)
     buffer.seek(0)
     
+    # Clean filename
+    safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in project['title'])
+    safe_title = safe_title.replace(' ', '_')
+    
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={project['title'].replace(' ', '_')}_prompts.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={safe_title}_illustration_prompts.pdf"}
     )
 
 @api_router.get("/projects/{project_id}/export/text")
