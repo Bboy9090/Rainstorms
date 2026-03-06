@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +7,19 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 import uuid
-from datetime import datetime
-
+from datetime import datetime, timedelta
+import jwt
+import bcrypt
+import json
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -17,40 +27,1062 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
 
-# Create the main app without a prefix
-app = FastAPI()
+# JWT Configuration
+JWT_SECRET = os.environ.get('JWT_SECRET', 'rainstorms_secret_key_2024_v1')
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 72
+
+# Emergent LLM Key
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# Create the main app
+app = FastAPI(title="Rainstorms API", version="1.0.0")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Define Models
-class StatusCheck(BaseModel):
+# ==================== MODELS ====================
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    created_at: datetime
+
+class TokenResponse(BaseModel):
+    token: str
+    user: UserResponse
+
+class Character(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    project_id: str
+    name: str
+    role: str
+    personality: str
+    appearance: str
+    special_trait: str
+    notes: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class CharacterCreate(BaseModel):
+    name: str
+    role: str
+    personality: str
+    appearance: str
+    special_trait: str
+    notes: str = ""
 
-# Add your routes to the router instead of directly to app
+class PageData(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    project_id: str
+    page_number: int
+    outline_beat: str
+    page_text: str = ""
+    illustration_prompt: str = ""
+    emotional_beat: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PageCreate(BaseModel):
+    page_number: int
+    outline_beat: str
+    page_text: str = ""
+    illustration_prompt: str = ""
+    emotional_beat: str = ""
+
+class Project(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: Optional[str] = None
+    title: str
+    original_idea: str
+    tone: str
+    age_range: str
+    page_count: int
+    theme: str = ""
+    hook: str = ""
+    summary: str = ""
+    outline: List[str] = []
+    is_demo: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProjectCreate(BaseModel):
+    title: str = ""
+    original_idea: str
+    tone: str
+    age_range: str
+    page_count: int
+
+class BlueprintRequest(BaseModel):
+    original_idea: str
+    tone: str
+    age_range: str
+    page_count: int
+
+class BlueprintResponse(BaseModel):
+    title: str
+    hook: str
+    summary: str
+    theme: str
+    characters: List[dict]
+    outline: List[str]
+
+class PageTextRequest(BaseModel):
+    project_id: str
+    page_number: int
+    outline_beat: str
+
+class IllustrationPromptRequest(BaseModel):
+    project_id: str
+    page_number: int
+    page_text: str
+
+# ==================== AUTH HELPERS ====================
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+def create_token(user_id: str, email: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        return None
+    try:
+        token = authorization.replace("Bearer ", "")
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except:
+        return None
+
+async def require_auth(authorization: Optional[str] = Header(None)):
+    user = await get_current_user(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+# ==================== AI GENERATION HELPERS ====================
+
+async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int) -> dict:
+    """Generate story blueprint using AI"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"blueprint-{uuid.uuid4()}",
+        system_message="""You are a children's book author and story development expert. 
+You create engaging, age-appropriate stories for picture books.
+Always respond with valid JSON only, no additional text."""
+    ).with_model("openai", "gpt-4.1")
+
+    prompt = f"""Create a children's book blueprint for this story idea:
+
+IDEA: {idea}
+TONE: {tone}
+AGE RANGE: {age_range} years
+PAGE COUNT: {page_count} pages
+
+Generate a complete blueprint in this exact JSON format:
+{{
+    "title": "Creative, engaging title",
+    "hook": "One compelling sentence that captures the heart of the story",
+    "summary": "2-3 sentences describing the full story arc",
+    "theme": "The core message or lesson of the story",
+    "characters": [
+        {{
+            "name": "Character name",
+            "role": "main/supporting/minor",
+            "personality": "2-3 key personality traits",
+            "appearance": "Visual description for illustration",
+            "special_trait": "Unique characteristic that makes them memorable"
+        }}
+    ],
+    "outline": [
+        "Page 1: Opening scene description and story beat",
+        "Page 2: Next story beat",
+        ...continue for all {page_count} pages
+    ]
+}}
+
+Rules:
+- Make the title catchy and memorable
+- Keep language appropriate for {age_range} year olds
+- Each outline beat should be 1-2 sentences describing what happens on that page
+- Include 2-4 characters depending on the story
+- Ensure the story has a clear beginning, middle, and satisfying ending
+- Match the {tone} tone throughout
+
+Return ONLY the JSON, no other text."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    
+    # Parse the JSON response
+    try:
+        # Clean the response - remove markdown code blocks if present
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse blueprint JSON: {e}")
+        logger.error(f"Response was: {response}")
+        raise HTTPException(status_code=500, detail="Failed to generate blueprint. Please try again.")
+
+async def generate_characters(blueprint: dict) -> List[dict]:
+    """Generate detailed character cards"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"characters-{uuid.uuid4()}",
+        system_message="""You are a children's book character designer.
+Create vivid, memorable characters with distinct visual appearances.
+Always respond with valid JSON only."""
+    ).with_model("openai", "gpt-4.1")
+
+    prompt = f"""Based on this story blueprint, create detailed character cards:
+
+TITLE: {blueprint.get('title', '')}
+SUMMARY: {blueprint.get('summary', '')}
+THEME: {blueprint.get('theme', '')}
+EXISTING CHARACTERS: {json.dumps(blueprint.get('characters', []))}
+
+Expand each character with rich details. Return JSON array:
+[
+    {{
+        "name": "Character name",
+        "role": "main/supporting/minor",
+        "personality": "Detailed personality description (3-4 sentences)",
+        "appearance": "Detailed visual description for illustrator (colors, clothing, features, expressions)",
+        "special_trait": "What makes this character unique and memorable",
+        "notes": "Additional notes for consistency in illustrations"
+    }}
+]
+
+Make appearances specific enough for consistent illustration across all pages.
+Return ONLY the JSON array, no other text."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse characters JSON: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate characters. Please try again.")
+
+async def generate_page_text(project: dict, characters: List[dict], page_number: int, outline_beat: str) -> dict:
+    """Generate text for a specific page"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"page-{uuid.uuid4()}",
+        system_message="""You are a children's picture book author.
+Write engaging, age-appropriate text for picture book pages.
+Keep text concise - typically 2-5 sentences per page.
+Always respond with valid JSON only."""
+    ).with_model("openai", "gpt-4.1")
+
+    character_info = "\n".join([f"- {c['name']}: {c['appearance']}" for c in characters])
+    
+    prompt = f"""Write the text for page {page_number} of this children's book:
+
+TITLE: {project.get('title', '')}
+SUMMARY: {project.get('summary', '')}
+TONE: {project.get('tone', '')}
+AGE RANGE: {project.get('age_range', '')}
+
+CHARACTERS:
+{character_info}
+
+PAGE {page_number} OUTLINE BEAT: {outline_beat}
+
+Write the actual picture book text for this page. Return JSON:
+{{
+    "page_text": "The actual text that would appear on this page of the book (2-5 sentences, vivid and age-appropriate)",
+    "emotional_beat": "The emotional tone/feeling of this page (e.g., 'wonder', 'excitement', 'cozy comfort')"
+}}
+
+Rules:
+- Keep sentences short and rhythmic
+- Use vivid, sensory language children can understand
+- Match the {project.get('tone', 'cozy')} tone
+- Appropriate for {project.get('age_range', '3-8')} year olds
+- Text should work well with an illustration
+
+Return ONLY the JSON, no other text."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse page text JSON: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate page text. Please try again.")
+
+async def generate_illustration_prompt(project: dict, characters: List[dict], page_number: int, page_text: str) -> str:
+    """Generate illustration prompt for a page"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"illustration-{uuid.uuid4()}",
+        system_message="""You are a children's book art director.
+Create detailed illustration prompts that capture the essence of each page.
+Focus on composition, mood, and character consistency."""
+    ).with_model("openai", "gpt-4.1")
+
+    character_info = "\n".join([f"- {c['name']}: {c['appearance']}" for c in characters])
+    
+    prompt = f"""Create an illustration prompt for page {page_number}:
+
+TITLE: {project.get('title', '')}
+TONE: {project.get('tone', '')}
+PAGE TEXT: {page_text}
+
+CHARACTERS TO POTENTIALLY INCLUDE:
+{character_info}
+
+Create a detailed illustration prompt. Include:
+1. Scene description and setting
+2. Characters present and their poses/expressions
+3. Key visual elements and props
+4. Mood and lighting
+5. Composition suggestions
+
+End with this style note:
+"Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+
+Return ONLY the illustration prompt text, nothing else."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    return response.strip()
+
+# ==================== AUTH ENDPOINTS ====================
+
+@api_router.post("/auth/register", response_model=TokenResponse)
+async def register(user_data: UserCreate):
+    """Register a new user"""
+    # Check if user exists
+    existing = await db.users.find_one({"email": user_data.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create user
+    user_id = str(uuid.uuid4())
+    user = {
+        "id": user_id,
+        "email": user_data.email.lower(),
+        "password_hash": hash_password(user_data.password),
+        "created_at": datetime.utcnow()
+    }
+    await db.users.insert_one(user)
+    
+    # Create token
+    token = create_token(user_id, user_data.email.lower())
+    
+    return TokenResponse(
+        token=token,
+        user=UserResponse(id=user_id, email=user_data.email.lower(), created_at=user["created_at"])
+    )
+
+@api_router.post("/auth/login", response_model=TokenResponse)
+async def login(user_data: UserLogin):
+    """Login user"""
+    user = await db.users.find_one({"email": user_data.email.lower()})
+    if not user or not verify_password(user_data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    token = create_token(user["id"], user["email"])
+    
+    return TokenResponse(
+        token=token,
+        user=UserResponse(id=user["id"], email=user["email"], created_at=user["created_at"])
+    )
+
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_me(user = Depends(require_auth)):
+    """Get current user"""
+    db_user = await db.users.find_one({"id": user["user_id"]})
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserResponse(id=db_user["id"], email=db_user["email"], created_at=db_user["created_at"])
+
+# ==================== PROJECT ENDPOINTS ====================
+
+@api_router.post("/projects", response_model=Project)
+async def create_project(project_data: ProjectCreate, user = Depends(get_current_user)):
+    """Create a new project"""
+    project = Project(
+        user_id=user["user_id"] if user else None,
+        title=project_data.title,
+        original_idea=project_data.original_idea,
+        tone=project_data.tone,
+        age_range=project_data.age_range,
+        page_count=project_data.page_count
+    )
+    await db.projects.insert_one(project.dict())
+    return project
+
+@api_router.get("/projects", response_model=List[Project])
+async def get_projects(user = Depends(require_auth)):
+    """Get all projects for current user"""
+    projects = await db.projects.find({"user_id": user["user_id"]}).to_list(100)
+    return [Project(**p) for p in projects]
+
+@api_router.get("/projects/{project_id}", response_model=Project)
+async def get_project(project_id: str, user = Depends(get_current_user)):
+    """Get a specific project"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return Project(**project)
+
+@api_router.put("/projects/{project_id}", response_model=Project)
+async def update_project(project_id: str, updates: dict, user = Depends(get_current_user)):
+    """Update a project"""
+    updates["updated_at"] = datetime.utcnow()
+    await db.projects.update_one({"id": project_id}, {"$set": updates})
+    project = await db.projects.find_one({"id": project_id})
+    return Project(**project)
+
+@api_router.delete("/projects/{project_id}")
+async def delete_project(project_id: str, user = Depends(require_auth)):
+    """Delete a project and its related data"""
+    await db.projects.delete_one({"id": project_id})
+    await db.characters.delete_many({"project_id": project_id})
+    await db.pages.delete_many({"project_id": project_id})
+    return {"message": "Project deleted"}
+
+# ==================== AI GENERATION ENDPOINTS ====================
+
+@api_router.post("/generate/blueprint", response_model=BlueprintResponse)
+async def generate_story_blueprint(request: BlueprintRequest):
+    """Generate a story blueprint from an idea"""
+    blueprint = await generate_blueprint(
+        request.original_idea,
+        request.tone,
+        request.age_range,
+        request.page_count
+    )
+    return BlueprintResponse(**blueprint)
+
+@api_router.post("/generate/characters")
+async def generate_story_characters(project_id: str):
+    """Generate characters for a project"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    blueprint = {
+        "title": project["title"],
+        "summary": project["summary"],
+        "theme": project["theme"]
+    }
+    
+    # Get existing characters if any
+    existing_chars = await db.characters.find({"project_id": project_id}).to_list(20)
+    if existing_chars:
+        blueprint["characters"] = [{"name": c["name"], "role": c["role"]} for c in existing_chars]
+    
+    characters_data = await generate_characters(blueprint)
+    
+    # Delete existing characters and create new ones
+    await db.characters.delete_many({"project_id": project_id})
+    
+    characters = []
+    for char_data in characters_data:
+        char = Character(
+            project_id=project_id,
+            name=char_data["name"],
+            role=char_data["role"],
+            personality=char_data["personality"],
+            appearance=char_data["appearance"],
+            special_trait=char_data["special_trait"],
+            notes=char_data.get("notes", "")
+        )
+        await db.characters.insert_one(char.dict())
+        characters.append(char)
+    
+    return characters
+
+@api_router.post("/generate/page-text")
+async def generate_page_text_endpoint(request: PageTextRequest):
+    """Generate text for a specific page"""
+    project = await db.projects.find_one({"id": request.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    characters = await db.characters.find({"project_id": request.project_id}).to_list(20)
+    char_list = [{"name": c["name"], "appearance": c["appearance"]} for c in characters]
+    
+    result = await generate_page_text(project, char_list, request.page_number, request.outline_beat)
+    
+    # Update the page in database
+    await db.pages.update_one(
+        {"project_id": request.project_id, "page_number": request.page_number},
+        {"$set": {
+            "page_text": result["page_text"],
+            "emotional_beat": result["emotional_beat"],
+            "updated_at": datetime.utcnow()
+        }},
+        upsert=True
+    )
+    
+    return result
+
+@api_router.post("/generate/illustration-prompt")
+async def generate_illustration_prompt_endpoint(request: IllustrationPromptRequest):
+    """Generate illustration prompt for a page"""
+    project = await db.projects.find_one({"id": request.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    characters = await db.characters.find({"project_id": request.project_id}).to_list(20)
+    char_list = [{"name": c["name"], "appearance": c["appearance"]} for c in characters]
+    
+    prompt = await generate_illustration_prompt(project, char_list, request.page_number, request.page_text)
+    
+    # Update the page in database
+    await db.pages.update_one(
+        {"project_id": request.project_id, "page_number": request.page_number},
+        {"$set": {
+            "illustration_prompt": prompt,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    return {"illustration_prompt": prompt}
+
+@api_router.post("/generate/title")
+async def regenerate_title(project_id: str):
+    """Regenerate just the title"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"title-{uuid.uuid4()}",
+        system_message="You are a creative children's book title generator."
+    ).with_model("openai", "gpt-4.1")
+    
+    prompt = f"""Generate a new creative title for this children's book:
+STORY IDEA: {project['original_idea']}
+SUMMARY: {project.get('summary', '')}
+TONE: {project['tone']}
+
+Return ONLY the title text, nothing else."""
+    
+    response = await chat.send_message(UserMessage(text=prompt))
+    new_title = response.strip().strip('"').strip("'")
+    
+    await db.projects.update_one({"id": project_id}, {"$set": {"title": new_title, "updated_at": datetime.utcnow()}})
+    
+    return {"title": new_title}
+
+# ==================== CHARACTER ENDPOINTS ====================
+
+@api_router.get("/projects/{project_id}/characters", response_model=List[Character])
+async def get_characters(project_id: str):
+    """Get all characters for a project"""
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
+    return [Character(**c) for c in characters]
+
+@api_router.post("/projects/{project_id}/characters", response_model=Character)
+async def create_character(project_id: str, char_data: CharacterCreate):
+    """Create a new character"""
+    char = Character(
+        project_id=project_id,
+        name=char_data.name,
+        role=char_data.role,
+        personality=char_data.personality,
+        appearance=char_data.appearance,
+        special_trait=char_data.special_trait,
+        notes=char_data.notes
+    )
+    await db.characters.insert_one(char.dict())
+    return char
+
+@api_router.put("/characters/{character_id}", response_model=Character)
+async def update_character(character_id: str, updates: dict):
+    """Update a character"""
+    await db.characters.update_one({"id": character_id}, {"$set": updates})
+    char = await db.characters.find_one({"id": character_id})
+    return Character(**char)
+
+@api_router.delete("/characters/{character_id}")
+async def delete_character(character_id: str):
+    """Delete a character"""
+    await db.characters.delete_one({"id": character_id})
+    return {"message": "Character deleted"}
+
+# ==================== PAGE ENDPOINTS ====================
+
+@api_router.get("/projects/{project_id}/pages", response_model=List[PageData])
+async def get_pages(project_id: str):
+    """Get all pages for a project"""
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    return [PageData(**p) for p in pages]
+
+@api_router.post("/projects/{project_id}/pages", response_model=PageData)
+async def create_page(project_id: str, page_data: PageCreate):
+    """Create a new page"""
+    page = PageData(
+        project_id=project_id,
+        page_number=page_data.page_number,
+        outline_beat=page_data.outline_beat,
+        page_text=page_data.page_text,
+        illustration_prompt=page_data.illustration_prompt,
+        emotional_beat=page_data.emotional_beat
+    )
+    await db.pages.insert_one(page.dict())
+    return page
+
+@api_router.put("/pages/{page_id}", response_model=PageData)
+async def update_page(page_id: str, updates: dict):
+    """Update a page"""
+    updates["updated_at"] = datetime.utcnow()
+    await db.pages.update_one({"id": page_id}, {"$set": updates})
+    page = await db.pages.find_one({"id": page_id})
+    return PageData(**page)
+
+@api_router.post("/projects/{project_id}/pages/bulk")
+async def bulk_create_pages(project_id: str, pages_data: List[PageCreate]):
+    """Create multiple pages at once (for outline)"""
+    # Delete existing pages
+    await db.pages.delete_many({"project_id": project_id})
+    
+    pages = []
+    for page_data in pages_data:
+        page = PageData(
+            project_id=project_id,
+            page_number=page_data.page_number,
+            outline_beat=page_data.outline_beat,
+            page_text=page_data.page_text,
+            illustration_prompt=page_data.illustration_prompt,
+            emotional_beat=page_data.emotional_beat
+        )
+        await db.pages.insert_one(page.dict())
+        pages.append(page)
+    
+    return pages
+
+# ==================== EXPORT ENDPOINTS ====================
+
+@api_router.get("/projects/{project_id}/export/story-pdf")
+async def export_story_pdf(project_id: str):
+    """Export story as PDF"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=1*inch, bottomMargin=1*inch)
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=28,
+        spaceAfter=30,
+        textColor=HexColor('#2D3748'),
+        alignment=1
+    )
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=14,
+        spaceAfter=20,
+        textColor=HexColor('#4A5568'),
+        alignment=1
+    )
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['Normal'],
+        fontSize=14,
+        spaceAfter=12,
+        leading=20,
+        textColor=HexColor('#2D3748')
+    )
+    page_header_style = ParagraphStyle(
+        'PageHeader',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=15,
+        textColor=HexColor('#4A5568')
+    )
+    
+    story = []
+    
+    # Title page
+    story.append(Spacer(1, 2*inch))
+    story.append(Paragraph(project['title'], title_style))
+    story.append(Spacer(1, 0.5*inch))
+    story.append(Paragraph(project.get('hook', ''), subtitle_style))
+    story.append(Spacer(1, 1*inch))
+    story.append(Paragraph(f"Age Range: {project['age_range']}", subtitle_style))
+    story.append(Paragraph(f"Tone: {project['tone']}", subtitle_style))
+    story.append(PageBreak())
+    
+    # Summary page
+    story.append(Paragraph("Story Summary", title_style))
+    story.append(Spacer(1, 0.3*inch))
+    story.append(Paragraph(project.get('summary', ''), body_style))
+    story.append(Spacer(1, 0.3*inch))
+    story.append(Paragraph(f"<b>Theme:</b> {project.get('theme', '')}", body_style))
+    story.append(PageBreak())
+    
+    # Story pages
+    for page in pages:
+        story.append(Paragraph(f"Page {page['page_number']}", page_header_style))
+        if page.get('page_text'):
+            story.append(Paragraph(page['page_text'], body_style))
+        if page.get('emotional_beat'):
+            story.append(Spacer(1, 0.2*inch))
+            story.append(Paragraph(f"<i>Emotional beat: {page['emotional_beat']}</i>", body_style))
+        story.append(Spacer(1, 0.5*inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={project['title'].replace(' ', '_')}_story.pdf"}
+    )
+
+@api_router.get("/projects/{project_id}/export/prompts-pdf")
+async def export_prompts_pdf(project_id: str):
+    """Export illustration prompts as PDF"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.75*inch, bottomMargin=0.75*inch)
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Title'], fontSize=24, spaceAfter=20)
+    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontSize=14, spaceAfter=10)
+    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=11, spaceAfter=8, leading=16)
+    prompt_style = ParagraphStyle('Prompt', parent=styles['Normal'], fontSize=10, spaceAfter=10, 
+                                   leftIndent=20, textColor=HexColor('#4A5568'), leading=14)
+    
+    story = []
+    
+    # Title
+    story.append(Paragraph(f"{project['title']} - Illustration Prompts", title_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Character reference
+    story.append(Paragraph("Character Reference", header_style))
+    for char in characters:
+        story.append(Paragraph(f"<b>{char['name']}</b> ({char['role']}): {char['appearance']}", body_style))
+    story.append(Spacer(1, 0.3*inch))
+    story.append(PageBreak())
+    
+    # Page prompts
+    for page in pages:
+        story.append(Paragraph(f"Page {page['page_number']}", header_style))
+        if page.get('page_text'):
+            story.append(Paragraph(f"<b>Text:</b> {page['page_text']}", body_style))
+        if page.get('illustration_prompt'):
+            story.append(Paragraph(f"<b>Illustration Prompt:</b>", body_style))
+            story.append(Paragraph(page['illustration_prompt'], prompt_style))
+        story.append(Spacer(1, 0.3*inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={project['title'].replace(' ', '_')}_prompts.pdf"}
+    )
+
+@api_router.get("/projects/{project_id}/export/text")
+async def export_full_text(project_id: str):
+    """Export full book text"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    
+    text = f"{project['title']}\n\n"
+    text += f"Hook: {project.get('hook', '')}\n\n"
+    text += f"Summary: {project.get('summary', '')}\n\n"
+    text += f"Theme: {project.get('theme', '')}\n\n"
+    text += "=" * 50 + "\n\n"
+    
+    for page in pages:
+        text += f"PAGE {page['page_number']}\n"
+        text += f"{page.get('page_text', '')}\n\n"
+    
+    return {"text": text}
+
+@api_router.get("/projects/{project_id}/export/json")
+async def export_project_json(project_id: str):
+    """Export complete project as JSON"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    
+    # Convert datetime objects to strings
+    project['created_at'] = project['created_at'].isoformat() if project.get('created_at') else None
+    project['updated_at'] = project['updated_at'].isoformat() if project.get('updated_at') else None
+    
+    for char in characters:
+        char['created_at'] = char['created_at'].isoformat() if char.get('created_at') else None
+    
+    for page in pages:
+        page['created_at'] = page['created_at'].isoformat() if page.get('created_at') else None
+        page['updated_at'] = page['updated_at'].isoformat() if page.get('updated_at') else None
+    
+    return {
+        "project": project,
+        "characters": characters,
+        "pages": pages
+    }
+
+# ==================== DEMO PROJECT ====================
+
+@api_router.post("/demo/seed")
+async def seed_demo_project():
+    """Seed the demo project: Captain Blanket and the Midnight Brother"""
+    
+    # Check if demo already exists
+    existing = await db.projects.find_one({"is_demo": True})
+    if existing:
+        return {"message": "Demo project already exists", "project_id": existing["id"]}
+    
+    # Create demo project
+    demo_project = Project(
+        user_id=None,
+        title="Captain Blanket and the Midnight Brother",
+        original_idea="A child with a magical blanket cape protects his baby brother from night monsters at bedtime and learns what it means to be a big brother hero.",
+        tone="cozy, adventurous, bedtime calm",
+        age_range="3-8",
+        page_count=10,
+        theme="The power of love and protection between siblings",
+        hook="When darkness falls, one brave big brother discovers that the greatest superpower is love.",
+        summary="Oliver discovers his old baby blanket transforms into a magical cape when the clock strikes bedtime. When shadow monsters threaten his baby brother Max's peaceful sleep, Captain Blanket springs into action! Through imagination, courage, and brotherly love, Oliver learns that being a hero isn't about being fearless—it's about protecting the ones you love.",
+        outline=[
+            "Page 1: Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket.",
+            "Page 2: The blanket begins to shimmer and transforms into a magnificent cape. Oliver becomes Captain Blanket!",
+            "Page 3: Captain Blanket tiptoes to the nursery and sees shadow monsters gathering around Max's crib.",
+            "Page 4: The shadows try to steal Max's peaceful dreams. Captain Blanket stands firm.",
+            "Page 5: With a swoosh of his cape, Captain Blanket creates a shield of soft, golden light.",
+            "Page 6: The shadow monsters shrink back, but their leader—the Nightmare King—appears.",
+            "Page 7: Captain Blanket remembers all the times Max smiled at him. Love fills his heart.",
+            "Page 8: The love glows so bright that the Nightmare King melts away into starlight.",
+            "Page 9: Max coos happily in his sleep. Captain Blanket gives his brother a gentle pat.",
+            "Page 10: Oliver hangs up his cape and snuggles in bed, knowing he'll always protect his little brother."
+        ],
+        is_demo=True
+    )
+    
+    await db.projects.insert_one(demo_project.dict())
+    
+    # Create demo characters
+    demo_characters = [
+        Character(
+            project_id=demo_project.id,
+            name="Oliver (Captain Blanket)",
+            role="main",
+            personality="Brave, imaginative, loving, and protective. He's sometimes scared but always pushes through for his brother. Has a vivid imagination that turns ordinary things magical.",
+            appearance="A 5-year-old boy with messy brown hair, bright curious eyes, and rosy cheeks. Wears blue pajamas with stars. As Captain Blanket, he wears a shimmering silver-blue cape that seems to glow softly.",
+            special_trait="His love for his baby brother makes his cape glow with golden light",
+            notes="Draw him slightly small compared to furniture to emphasize his bravery despite being little"
+        ),
+        Character(
+            project_id=demo_project.id,
+            name="Baby Max",
+            role="supporting",
+            personality="Sweet, innocent, and peaceful. Giggles easily and always reaches for Oliver when he sees him.",
+            appearance="A chubby 10-month-old baby with wispy blonde hair and big blue eyes. Wears a soft yellow onesie with a duck on it. Always has a peaceful, content expression.",
+            special_trait="His innocent smile can light up any dark room",
+            notes="Keep him looking cozy and protected in his crib throughout"
+        ),
+        Character(
+            project_id=demo_project.id,
+            name="Shadow Monsters",
+            role="minor",
+            personality="Mischievous but not truly evil—they're more like naughty fears that scatter when confronted with love.",
+            appearance="Wispy, purple-gray shapes with big cartoonish yellow eyes. They look more silly than scary, like smoke puppets. They have no defined shape, constantly shifting.",
+            special_trait="They shrink when exposed to light or love",
+            notes="Keep them non-threatening for young readers—more playful spooky than scary"
+        ),
+        Character(
+            project_id=demo_project.id,
+            name="The Nightmare King",
+            role="minor",
+            personality="Dramatic and pompous but ultimately powerless against love. More bark than bite.",
+            appearance="A larger shadow figure wearing a crooked crown made of darkness. Has an exaggerated frown and arms that wave dramatically. Looks like a grumpy cloud.",
+            special_trait="Melts into harmless starlight when defeated",
+            notes="Make him look huffily defeated rather than scary when he loses"
+        )
+    ]
+    
+    for char in demo_characters:
+        await db.characters.insert_one(char.dict())
+    
+    # Create demo pages with full content
+    demo_pages = [
+        PageData(
+            project_id=demo_project.id,
+            page_number=1,
+            outline_beat="Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket.",
+            page_text="Oliver snuggled deep in his cozy bed, but sleep wouldn't come. From the nursery next door, he heard a tiny whimper. Baby Max was fussing again. Oliver reached for his old baby blanket—the soft, silver-blue one that always made him feel brave.",
+            emotional_beat="gentle concern, comfort",
+            illustration_prompt="A cozy bedroom at night with warm lamp light. A young boy with messy brown hair sits up in bed wearing star-pattern pajamas, looking toward the door with caring concern. His hand reaches for a shimmering silver-blue blanket at the foot of his bed. Soft moonlight streams through the window. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=2,
+            outline_beat="The blanket begins to shimmer and transforms into a magnificent cape. Oliver becomes Captain Blanket!",
+            page_text="The moment Oliver's fingers touched the blanket, something magical happened. The fabric began to shimmer and sparkle, swirling around his shoulders like a gentle wind. It wasn't just a blanket anymore—it was a magnificent cape! Oliver stood tall. He was Captain Blanket now!",
+            emotional_beat="wonder, transformation, excitement",
+            illustration_prompt="Magical transformation scene. The silver-blue blanket swirls with sparkles and golden light, wrapping around a young boy's shoulders to become a flowing cape. The boy stands heroically on his bed, arms spread wide, with stars and sparkles surrounding him. His expression shows wonder and newfound courage. The room glows with soft magical light. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=3,
+            outline_beat="Captain Blanket tiptoes to the nursery and sees shadow monsters gathering around Max's crib.",
+            page_text="Captain Blanket tiptoed down the hallway, his cape floating softly behind him. He peeked into the nursery and gasped! Wispy shadow monsters with big, silly eyes were gathering around Baby Max's crib, whispering and giggling in the darkness.",
+            emotional_beat="suspense, protectiveness",
+            illustration_prompt="A nighttime nursery scene. A brave boy in blue star pajamas with a glowing silver cape peers around the doorframe. In the center, a white crib holds a sleeping baby. Around the crib, several wispy purple-gray shadow creatures with cartoonish yellow eyes float and creep, more mischievous than scary. Soft nightlight glow. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=4,
+            outline_beat="The shadows try to steal Max's peaceful dreams. Captain Blanket stands firm.",
+            page_text="The shadow monsters reached their wispy fingers toward Max, trying to steal his sweet dreams. But Captain Blanket stepped forward, planting his feet firmly on the soft carpet. 'Not my brother!' he whispered bravely. 'You can't have his dreams!'",
+            emotional_beat="courage, determination",
+            illustration_prompt="A young superhero boy stands protectively between shadow monsters and a baby's crib. His silver-blue cape billows behind him as he faces the silly-looking shadow creatures with determination. The shadows reach toward the crib but seem to hesitate. The boy's stance is brave and protective. Warm nightlight illuminates the scene. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=5,
+            outline_beat="With a swoosh of his cape, Captain Blanket creates a shield of soft, golden light.",
+            page_text="Captain Blanket swooshed his magical cape through the air. Whoooosh! A beautiful shield of soft, golden light spread out around the crib like a warm hug. The shadow monsters squeaked and tumbled backward, covering their big yellow eyes.",
+            emotional_beat="triumph, warmth",
+            illustration_prompt="Dynamic action scene. A young boy spins with his silver-blue cape creating a swirling arc of golden, warm light that forms a protective dome around a baby's crib. The shadow monsters tumble backward comically, covering their cartoon eyes with wispy arms. Golden sparkles and light rays fill the scene. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=6,
+            outline_beat="The shadow monsters shrink back, but their leader—the Nightmare King—appears.",
+            page_text="The little shadow monsters scattered and hid behind the rocking chair. But then the room grew darker. A bigger shadow rose up, wearing a crooked crown of darkness. 'I am the Nightmare King!' it boomed in a grumbly voice. 'And I am NOT afraid of little boys!'",
+            emotional_beat="tension, challenge",
+            illustration_prompt="A dramatic moment in the nursery. Small shadow creatures hide behind furniture while a larger shadow figure with a crooked dark crown rises dramatically in the center. The Nightmare King waves his arms theatrically, looking more pompous than scary. A brave boy with a glowing cape stands his ground, facing the shadow king. Contrast between dark shadows and warm protective light. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=7,
+            outline_beat="Captain Blanket remembers all the times Max smiled at him. Love fills his heart.",
+            page_text="Captain Blanket felt a tiny bit scared. But then he remembered... Max's first giggle. Max reaching for him with tiny hands. Max's drooly smile every morning. Love filled Oliver's heart until it felt like sunshine was growing inside his chest.",
+            emotional_beat="tenderness, love building",
+            illustration_prompt="A tender emotional moment. Soft, dreamy vignettes float around a young boy: a baby giggling, tiny hands reaching up, a drooly happy smile. The boy closes his eyes with a peaceful expression as a warm golden glow emanates from his heart, spreading through his cape. The Nightmare King looks uncertain in the background. Soft, warm colors. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=8,
+            outline_beat="The love glows so bright that the Nightmare King melts away into starlight.",
+            page_text="The love glowed brighter and brighter—brighter than any nightlight! The Nightmare King's crown wobbled. His frown trembled. 'No! Not... not LOVE!' he wailed. And then, poof! He melted away into a shower of tiny, sparkling stars.",
+            emotional_beat="victory, joy",
+            illustration_prompt="A triumphant climax scene. A young boy radiates brilliant golden light from his heart and cape, filling the entire nursery with warmth. The Nightmare King dramatically melts and transforms into countless tiny sparkles and stars, his crown dissolving last. Small shadow creatures poof into harmless starlight too. The baby sleeps peacefully in the glowing crib. Celebration of light over darkness. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=9,
+            outline_beat="Max coos happily in his sleep. Captain Blanket gives his brother a gentle pat.",
+            page_text="The nursery was quiet and warm now, filled with gentle starlight. Baby Max cooed happily in his sleep, dreaming sweet dreams once more. Captain Blanket leaned over the crib and gave his baby brother the softest pat. 'I'll always protect you,' he whispered.",
+            emotional_beat="peace, tenderness",
+            illustration_prompt="A peaceful, touching scene. A young boy in a glowing cape leans gently over a crib, softly patting a content, sleeping baby. The nursery is now filled with soft starlight and a warm glow. The baby has a sweet smile while sleeping. Big brother looks down with pure love and protectiveness. Gentle, warm lighting throughout. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        ),
+        PageData(
+            project_id=demo_project.id,
+            page_number=10,
+            outline_beat="Oliver hangs up his cape and snuggles in bed, knowing he'll always protect his little brother.",
+            page_text="Back in his room, Oliver hung up his magical cape. It looked just like an ordinary blanket again, but he knew the truth. Whenever Max needed him, the cape would be ready. Oliver snuggled under his covers with the biggest smile. Being a big brother was the best superpower of all.",
+            emotional_beat="contentment, love, closure",
+            illustration_prompt="A cozy closing scene. A young boy with messy brown hair snuggles happily under his covers, smiling with contentment. His silver-blue blanket hangs on a hook nearby, looking ordinary but with a subtle shimmer. Moonlight streams through the window, stars twinkle outside. The room feels safe, warm, and full of love. Perfect bedtime feeling. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+        )
+    ]
+    
+    for page in demo_pages:
+        await db.pages.insert_one(page.dict())
+    
+    return {"message": "Demo project created successfully", "project_id": demo_project.id}
+
+@api_router.get("/demo")
+async def get_demo_project():
+    """Get the demo project"""
+    project = await db.projects.find_one({"is_demo": True})
+    if not project:
+        # Create demo if it doesn't exist
+        await seed_demo_project()
+        project = await db.projects.find_one({"is_demo": True})
+    
+    characters = await db.characters.find({"project_id": project["id"]}).to_list(20)
+    pages = await db.pages.find({"project_id": project["id"]}).sort("page_number", 1).to_list(50)
+    
+    return {
+        "project": Project(**project),
+        "characters": [Character(**c) for c in characters],
+        "pages": [PageData(**p) for p in pages]
+    }
+
+# ==================== HEALTH CHECK ====================
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Rainstorms API v1.0", "status": "running"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 # Include the router in the main app
 app.include_router(api_router)
@@ -62,13 +1094,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
