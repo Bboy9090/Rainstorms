@@ -115,6 +115,14 @@ class PageCreate(BaseModel):
     illustration_prompt: str = ""
     emotional_beat: str = ""
 
+class StoryMemory(BaseModel):
+    characters: List[dict] = []  # Character summaries for consistency
+    relationships: List[dict] = []  # Character relationships
+    settings: List[dict] = []  # Key locations/settings
+    events: List[dict] = []  # Important events that happened
+    tone_notes: str = ""  # Tone consistency notes
+    style_guide: str = ""  # Writing style guidelines
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None
@@ -127,6 +135,7 @@ class Project(BaseModel):
     hook: str = ""
     summary: str = ""
     outline: List[str] = []
+    story_memory: Optional[dict] = None  # Story Consistency Engine data
     is_demo: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
