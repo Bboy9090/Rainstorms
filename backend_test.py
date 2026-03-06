@@ -510,7 +510,7 @@ def test_export(results, project_id):
 
 def main():
     """Run all tests"""
-    print_header("RAINSTORMS API TESTING")
+    print_header("RAINSTORMS API TESTING - AUTOSAVE & EXPORT FOCUS")
     print_info(f"Base URL: {BASE_URL}")
     print_info(f"API Base: {API_BASE}")
     print_info(f"Timestamp: {datetime.now().isoformat()}")
@@ -545,7 +545,10 @@ def main():
     # Test 7: Pages
     test_pages(results, project_id_for_tests)
     
-    # Test 8: Export
+    # Test 8: AUTOSAVE FUNCTIONALITY (NEW FOCUS)
+    test_autosave_functionality(results, project_id_for_tests)
+    
+    # Test 9: Export (INCLUDING PDF EXPORTS)
     test_export(results, project_id_for_tests)
     
     # Final summary
