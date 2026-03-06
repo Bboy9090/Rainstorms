@@ -543,6 +543,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
   },
+  memoryButton: {
+    marginBottom: spacing.md,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
