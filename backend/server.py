@@ -868,14 +868,20 @@ async def export_project_json(project_id: str):
     characters = await db.characters.find({"project_id": project_id}).to_list(20)
     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
     
-    # Convert datetime objects to strings
+    # Remove MongoDB _id field and convert datetime objects to strings
+    if '_id' in project:
+        del project['_id']
     project['created_at'] = project['created_at'].isoformat() if project.get('created_at') else None
     project['updated_at'] = project['updated_at'].isoformat() if project.get('updated_at') else None
     
     for char in characters:
+        if '_id' in char:
+            del char['_id']
         char['created_at'] = char['created_at'].isoformat() if char.get('created_at') else None
     
     for page in pages:
+        if '_id' in page:
+            del page['_id']
         page['created_at'] = page['created_at'].isoformat() if page.get('created_at') else None
         page['updated_at'] = page['updated_at'].isoformat() if page.get('updated_at') else None
     
