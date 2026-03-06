@@ -386,6 +386,30 @@ test_plan:
           agent: "testing"
           comment: "GET /api/projects/{project_id}/export/prompts-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,754 bytes PDF for illustration prompts."
 
+  - task: "Story Memory Endpoints (v1.2)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "All Story Memory endpoints working correctly: 1) GET /api/projects/{project_id}/story-memory returns proper JSON structure with characters, relationships, settings, events, tone_notes, style_guide fields, 2) POST /api/projects/{project_id}/story-memory/generate successfully auto-generates story memory with 4 character summaries, 3) PUT /api/projects/{project_id}/story-memory correctly updates tone_notes and style_guide fields."
+
+  - task: "Improve Page Endpoint (v1.2)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "POST /api/generate/improve-page working correctly with all modifier values. Successfully tested with modifiers: 'funnier' (258 chars), 'cozier' (220 chars), 'dialogue' (230 chars), 'simpler' (158 chars), 'emotional' (332 chars). All requests return proper JSON with improved page_text field. AI generation working as expected."
+
 agent_communication:
     - agent: "testing"
       message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
@@ -393,3 +417,5 @@ agent_communication:
       message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
     - agent: "testing"
       message: "Frontend UI testing completed successfully. All major user journey flows verified: 1) Home screen displays correctly with logo, tagline, and action buttons, 2) Demo project flow functional - loads Captain Blanket story with blueprint, characters, and page builder, 3) New Story (Idea Lab) accessible with form elements and Load Example feature, 4) Auth screen working with Sign In/Sign Up tabs and guest mode, 5) Mobile-responsive design confirmed on 390x844 viewport, 6) Frontend-backend integration working - demo project loads data successfully from APIs. Minor: Some Expo package version warnings in logs but not affecting functionality."
+    - agent: "testing"
+      message: "Rainstorms v1.2 features testing completed successfully. All new endpoints working correctly: 1) Story Memory endpoints - GET, POST generate, and PUT update all functional with proper JSON responses and character summary generation, 2) Improve Page endpoint - all 5 modifier values ('funnier', 'cozier', 'dialogue', 'simpler', 'emotional') working correctly with AI-generated improvements. Total 22 tests passed, 0 failed. All v1.2 features are production-ready."
