@@ -226,11 +226,24 @@ export default function IdeaLabScreen() {
               style={styles.secondaryButton}
             />
             <Button
-              title="Load Example"
+              title="Example 1"
               onPress={handleLoadExample}
               variant="ghost"
               size="md"
-              icon={<Ionicons name="document-text" size={20} color={colors.primary} />}
+              icon={<Ionicons name="book" size={20} color={colors.primary} />}
+              style={styles.secondaryButton}
+            />
+            <Button
+              title="Example 2"
+              onPress={() => {
+                setIdea(EXAMPLE_IDEA_2);
+                setTone('adventurous');
+                setAgeRange('4-6');
+                setPageCount('10');
+              }}
+              variant="ghost"
+              size="md"
+              icon={<Ionicons name="fish" size={20} color={colors.primary} />}
               style={styles.secondaryButton}
             />
           </View>
