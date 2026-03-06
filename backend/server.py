@@ -703,86 +703,189 @@ async def bulk_create_pages(project_id: str, pages_data: List[PageCreate]):
 
 @api_router.get("/projects/{project_id}/export/story-pdf")
 async def export_story_pdf(project_id: str):
-    """Export story as PDF"""
+    """Export story as PDF - polished children's book manuscript format"""
     project = await db.projects.find_one({"id": project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
     
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=1*inch, bottomMargin=1*inch)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=letter, 
+        topMargin=1.2*inch, 
+        bottomMargin=1*inch,
+        leftMargin=1.25*inch,
+        rightMargin=1.25*inch
+    )
     
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle',
+    
+    # Title page styles
+    main_title_style = ParagraphStyle(
+        'MainTitle',
         parent=styles['Title'],
-        fontSize=28,
-        spaceAfter=30,
-        textColor=HexColor('#2D3748'),
-        alignment=1
-    )
-    subtitle_style = ParagraphStyle(
-        'Subtitle',
-        parent=styles['Normal'],
-        fontSize=14,
+        fontSize=36,
         spaceAfter=20,
-        textColor=HexColor('#4A5568'),
+        textColor=HexColor('#1E293B'),
+        alignment=1,
+        leading=44
+    )
+    hook_style = ParagraphStyle(
+        'Hook',
+        parent=styles['Normal'],
+        fontSize=16,
+        spaceAfter=30,
+        textColor=HexColor('#6366F1'),
+        alignment=1,
+        fontName='Helvetica-Oblique',
+        leading=24
+    )
+    meta_style = ParagraphStyle(
+        'Meta',
+        parent=styles['Normal'],
+        fontSize=12,
+        spaceAfter=8,
+        textColor=HexColor('#64748B'),
         alignment=1
     )
-    body_style = ParagraphStyle(
-        'Body',
-        parent=styles['Normal'],
-        fontSize=14,
-        spaceAfter=12,
-        leading=20,
-        textColor=HexColor('#2D3748')
+    
+    # Content styles
+    section_title_style = ParagraphStyle(
+        'SectionTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=20,
+        spaceBefore=10,
+        textColor=HexColor('#1E293B'),
+        alignment=1
     )
-    page_header_style = ParagraphStyle(
-        'PageHeader',
+    summary_style = ParagraphStyle(
+        'Summary',
+        parent=styles['Normal'],
+        fontSize=13,
+        spaceAfter=16,
+        textColor=HexColor('#374151'),
+        leading=22,
+        alignment=4  # Justified
+    )
+    theme_style = ParagraphStyle(
+        'Theme',
+        parent=styles['Normal'],
+        fontSize=13,
+        spaceAfter=12,
+        textColor=HexColor('#6366F1'),
+        fontName='Helvetica-Oblique',
+        alignment=1
+    )
+    page_number_style = ParagraphStyle(
+        'PageNumber',
         parent=styles['Heading2'],
-        fontSize=16,
-        spaceAfter=15,
-        textColor=HexColor('#4A5568')
+        fontSize=14,
+        spaceAfter=8,
+        textColor=HexColor('#6366F1'),
+        fontName='Helvetica-Bold'
+    )
+    page_text_style = ParagraphStyle(
+        'PageText',
+        parent=styles['Normal'],
+        fontSize=15,
+        spaceAfter=12,
+        leading=26,
+        textColor=HexColor('#1E293B'),
+        alignment=4  # Justified
+    )
+    emotional_beat_style = ParagraphStyle(
+        'EmotionalBeat',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=HexColor('#94A3B8'),
+        fontName='Helvetica-Oblique'
+    )
+    char_style = ParagraphStyle(
+        'Character',
+        parent=styles['Normal'],
+        fontSize=11,
+        spaceAfter=10,
+        textColor=HexColor('#475569'),
+        leading=16
     )
     
     story = []
     
-    # Title page
-    story.append(Spacer(1, 2*inch))
-    story.append(Paragraph(project['title'], title_style))
+    # ========== TITLE PAGE ==========
+    story.append(Spacer(1, 1.8*inch))
+    story.append(Paragraph(project['title'], main_title_style))
+    story.append(Spacer(1, 0.4*inch))
+    if project.get('hook'):
+        story.append(Paragraph(f'"{project["hook"]}"', hook_style))
+    story.append(Spacer(1, 1.2*inch))
+    story.append(Paragraph(f"A children's picture book", meta_style))
+    story.append(Paragraph(f"For ages {project['age_range']}", meta_style))
+    story.append(Paragraph(f"{project['page_count']} pages • {project['tone']}", meta_style))
+    story.append(Spacer(1, 0.8*inch))
+    story.append(Paragraph("Created with Rainstorms", meta_style))
+    story.append(PageBreak())
+    
+    # ========== SUMMARY PAGE ==========
     story.append(Spacer(1, 0.5*inch))
-    story.append(Paragraph(project.get('hook', ''), subtitle_style))
-    story.append(Spacer(1, 1*inch))
-    story.append(Paragraph(f"Age Range: {project['age_range']}", subtitle_style))
-    story.append(Paragraph(f"Tone: {project['tone']}", subtitle_style))
+    story.append(Paragraph("Story Summary", section_title_style))
+    story.append(Spacer(1, 0.3*inch))
+    if project.get('summary'):
+        story.append(Paragraph(project['summary'], summary_style))
+    story.append(Spacer(1, 0.4*inch))
+    if project.get('theme'):
+        story.append(Paragraph(f"Theme: {project['theme']}", theme_style))
     story.append(PageBreak())
     
-    # Summary page
-    story.append(Paragraph("Story Summary", title_style))
-    story.append(Spacer(1, 0.3*inch))
-    story.append(Paragraph(project.get('summary', ''), body_style))
-    story.append(Spacer(1, 0.3*inch))
-    story.append(Paragraph(f"<b>Theme:</b> {project.get('theme', '')}", body_style))
-    story.append(PageBreak())
+    # ========== CHARACTER REFERENCE ==========
+    if characters:
+        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph("Character Reference", section_title_style))
+        story.append(Spacer(1, 0.3*inch))
+        for char in characters:
+            char_text = f"<b>{char['name']}</b> ({char['role']})<br/>"
+            char_text += f"<i>Appearance:</i> {char['appearance']}<br/>"
+            if char.get('special_trait'):
+                char_text += f"<i>Special trait:</i> {char['special_trait']}"
+            story.append(Paragraph(char_text, char_style))
+            story.append(Spacer(1, 0.15*inch))
+        story.append(PageBreak())
     
-    # Story pages
+    # ========== STORY PAGES ==========
+    story.append(Spacer(1, 0.3*inch))
+    story.append(Paragraph("Story Manuscript", section_title_style))
+    story.append(Spacer(1, 0.4*inch))
+    
     for page in pages:
-        story.append(Paragraph(f"Page {page['page_number']}", page_header_style))
+        story.append(Paragraph(f"— Page {page['page_number']} —", page_number_style))
         if page.get('page_text'):
-            story.append(Paragraph(page['page_text'], body_style))
+            story.append(Paragraph(page['page_text'], page_text_style))
         if page.get('emotional_beat'):
-            story.append(Spacer(1, 0.2*inch))
-            story.append(Paragraph(f"<i>Emotional beat: {page['emotional_beat']}</i>", body_style))
-        story.append(Spacer(1, 0.5*inch))
+            story.append(Spacer(1, 0.1*inch))
+            story.append(Paragraph(f"[{page['emotional_beat']}]", emotional_beat_style))
+        story.append(Spacer(1, 0.45*inch))
+    
+    # ========== END PAGE ==========
+    story.append(PageBreak())
+    story.append(Spacer(1, 2.5*inch))
+    story.append(Paragraph("~ The End ~", section_title_style))
+    story.append(Spacer(1, 0.5*inch))
+    story.append(Paragraph(f"Thank you for reading {project['title']}", meta_style))
     
     doc.build(story)
     buffer.seek(0)
     
+    # Clean filename
+    safe_title = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in project['title'])
+    safe_title = safe_title.replace(' ', '_')
+    
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={project['title'].replace(' ', '_')}_story.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={safe_title}_story.pdf"}
     )
 
 @api_router.get("/projects/{project_id}/export/prompts-pdf")
