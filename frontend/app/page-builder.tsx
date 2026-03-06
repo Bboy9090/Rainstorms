@@ -20,12 +20,19 @@ import { api } from '../src/utils/api';
 
 const { width } = Dimensions.get('window');
 
+const IMPROVE_MODIFIERS = [
+  { id: 'funnier', label: 'Make funnier', icon: 'happy-outline', color: '#FBBF24' },
+  { id: 'cozier', label: 'Make cozier', icon: 'heart-outline', color: '#F472B6' },
+  { id: 'dialogue', label: 'Add dialogue', icon: 'chatbubbles-outline', color: '#6366F1' },
+  { id: 'simpler', label: 'Simplify', icon: 'leaf-outline', color: '#10B981' },
+  { id: 'emotional', label: 'More emotional', icon: 'water-outline', color: '#3B82F6' },
+];
+
 export default function PageBuilderScreen() {
   const router = useRouter();
   const { 
     currentProject, 
     pages, 
-    setPages, 
     updatePage,
     saveStatus,
     lastSaved,
@@ -36,6 +43,8 @@ export default function PageBuilderScreen() {
   const [activePage, setActivePage] = useState(0);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [isImproving, setIsImproving] = useState<string | null>(null);
+  const [showImprovePanel, setShowImprovePanel] = useState(false);
 
   if (isLoading || !currentProject) {
     return <Loading message="Loading pages..." fullScreen />;
@@ -53,7 +62,6 @@ export default function PageBuilderScreen() {
         outline_beat: currentPageData.outline_beat,
       });
 
-      // Use updatePage for autosave
       updatePage(currentPageData.id, {
         page_text: response.data.page_text,
         emotional_beat: response.data.emotional_beat,
@@ -75,7 +83,6 @@ export default function PageBuilderScreen() {
         page_text: currentPageData.page_text,
       });
 
-      // Use updatePage for autosave
       updatePage(currentPageData.id, {
         illustration_prompt: response.data.illustration_prompt,
       });
@@ -83,6 +90,28 @@ export default function PageBuilderScreen() {
       setError('Failed to generate illustration prompt');
     } finally {
       setIsGeneratingPrompt(false);
+    }
+  };
+
+  const handleImproveText = async (modifier: string) => {
+    if (!currentPageData || !currentPageData.page_text) return;
+    setIsImproving(modifier);
+    try {
+      const response = await api.post('/generate/improve-page', {
+        project_id: currentProject.id,
+        page_id: currentPageData.id,
+        page_text: currentPageData.page_text,
+        modifier,
+      });
+
+      updatePage(currentPageData.id, {
+        page_text: response.data.page_text,
+      });
+      setShowImprovePanel(false);
+    } catch (err: any) {
+      setError('Failed to improve page text');
+    } finally {
+      setIsImproving(null);
     }
   };
 
@@ -112,12 +141,20 @@ export default function PageBuilderScreen() {
           </View>
           <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
         </View>
-        <TouchableOpacity
-          style={styles.exportButton}
-          onPress={() => router.push('/export')}
-        >
-          <Ionicons name="download-outline" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/storybook-preview')}
+          >
+            <Ionicons name="albums-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/export')}
+          >
+            <Ionicons name="download-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Page Navigation */}
@@ -177,15 +214,60 @@ export default function PageBuilderScreen() {
                   <Ionicons name="document-text" size={18} color={colors.primary} />
                   <Text style={styles.cardLabel}>Page Text</Text>
                 </View>
-                <Button
-                  title={currentPageData.page_text ? 'Regenerate' : 'Generate'}
-                  onPress={handleGeneratePageText}
-                  variant="outline"
-                  size="sm"
-                  loading={isGeneratingText}
-                  icon={<Ionicons name="sparkles" size={14} color={colors.primary} />}
-                />
+                <View style={styles.buttonGroup}>
+                  {currentPageData.page_text && (
+                    <TouchableOpacity
+                      style={styles.improveToggle}
+                      onPress={() => setShowImprovePanel(!showImprovePanel)}
+                    >
+                      <Ionicons name="sparkles" size={16} color={colors.accent} />
+                      <Text style={styles.improveToggleText}>Improve</Text>
+                    </TouchableOpacity>
+                  )}
+                  <Button
+                    title={currentPageData.page_text ? 'Regenerate' : 'Generate'}
+                    onPress={handleGeneratePageText}
+                    variant="outline"
+                    size="sm"
+                    loading={isGeneratingText}
+                    icon={<Ionicons name="refresh" size={14} color={colors.primary} />}
+                  />
+                </View>
               </View>
+
+              {/* Improve This Page Panel */}
+              {showImprovePanel && currentPageData.page_text && (
+                <View style={styles.improvePanel}>
+                  <Text style={styles.improvePanelTitle}>Improve this page:</Text>
+                  <View style={styles.improveButtons}>
+                    {IMPROVE_MODIFIERS.map((mod) => (
+                      <TouchableOpacity
+                        key={mod.id}
+                        style={[
+                          styles.improveButton,
+                          { borderColor: mod.color },
+                          isImproving === mod.id && styles.improveButtonActive,
+                        ]}
+                        onPress={() => handleImproveText(mod.id)}
+                        disabled={!!isImproving}
+                      >
+                        <Ionicons 
+                          name={mod.icon as any} 
+                          size={16} 
+                          color={isImproving === mod.id ? colors.white : mod.color} 
+                        />
+                        <Text style={[
+                          styles.improveButtonText,
+                          { color: isImproving === mod.id ? colors.white : mod.color }
+                        ]}>
+                          {isImproving === mod.id ? 'Improving...' : mod.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
               <TextInput
                 style={styles.textInput}
                 value={currentPageData.page_text}
@@ -322,9 +404,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  exportButton: {
-    width: 40,
-    height: 40,
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
     borderRadius: borderRadius.full,
     backgroundColor: colors.white,
     alignItems: 'center',
@@ -392,6 +478,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  improveToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#FEF3C7',
+    borderRadius: borderRadius.full,
+  },
+  improveToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.accent,
+  },
+  improvePanel: {
+    backgroundColor: colors.gray100,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  improvePanelTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  improveButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  improveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    backgroundColor: colors.white,
+  },
+  improveButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  improveButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   outlineText: {
     fontSize: 15,
