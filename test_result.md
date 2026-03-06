@@ -101,3 +101,137 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Test the Rainstorms children's book creation API endpoints including health check, auth flow, demo project, project CRUD, AI generation, characters, pages, and export functionality"
+
+backend:
+  - task: "Health Check API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/health endpoint working correctly, returns healthy status with timestamp"
+
+  - task: "Authentication Flow"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "Complete auth flow tested: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me all working correctly with JWT tokens"
+
+  - task: "Demo Project API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/demo endpoint working correctly, returns Captain Blanket demo project with full content including characters and pages"
+
+  - task: "Project CRUD Operations"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "POST /api/projects and GET /api/projects/{id} working correctly with proper authentication"
+
+  - task: "AI Blueprint Generation"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "POST /api/generate/blueprint working correctly, generates complete story blueprint with title, hook, summary, theme, characters, and outline matching requested page count"
+
+  - task: "Characters API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/projects/{project_id}/characters working correctly, returns character list for project"
+
+  - task: "Pages API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/projects/{project_id}/pages working correctly, returns pages list sorted by page number"
+
+  - task: "Text Export API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/projects/{project_id}/export/text working correctly, returns formatted text export"
+
+  - task: "JSON Export API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 1
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "testing"
+          comment: "Initial test failed with 500 error due to MongoDB ObjectId serialization issue"
+        - working: true
+          agent: "testing"
+          comment: "Fixed MongoDB ObjectId serialization issue by removing _id fields before JSON serialization. GET /api/projects/{project_id}/export/json now working correctly"
+
+frontend:
+  # No frontend testing performed as per instructions
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "All backend API endpoints tested and working"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "testing"
+      message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
