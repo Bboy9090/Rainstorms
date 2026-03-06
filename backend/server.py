@@ -69,6 +69,13 @@ class TokenResponse(BaseModel):
     token: str
     user: UserResponse
 
+class VisualTags(BaseModel):
+    hair: str = ""
+    eyes: str = ""
+    clothing: str = ""
+    accessories: str = ""
+    distinguishing_features: str = ""
+
 class Character(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     project_id: str
@@ -78,6 +85,7 @@ class Character(BaseModel):
     appearance: str
     special_trait: str
     notes: str = ""
+    visual_tags: Optional[dict] = None  # For visual consistency in illustrations
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class CharacterCreate(BaseModel):
@@ -87,6 +95,7 @@ class CharacterCreate(BaseModel):
     appearance: str
     special_trait: str
     notes: str = ""
+    visual_tags: Optional[dict] = None
 
 class PageData(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
