@@ -644,6 +644,147 @@ Return ONLY the title text, nothing else."""
     
     return {"title": new_title}
 
+@api_router.post("/generate/improve-page")
+async def improve_page(request: ImprovePageRequest):
+    """Improve page text with a specific modifier"""
+    project = await db.projects.find_one({"id": request.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get story memory for consistency
+    story_memory = project.get('story_memory', {})
+    memory_context = ""
+    if story_memory:
+        if story_memory.get('characters'):
+            memory_context += f"Characters: {json.dumps(story_memory['characters'])}\n"
+        if story_memory.get('tone_notes'):
+            memory_context += f"Tone notes: {story_memory['tone_notes']}\n"
+        if story_memory.get('style_guide'):
+            memory_context += f"Style guide: {story_memory['style_guide']}\n"
+    
+    modifier_instructions = {
+        "funnier": "Make this text funnier with playful language, fun sound words, and light humor appropriate for children. Add moments that will make kids giggle.",
+        "cozier": "Make this text cozier and warmer. Add sensory details about comfort - soft textures, warm feelings, safe spaces. Create a bedtime-friendly feeling.",
+        "dialogue": "Add natural dialogue between characters. Show their personalities through how they speak. Keep dialogue simple and expressive for young readers.",
+        "simpler": "Simplify the language for younger readers. Use shorter sentences, simpler words, and clearer descriptions. Keep it engaging but easier to understand.",
+        "emotional": "Add more emotional depth. Show how characters feel through their actions and descriptions. Make moments more touching and heartfelt."
+    }
+    
+    instruction = modifier_instructions.get(request.modifier, "Improve this text while maintaining the story's tone.")
+    
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"improve-{uuid.uuid4()}",
+        system_message=f"""You are a children's picture book editor. You help writers refine their text.
+Keep text concise - picture books have brief text per page.
+{memory_context}"""
+    ).with_model("openai", "gpt-4.1")
+    
+    prompt = f"""Improve this children's book page text:
+
+ORIGINAL TEXT:
+{request.page_text}
+
+STORY CONTEXT:
+Title: {project['title']}
+Tone: {project['tone']}
+Age range: {project['age_range']}
+
+INSTRUCTION: {instruction}
+
+Return ONLY the improved text, nothing else. Keep it brief (2-5 sentences) as this is for a picture book page."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    improved_text = response.strip()
+    
+    # Update the page
+    await db.pages.update_one(
+        {"id": request.page_id},
+        {"$set": {"page_text": improved_text, "updated_at": datetime.utcnow()}}
+    )
+    
+    return {"page_text": improved_text}
+
+# ==================== STORY MEMORY ENDPOINTS ====================
+
+@api_router.get("/projects/{project_id}/story-memory")
+async def get_story_memory(project_id: str):
+    """Get story memory for a project"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project.get('story_memory', {
+        "characters": [],
+        "relationships": [],
+        "settings": [],
+        "events": [],
+        "tone_notes": "",
+        "style_guide": ""
+    })
+
+@api_router.put("/projects/{project_id}/story-memory")
+async def update_story_memory(project_id: str, memory: StoryMemoryUpdate):
+    """Update story memory for a project"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    current_memory = project.get('story_memory', {})
+    updates = memory.dict(exclude_none=True)
+    current_memory.update(updates)
+    
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"story_memory": current_memory, "updated_at": datetime.utcnow()}}
+    )
+    
+    return current_memory
+
+@api_router.post("/projects/{project_id}/story-memory/generate")
+async def generate_story_memory(project_id: str):
+    """Auto-generate story memory from existing project data"""
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    
+    # Build character summaries for memory
+    char_summaries = []
+    for char in characters:
+        summary = {
+            "name": char['name'],
+            "role": char['role'],
+            "key_traits": char.get('personality', '')[:100],
+            "visual_key": char.get('appearance', '')[:80]
+        }
+        if char.get('visual_tags'):
+            summary["visual_tags"] = char['visual_tags']
+        char_summaries.append(summary)
+    
+    # Extract settings from pages
+    settings = []
+    if project.get('summary'):
+        settings.append({"name": "Main Setting", "description": "From story summary"})
+    
+    # Build story memory
+    story_memory = {
+        "characters": char_summaries,
+        "relationships": [],
+        "settings": settings,
+        "events": [],
+        "tone_notes": f"Story tone: {project['tone']}. Age range: {project['age_range']}.",
+        "style_guide": f"Picture book for ages {project['age_range']}. Keep language simple and vivid. Theme: {project.get('theme', '')}"
+    }
+    
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"story_memory": story_memory, "updated_at": datetime.utcnow()}}
+    )
+    
+    return story_memory
+
 # ==================== CHARACTER ENDPOINTS ====================
 
 @api_router.get("/projects/{project_id}/characters", response_model=List[Character])
