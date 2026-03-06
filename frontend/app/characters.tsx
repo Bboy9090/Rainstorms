@@ -226,6 +226,14 @@ export default function CharactersScreen() {
       {characters.length > 0 && (
         <View style={styles.bottomActions}>
           <Button
+            title="Story Memory"
+            onPress={() => router.push('/story-memory')}
+            variant="outline"
+            size="md"
+            icon={<Ionicons name="brain" size={18} color={colors.primary} />}
+            style={styles.memoryButton}
+          />
+          <Button
             title="Continue to Page Builder"
             onPress={() => router.push('/page-builder')}
             size="lg"
