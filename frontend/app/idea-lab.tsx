@@ -40,6 +40,8 @@ const PAGE_COUNTS = [
 
 const EXAMPLE_IDEA = `A child with a magical blanket cape protects his baby brother from night monsters at bedtime and learns what it means to be a big brother hero.`;
 
+const EXAMPLE_IDEA_2 = `A brave child discovers a friendly kraken living in the bedroom closet who's afraid of the dark, and they help each other overcome their fears.`;
+
 const SURPRISE_IDEAS = [
   "A shy cloud who can't make rain finds courage when a garden desperately needs water.",
   "A little robot discovers emotions when it befriends a lonely child in a park.",
