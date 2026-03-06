@@ -14,6 +14,7 @@ import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
+import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject } from '../src/context/ProjectContext';
 import { api } from '../src/utils/api';
 
@@ -21,12 +22,20 @@ const { width } = Dimensions.get('window');
 
 export default function PageBuilderScreen() {
   const router = useRouter();
-  const { currentProject, pages, setPages, isLoading, setError } = useProject();
+  const { 
+    currentProject, 
+    pages, 
+    setPages, 
+    updatePage,
+    saveStatus,
+    lastSaved,
+    isLoading, 
+    setError 
+  } = useProject();
   
   const [activePage, setActivePage] = useState(0);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [editedText, setEditedText] = useState<{ [key: string]: string }>({});
 
   if (isLoading || !currentProject) {
     return <Loading message="Loading pages..." fullScreen />;
@@ -44,13 +53,11 @@ export default function PageBuilderScreen() {
         outline_beat: currentPageData.outline_beat,
       });
 
-      const updatedPages = pages.map((p, idx) =>
-        idx === activePage
-          ? { ...p, page_text: response.data.page_text, emotional_beat: response.data.emotional_beat }
-          : p
-      );
-      setPages(updatedPages);
-      setEditedText({ ...editedText, [currentPageData.id]: response.data.page_text });
+      // Use updatePage for autosave
+      updatePage(currentPageData.id, {
+        page_text: response.data.page_text,
+        emotional_beat: response.data.emotional_beat,
+      });
     } catch (err: any) {
       setError('Failed to generate page text');
     } finally {
@@ -59,20 +66,19 @@ export default function PageBuilderScreen() {
   };
 
   const handleGenerateIllustrationPrompt = async () => {
-    if (!currentPageData) return;
+    if (!currentPageData || !currentPageData.page_text) return;
     setIsGeneratingPrompt(true);
     try {
-      const pageText = editedText[currentPageData.id] || currentPageData.page_text;
       const response = await api.post('/generate/illustration-prompt', {
         project_id: currentProject.id,
         page_number: currentPageData.page_number,
-        page_text: pageText,
+        page_text: currentPageData.page_text,
       });
 
-      const updatedPages = pages.map((p, idx) =>
-        idx === activePage ? { ...p, illustration_prompt: response.data.illustration_prompt } : p
-      );
-      setPages(updatedPages);
+      // Use updatePage for autosave
+      updatePage(currentPageData.id, {
+        illustration_prompt: response.data.illustration_prompt,
+      });
     } catch (err: any) {
       setError('Failed to generate illustration prompt');
     } finally {
@@ -80,34 +86,16 @@ export default function PageBuilderScreen() {
     }
   };
 
-  const handleSavePage = async () => {
-    if (!currentPageData) return;
-    try {
-      const pageText = editedText[currentPageData.id] || currentPageData.page_text;
-      await api.put(`/pages/${currentPageData.id}`, {
-        page_text: pageText,
-        illustration_prompt: currentPageData.illustration_prompt,
-        emotional_beat: currentPageData.emotional_beat,
-      });
-      
-      const updatedPages = pages.map((p, idx) =>
-        idx === activePage ? { ...p, page_text: pageText } : p
-      );
-      setPages(updatedPages);
-    } catch (err) {
-      setError('Failed to save page');
-    }
-  };
-
   const handleTextChange = (text: string) => {
     if (currentPageData) {
-      setEditedText({ ...editedText, [currentPageData.id]: text });
+      updatePage(currentPageData.id, { page_text: text });
     }
   };
 
-  const getPageText = () => {
-    if (!currentPageData) return '';
-    return editedText[currentPageData.id] ?? currentPageData.page_text;
+  const handlePromptChange = (text: string) => {
+    if (currentPageData) {
+      updatePage(currentPageData.id, { illustration_prompt: text });
+    }
   };
 
   return (
@@ -117,9 +105,12 @@ export default function PageBuilderScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <View style={styles.headerTitle}>
-          <Ionicons name="book" size={28} color={colors.primary} />
-          <Text style={styles.title}>Page Builder</Text>
+        <View style={styles.headerCenter}>
+          <View style={styles.headerTitle}>
+            <Ionicons name="book" size={24} color={colors.primary} />
+            <Text style={styles.title}>Page Builder</Text>
+          </View>
+          <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
         </View>
         <TouchableOpacity
           style={styles.exportButton}
@@ -187,7 +178,7 @@ export default function PageBuilderScreen() {
                   <Text style={styles.cardLabel}>Page Text</Text>
                 </View>
                 <Button
-                  title={getPageText() ? 'Regenerate' : 'Generate'}
+                  title={currentPageData.page_text ? 'Regenerate' : 'Generate'}
                   onPress={handleGeneratePageText}
                   variant="outline"
                   size="sm"
@@ -197,7 +188,7 @@ export default function PageBuilderScreen() {
               </View>
               <TextInput
                 style={styles.textInput}
-                value={getPageText()}
+                value={currentPageData.page_text}
                 onChangeText={handleTextChange}
                 multiline
                 placeholder="Click 'Generate' to create page text, or write your own..."
@@ -226,28 +217,25 @@ export default function PageBuilderScreen() {
                   variant="outline"
                   size="sm"
                   loading={isGeneratingPrompt}
-                  disabled={!getPageText()}
+                  disabled={!currentPageData.page_text}
                   icon={<Ionicons name="color-palette" size={14} color={colors.primary} />}
                 />
               </View>
               {currentPageData.illustration_prompt ? (
-                <Text style={styles.promptText}>{currentPageData.illustration_prompt}</Text>
+                <TextInput
+                  style={styles.promptInput}
+                  value={currentPageData.illustration_prompt}
+                  onChangeText={handlePromptChange}
+                  multiline
+                  placeholder="Illustration prompt..."
+                  placeholderTextColor={colors.gray400}
+                />
               ) : (
                 <Text style={styles.promptPlaceholder}>
                   Generate page text first, then create an illustration prompt.
                 </Text>
               )}
             </Card>
-
-            {/* Save Button */}
-            <View style={styles.saveActions}>
-              <Button
-                title="Save Page"
-                onPress={handleSavePage}
-                size="md"
-                icon={<Ionicons name="save" size={18} color={colors.white} />}
-              />
-            </View>
           </>
         )}
       </ScrollView>
@@ -319,13 +307,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.sm,
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   headerTitle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -435,19 +428,17 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  promptText: {
+  promptInput: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 22,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   promptPlaceholder: {
     fontSize: 14,
     color: colors.gray400,
     fontStyle: 'italic',
-  },
-  saveActions: {
-    alignItems: 'center',
-    marginTop: spacing.md,
   },
   bottomBar: {
     flexDirection: 'row',
