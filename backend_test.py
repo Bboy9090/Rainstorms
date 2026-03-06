@@ -642,7 +642,7 @@ def test_export(results, project_id):
 
 def main():
     """Run all tests"""
-    print_header("RAINSTORMS API TESTING - AUTOSAVE & EXPORT FOCUS")
+    print_header("RAINSTORMS API TESTING - v1.2 FEATURES FOCUS")
     print_info(f"Base URL: {BASE_URL}")
     print_info(f"API Base: {API_BASE}")
     print_info(f"Timestamp: {datetime.now().isoformat()}")
@@ -656,31 +656,42 @@ def main():
         results.summary()
         return False
     
-    # Test 2: Authentication Flow
-    token, user_id = test_auth_flow(results)
-    
-    # Test 3: Demo Project
+    # Test 2: Demo Project (needed for v1.2 tests)
     demo_project_id = test_demo_project(results)
     
-    # Test 4: Project CRUD
+    if not demo_project_id:
+        print_error("Demo project test failed - cannot proceed with v1.2 tests")
+        results.summary()
+        return False
+    
+    # Test 3: NEW v1.2 FEATURES - Story Memory Endpoints
+    test_story_memory_endpoints(results, demo_project_id)
+    
+    # Test 4: NEW v1.2 FEATURES - Improve Page Endpoint
+    test_improve_page_endpoint(results, demo_project_id)
+    
+    # Test 5: Authentication Flow (for completeness)
+    token, user_id = test_auth_flow(results)
+    
+    # Test 6: Project CRUD
     test_project_id = test_project_crud(results, token)
     
-    # Test 5: AI Generation
+    # Test 7: AI Generation
     test_ai_generation(results)
     
     # Use demo project ID for remaining tests if available
     project_id_for_tests = demo_project_id or test_project_id
     
-    # Test 6: Characters
+    # Test 8: Characters
     test_characters(results, project_id_for_tests)
     
-    # Test 7: Pages
+    # Test 9: Pages
     test_pages(results, project_id_for_tests)
     
-    # Test 8: AUTOSAVE FUNCTIONALITY (NEW FOCUS)
+    # Test 10: Autosave Functionality
     test_autosave_functionality(results, project_id_for_tests)
     
-    # Test 9: Export (INCLUDING PDF EXPORTS)
+    # Test 11: Export (INCLUDING PDF EXPORTS)
     test_export(results, project_id_for_tests)
     
     # Final summary
