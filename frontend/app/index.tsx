@@ -64,9 +64,9 @@ export default function HomeScreen() {
       {/* Hero Section */}
       <View style={styles.hero}>
         <View style={styles.heroCloud}>
-          <Ionicons name="cloud" size={80} color={colors.primaryLight} />
+          <Ionicons name="rainy" size={80} color={colors.primaryLight} />
         </View>
-        <Text style={styles.heroTitle}>Turn one idea into a whole book</Text>
+        <Text style={styles.heroTitle}>Where Stories Pour Down</Text>
         <Text style={styles.heroSubtitle}>
           Create beautiful children's picture books with AI-powered story generation.
           From a simple idea to a complete draft in one session.
