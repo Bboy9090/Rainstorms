@@ -1,375 +1,424 @@
 diff --git a/model.patch b/model.patch
-index b7f2bc8..e69de29 100644
+index 83e71fe..e69de29 100644
 --- a/model.patch
 +++ b/model.patch
-@@ -1,229 +0,0 @@
+@@ -1,375 +0,0 @@
 -diff --git a/model.patch b/model.patch
--index 95b17ec..e69de29 100644
+-index b7f2bc8..e69de29 100644
 ---- a/model.patch
 -+++ b/model.patch
--@@ -1,172 +0,0 @@
---diff --git a/backend/server.py b/backend/server.py
---index 736c1e3..66da85e 100644
------ a/backend/server.py
---+++ b/backend/server.py
---@@ -868,14 +868,20 @@ async def export_project_json(project_id: str):
---     characters = await db.characters.find({"project_id": project_id}).to_list(20)
---     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
---     
----    # Convert datetime objects to strings
---+    # Remove MongoDB _id field and convert datetime objects to strings
---+    if '_id' in project:
---+        del project['_id']
---     project['created_at'] = project['created_at'].isoformat() if project.get('created_at') else None
---     project['updated_at'] = project['updated_at'].isoformat() if project.get('updated_at') else None
---     
---     for char in characters:
---+        if '_id' in char:
---+            del char['_id']
---         char['created_at'] = char['created_at'].isoformat() if char.get('created_at') else None
---     
---     for page in pages:
---+        if '_id' in page:
---+            del page['_id']
---         page['created_at'] = page['created_at'].isoformat() if page.get('created_at') else None
---         page['updated_at'] = page['updated_at'].isoformat() if page.get('updated_at') else None
---     
+-@@ -1,229 +0,0 @@
+--diff --git a/model.patch b/model.patch
+--index 95b17ec..e69de29 100644
+----- a/model.patch
+--+++ b/model.patch
+--@@ -1,172 +0,0 @@
+---diff --git a/backend/server.py b/backend/server.py
+---index 736c1e3..66da85e 100644
+------ a/backend/server.py
+---+++ b/backend/server.py
+---@@ -868,14 +868,20 @@ async def export_project_json(project_id: str):
+---     characters = await db.characters.find({"project_id": project_id}).to_list(20)
+---     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+---     
+----    # Convert datetime objects to strings
+---+    # Remove MongoDB _id field and convert datetime objects to strings
+---+    if '_id' in project:
+---+        del project['_id']
+---     project['created_at'] = project['created_at'].isoformat() if project.get('created_at') else None
+---     project['updated_at'] = project['updated_at'].isoformat() if project.get('updated_at') else None
+---     
+---     for char in characters:
+---+        if '_id' in char:
+---+            del char['_id']
+---         char['created_at'] = char['created_at'].isoformat() if char.get('created_at') else None
+---     
+---     for page in pages:
+---+        if '_id' in page:
+---+            del page['_id']
+---         page['created_at'] = page['created_at'].isoformat() if page.get('created_at') else None
+---         page['updated_at'] = page['updated_at'].isoformat() if page.get('updated_at') else None
+---     
+---diff --git a/test_result.md b/test_result.md
+---index 187cba4..c59add2 100644
+------ a/test_result.md
+---+++ b/test_result.md
+---@@ -100,4 +100,138 @@
+--- 
+--- #====================================================================================================
+--- # Testing Data - Main Agent and testing sub agent both should log testing data below this section
+----#====================================================================================================
+---\ No newline at end of file
+---+#====================================================================================================
+---+
+---+user_problem_statement: "Test the Rainstorms children's book creation API endpoints including health check, auth flow, demo project, project CRUD, AI generation, characters, pages, and export functionality"
+---+
+---+backend:
+---+  - task: "Health Check API"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "high"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "GET /api/health endpoint working correctly, returns healthy status with timestamp"
+---+
+---+  - task: "Authentication Flow"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "high"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "Complete auth flow tested: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me all working correctly with JWT tokens"
+---+
+---+  - task: "Demo Project API"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "high"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "GET /api/demo endpoint working correctly, returns Captain Blanket demo project with full content including characters and pages"
+---+
+---+  - task: "Project CRUD Operations"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "high"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "POST /api/projects and GET /api/projects/{id} working correctly with proper authentication"
+---+
+---+  - task: "AI Blueprint Generation"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "high"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "POST /api/generate/blueprint working correctly, generates complete story blueprint with title, hook, summary, theme, characters, and outline matching requested page count"
+---+
+---+  - task: "Characters API"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "medium"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "GET /api/projects/{project_id}/characters working correctly, returns character list for project"
+---+
+---+  - task: "Pages API"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "medium"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "GET /api/projects/{project_id}/pages working correctly, returns pages list sorted by page number"
+---+
+---+  - task: "Text Export API"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 0
+---+    priority: "medium"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "GET /api/projects/{project_id}/export/text working correctly, returns formatted text export"
+---+
+---+  - task: "JSON Export API"
+---+    implemented: true
+---+    working: true
+---+    file: "backend/server.py"
+---+    stuck_count: 1
+---+    priority: "medium"
+---+    needs_retesting: false
+---+    status_history:
+---+        - working: false
+---+          agent: "testing"
+---+          comment: "Initial test failed with 500 error due to MongoDB ObjectId serialization issue"
+---+        - working: true
+---+          agent: "testing"
+---+          comment: "Fixed MongoDB ObjectId serialization issue by removing _id fields before JSON serialization. GET /api/projects/{project_id}/export/json now working correctly"
+---+
+---+frontend:
+---+  # No frontend testing performed as per instructions
+---+
+---+metadata:
+---+  created_by: "testing_agent"
+---+  version: "1.0"
+---+  test_sequence: 1
+---+  run_ui: false
+---+
+---+test_plan:
+---+  current_focus:
+---+    - "All backend API endpoints tested and working"
+---+  stuck_tasks: []
+---+  test_all: true
+---+  test_priority: "high_first"
+---+
+---+agent_communication:
+---+    - agent: "testing"
+---+      message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
+---\ No newline at end of file
 --diff --git a/test_result.md b/test_result.md
---index 187cba4..c59add2 100644
+--index c59add2..3418897 100644
 ----- a/test_result.md
 --+++ b/test_result.md
---@@ -100,4 +100,138 @@
+--@@ -232,6 +232,44 @@ test_plan:
+--   test_all: true
+--   test_priority: "high_first"
 -- 
--- #====================================================================================================
--- # Testing Data - Main Agent and testing sub agent both should log testing data below this section
----#====================================================================================================
+--+  - task: "Autosave Functionality"
+--+    implemented: true
+--+    working: true
+--+    file: "backend/server.py"
+--+    stuck_count: 0
+--+    priority: "high"
+--+    needs_retesting: false
+--+    status_history:
+--+        - working: true
+--+          agent: "testing"
+--+          comment: "PUT /api/pages/{page_id} autosave functionality tested successfully. Page updates are properly persisted to database and can be verified by subsequent API calls. Tested with demo project page 1, confirmed update persistence."
+--+
+--+  - task: "Story PDF Export"
+--+    implemented: true
+--+    working: true
+--+    file: "backend/server.py"
+--+    stuck_count: 0
+--+    priority: "high"
+--+    needs_retesting: false
+--+    status_history:
+--+        - working: true
+--+          agent: "testing"
+--+          comment: "GET /api/projects/{project_id}/export/story-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,505 bytes PDF for Captain Blanket story."
+--+
+--+  - task: "Prompts PDF Export"
+--+    implemented: true
+--+    working: true
+--+    file: "backend/server.py"
+--+    stuck_count: 0
+--+    priority: "high"
+--+    needs_retesting: false
+--+    status_history:
+--+        - working: true
+--+          agent: "testing"
+--+          comment: "GET /api/projects/{project_id}/export/prompts-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,754 bytes PDF for illustration prompts."
+--+
+-- agent_communication:
+--     - agent: "testing"
+---      message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
 --\ No newline at end of file
---+#====================================================================================================
---+
---+user_problem_statement: "Test the Rainstorms children's book creation API endpoints including health check, auth flow, demo project, project CRUD, AI generation, characters, pages, and export functionality"
---+
---+backend:
---+  - task: "Health Check API"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "high"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "GET /api/health endpoint working correctly, returns healthy status with timestamp"
---+
---+  - task: "Authentication Flow"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "high"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "Complete auth flow tested: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me all working correctly with JWT tokens"
---+
---+  - task: "Demo Project API"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "high"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "GET /api/demo endpoint working correctly, returns Captain Blanket demo project with full content including characters and pages"
---+
---+  - task: "Project CRUD Operations"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "high"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "POST /api/projects and GET /api/projects/{id} working correctly with proper authentication"
---+
---+  - task: "AI Blueprint Generation"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "high"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "POST /api/generate/blueprint working correctly, generates complete story blueprint with title, hook, summary, theme, characters, and outline matching requested page count"
---+
---+  - task: "Characters API"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "medium"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "GET /api/projects/{project_id}/characters working correctly, returns character list for project"
---+
---+  - task: "Pages API"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "medium"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "GET /api/projects/{project_id}/pages working correctly, returns pages list sorted by page number"
---+
---+  - task: "Text Export API"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 0
---+    priority: "medium"
---+    needs_retesting: false
---+    status_history:
---+        - working: true
---+          agent: "testing"
---+          comment: "GET /api/projects/{project_id}/export/text working correctly, returns formatted text export"
---+
---+  - task: "JSON Export API"
---+    implemented: true
---+    working: true
---+    file: "backend/server.py"
---+    stuck_count: 1
---+    priority: "medium"
---+    needs_retesting: false
---+    status_history:
---+        - working: false
---+          agent: "testing"
---+          comment: "Initial test failed with 500 error due to MongoDB ObjectId serialization issue"
---+        - working: true
---+          agent: "testing"
---+          comment: "Fixed MongoDB ObjectId serialization issue by removing _id fields before JSON serialization. GET /api/projects/{project_id}/export/json now working correctly"
---+
---+frontend:
---+  # No frontend testing performed as per instructions
---+
---+metadata:
---+  created_by: "testing_agent"
---+  version: "1.0"
---+  test_sequence: 1
---+  run_ui: false
---+
---+test_plan:
---+  current_focus:
---+    - "All backend API endpoints tested and working"
---+  stuck_tasks: []
---+  test_all: true
---+  test_priority: "high_first"
---+
---+agent_communication:
---+    - agent: "testing"
 --+      message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
+--+    - agent: "testing"
+--+      message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
 --\ No newline at end of file
 -diff --git a/test_result.md b/test_result.md
--index c59add2..3418897 100644
+-index 3418897..dc9cbc7 100644
 ---- a/test_result.md
 -+++ b/test_result.md
--@@ -232,6 +232,44 @@ test_plan:
--   test_all: true
--   test_priority: "high_first"
+-@@ -217,7 +217,125 @@ backend:
+-           comment: "Fixed MongoDB ObjectId serialization issue by removing _id fields before JSON serialization. GET /api/projects/{project_id}/export/json now working correctly"
 - 
--+  - task: "Autosave Functionality"
+- frontend:
+--  # No frontend testing performed as per instructions
+-+  - task: "Home Screen UI Elements"
 -+    implemented: true
 -+    working: true
--+    file: "backend/server.py"
+-+    file: "frontend/app/index.tsx"
 -+    stuck_count: 0
 -+    priority: "high"
 -+    needs_retesting: false
 -+    status_history:
 -+        - working: true
 -+          agent: "testing"
--+          comment: "PUT /api/pages/{page_id} autosave functionality tested successfully. Page updates are properly persisted to database and can be verified by subsequent API calls. Tested with demo project page 1, confirmed update persistence."
+-+          comment: "Home screen verified: Rainstorms logo, tagline 'Turn one idea into a whole book', New Story button, Try Demo Project button, and Captain Blanket demo card all visible and properly rendered"
 -+
--+  - task: "Story PDF Export"
+-+  - task: "Demo Project Flow Navigation"
 -+    implemented: true
 -+    working: true
--+    file: "backend/server.py"
+-+    file: "frontend/app/blueprint.tsx"
 -+    stuck_count: 0
 -+    priority: "high"
 -+    needs_retesting: false
 -+    status_history:
 -+        - working: true
 -+          agent: "testing"
--+          comment: "GET /api/projects/{project_id}/export/story-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,505 bytes PDF for Captain Blanket story."
+-+          comment: "Demo project flow accessible: Try Demo Project button functional, loads demo project data from backend API successfully"
 -+
--+  - task: "Prompts PDF Export"
+-+  - task: "Story Blueprint Screen"
 -+    implemented: true
 -+    working: true
--+    file: "backend/server.py"
+-+    file: "frontend/app/blueprint.tsx"
 -+    stuck_count: 0
 -+    priority: "high"
 -+    needs_retesting: false
 -+    status_history:
 -+        - working: true
 -+          agent: "testing"
--+          comment: "GET /api/projects/{project_id}/export/prompts-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,754 bytes PDF for illustration prompts."
+-+          comment: "Blueprint screen displays correctly with title, hook, summary, theme sections and page-by-page outline. Accept Blueprint button present for navigation flow"
 -+
-- agent_communication:
+-+  - task: "Character Forge Screen"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/app/characters.tsx"
+-+    stuck_count: 0
+-+    priority: "high"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "Character Forge screen loads with character management interface. Continue to Page Builder button available for flow progression"
+-+
+-+  - task: "Page Builder Interface"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/app/page-builder.tsx"
+-+    stuck_count: 0
+-+    priority: "high"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "Page Builder screen accessible with page navigation tabs, story text and illustration prompt sections. Interface supports page-by-page editing workflow"
+-+
+-+  - task: "New Story Flow (Idea Lab)"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/app/idea-lab.tsx"
+-+    stuck_count: 0
+-+    priority: "high"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "Idea Lab screen accessible via New Story button. Form includes story idea textarea, tone/age range/page count dropdowns, and Load Example functionality"
+-+
+-+  - task: "Authentication Screen"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/app/auth.tsx"
+-+    stuck_count: 0
+-+    priority: "medium"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "Auth screen accessible at /auth route with Sign In/Sign Up tabs and Continue as Guest option. UI elements properly rendered"
+-+
+-+  - task: "Mobile Responsive Design"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/src/utils/theme.ts"
+-+    stuck_count: 0
+-+    priority: "high"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "App displays correctly on mobile viewport (390x844). Mobile-first design with proper touch targets and responsive layout"
+-+
+-+  - task: "Navigation Flow Integration"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/app/_layout.tsx"
+-+    stuck_count: 0
+-+    priority: "high"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "Expo router navigation working correctly between screens. Back navigation and route transitions functional"
+-+
+-+  - task: "Frontend-Backend Integration"
+-+    implemented: true
+-+    working: true
+-+    file: "frontend/src/utils/api.ts"
+-+    stuck_count: 0
+-+    priority: "high"
+-+    needs_retesting: false
+-+    status_history:
+-+        - working: true
+-+          agent: "testing"
+-+          comment: "Frontend successfully connects to backend APIs. Demo project loads data correctly indicating API integration is functional"
+- 
+- metadata:
+-   created_by: "testing_agent"
+-@@ -272,4 +390,6 @@ agent_communication:
 -     - agent: "testing"
---      message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
+-       message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
+-     - agent: "testing"
+--      message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
 -\ No newline at end of file
--+      message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
--+    - agent: "testing"
 -+      message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
+-+    - agent: "testing"
+-+      message: "Frontend UI testing completed successfully. All major user journey flows verified: 1) Home screen displays correctly with logo, tagline, and action buttons, 2) Demo project flow functional - loads Captain Blanket story with blueprint, characters, and page builder, 3) New Story (Idea Lab) accessible with form elements and Load Example feature, 4) Auth screen working with Sign In/Sign Up tabs and guest mode, 5) Mobile-responsive design confirmed on 390x844 viewport, 6) Frontend-backend integration working - demo project loads data successfully from APIs. Minor: Some Expo package version warnings in logs but not affecting functionality."
 -\ No newline at end of file
 diff --git a/test_result.md b/test_result.md
-index 3418897..dc9cbc7 100644
+index dc9cbc7..7a096a6 100644
 --- a/test_result.md
 +++ b/test_result.md
-@@ -217,7 +217,125 @@ backend:
-           comment: "Fixed MongoDB ObjectId serialization issue by removing _id fields before JSON serialization. GET /api/projects/{project_id}/export/json now working correctly"
+@@ -386,10 +386,36 @@ test_plan:
+           agent: "testing"
+           comment: "GET /api/projects/{project_id}/export/prompts-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,754 bytes PDF for illustration prompts."
  
- frontend:
--  # No frontend testing performed as per instructions
-+  - task: "Home Screen UI Elements"
++  - task: "Story Memory Endpoints (v1.2)"
 +    implemented: true
 +    working: true
-+    file: "frontend/app/index.tsx"
++    file: "backend/server.py"
 +    stuck_count: 0
 +    priority: "high"
 +    needs_retesting: false
 +    status_history:
 +        - working: true
 +          agent: "testing"
-+          comment: "Home screen verified: Rainstorms logo, tagline 'Turn one idea into a whole book', New Story button, Try Demo Project button, and Captain Blanket demo card all visible and properly rendered"
++          comment: "All Story Memory endpoints working correctly: 1) GET /api/projects/{project_id}/story-memory returns proper JSON structure with characters, relationships, settings, events, tone_notes, style_guide fields, 2) POST /api/projects/{project_id}/story-memory/generate successfully auto-generates story memory with 4 character summaries, 3) PUT /api/projects/{project_id}/story-memory correctly updates tone_notes and style_guide fields."
 +
-+  - task: "Demo Project Flow Navigation"
++  - task: "Improve Page Endpoint (v1.2)"
 +    implemented: true
 +    working: true
-+    file: "frontend/app/blueprint.tsx"
++    file: "backend/server.py"
 +    stuck_count: 0
 +    priority: "high"
 +    needs_retesting: false
 +    status_history:
 +        - working: true
 +          agent: "testing"
-+          comment: "Demo project flow accessible: Try Demo Project button functional, loads demo project data from backend API successfully"
++          comment: "POST /api/generate/improve-page working correctly with all modifier values. Successfully tested with modifiers: 'funnier' (258 chars), 'cozier' (220 chars), 'dialogue' (230 chars), 'simpler' (158 chars), 'emotional' (332 chars). All requests return proper JSON with improved page_text field. AI generation working as expected."
 +
-+  - task: "Story Blueprint Screen"
-+    implemented: true
-+    working: true
-+    file: "frontend/app/blueprint.tsx"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Blueprint screen displays correctly with title, hook, summary, theme sections and page-by-page outline. Accept Blueprint button present for navigation flow"
-+
-+  - task: "Character Forge Screen"
-+    implemented: true
-+    working: true
-+    file: "frontend/app/characters.tsx"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Character Forge screen loads with character management interface. Continue to Page Builder button available for flow progression"
-+
-+  - task: "Page Builder Interface"
-+    implemented: true
-+    working: true
-+    file: "frontend/app/page-builder.tsx"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Page Builder screen accessible with page navigation tabs, story text and illustration prompt sections. Interface supports page-by-page editing workflow"
-+
-+  - task: "New Story Flow (Idea Lab)"
-+    implemented: true
-+    working: true
-+    file: "frontend/app/idea-lab.tsx"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Idea Lab screen accessible via New Story button. Form includes story idea textarea, tone/age range/page count dropdowns, and Load Example functionality"
-+
-+  - task: "Authentication Screen"
-+    implemented: true
-+    working: true
-+    file: "frontend/app/auth.tsx"
-+    stuck_count: 0
-+    priority: "medium"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Auth screen accessible at /auth route with Sign In/Sign Up tabs and Continue as Guest option. UI elements properly rendered"
-+
-+  - task: "Mobile Responsive Design"
-+    implemented: true
-+    working: true
-+    file: "frontend/src/utils/theme.ts"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "App displays correctly on mobile viewport (390x844). Mobile-first design with proper touch targets and responsive layout"
-+
-+  - task: "Navigation Flow Integration"
-+    implemented: true
-+    working: true
-+    file: "frontend/app/_layout.tsx"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Expo router navigation working correctly between screens. Back navigation and route transitions functional"
-+
-+  - task: "Frontend-Backend Integration"
-+    implemented: true
-+    working: true
-+    file: "frontend/src/utils/api.ts"
-+    stuck_count: 0
-+    priority: "high"
-+    needs_retesting: false
-+    status_history:
-+        - working: true
-+          agent: "testing"
-+          comment: "Frontend successfully connects to backend APIs. Demo project loads data correctly indicating API integration is functional"
- 
- metadata:
-   created_by: "testing_agent"
-@@ -272,4 +390,6 @@ agent_communication:
+ agent_communication:
      - agent: "testing"
        message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
      - agent: "testing"
--      message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
+       message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
+     - agent: "testing"
+-      message: "Frontend UI testing completed successfully. All major user journey flows verified: 1) Home screen displays correctly with logo, tagline, and action buttons, 2) Demo project flow functional - loads Captain Blanket story with blueprint, characters, and page builder, 3) New Story (Idea Lab) accessible with form elements and Load Example feature, 4) Auth screen working with Sign In/Sign Up tabs and guest mode, 5) Mobile-responsive design confirmed on 390x844 viewport, 6) Frontend-backend integration working - demo project loads data successfully from APIs. Minor: Some Expo package version warnings in logs but not affecting functionality."
 \ No newline at end of file
-+      message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
-+    - agent: "testing"
 +      message: "Frontend UI testing completed successfully. All major user journey flows verified: 1) Home screen displays correctly with logo, tagline, and action buttons, 2) Demo project flow functional - loads Captain Blanket story with blueprint, characters, and page builder, 3) New Story (Idea Lab) accessible with form elements and Load Example feature, 4) Auth screen working with Sign In/Sign Up tabs and guest mode, 5) Mobile-responsive design confirmed on 390x844 viewport, 6) Frontend-backend integration working - demo project loads data successfully from APIs. Minor: Some Expo package version warnings in logs but not affecting functionality."
++    - agent: "testing"
++      message: "Rainstorms v1.2 features testing completed successfully. All new endpoints working correctly: 1) Story Memory endpoints - GET, POST generate, and PUT update all functional with proper JSON responses and character summary generation, 2) Improve Page endpoint - all 5 modifier values ('funnier', 'cozier', 'dialogue', 'simpler', 'emotional') working correctly with AI-generated improvements. Total 22 tests passed, 0 failed. All v1.2 features are production-ready."
 \ No newline at end of file
