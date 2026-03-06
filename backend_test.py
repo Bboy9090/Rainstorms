@@ -339,9 +339,80 @@ def test_pages(results, project_id):
     except Exception as e:
         results.add_fail("Get project pages", f"Request failed: {str(e)}")
 
+def test_autosave_functionality(results, project_id):
+    """Test autosave functionality by updating a page"""
+    print_header("TESTING AUTOSAVE FUNCTIONALITY")
+    
+    if not project_id:
+        results.add_fail("Autosave test", "No project ID available")
+        return
+    
+    # Get demo project to find pages
+    try:
+        response = requests.get(f"{API_BASE}/demo", timeout=10)
+        if response.status_code != 200:
+            results.add_fail("Autosave test", "Could not get demo project pages")
+            return
+        
+        demo_data = response.json()
+        pages = demo_data.get("pages", [])
+        
+        if not pages:
+            results.add_fail("Autosave test", "No pages available for testing")
+            return
+        
+        # Get the first page for testing
+        test_page = pages[0]
+        page_id = test_page["id"]
+        original_text = test_page.get("page_text", "")
+        
+        print_info(f"Testing with page {test_page['page_number']} (ID: {page_id})")
+        print_info(f"Original text: {original_text[:50]}...")
+        
+        # Update the page with new content
+        updated_text = f"UPDATED: {original_text} [Modified at {datetime.now().strftime('%H:%M:%S')}]"
+        update_data = {
+            "page_text": updated_text,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Test PUT /api/pages/{page_id}
+        response = requests.put(f"{API_BASE}/pages/{page_id}", json=update_data, timeout=10)
+        
+        if response.status_code == 200:
+            updated_page = response.json()
+            print_info(f"Updated text: {updated_page['page_text'][:50]}...")
+            
+            # Verify the update was persisted by fetching the project again
+            print_info("Verifying persistence...")
+            verify_response = requests.get(f"{API_BASE}/demo", timeout=10)
+            
+            if verify_response.status_code == 200:
+                verify_data = verify_response.json()
+                verify_pages = verify_data["pages"]
+                
+                # Find the updated page
+                updated_page_verify = None
+                for page in verify_pages:
+                    if page["id"] == page_id:
+                        updated_page_verify = page
+                        break
+                
+                if updated_page_verify and updated_page_verify["page_text"] == updated_text:
+                    results.add_pass("Autosave functionality - update persisted")
+                else:
+                    results.add_fail("Autosave functionality", "Update not persisted correctly")
+            else:
+                results.add_fail("Autosave functionality", f"Failed to verify persistence: {verify_response.status_code}")
+        else:
+            results.add_fail("Autosave functionality", f"Page update failed: {response.status_code}")
+            
+    except Exception as e:
+        results.add_fail("Autosave functionality", f"Request failed: {str(e)}")
+
 def test_export(results, project_id):
-    """Test export endpoints"""
-    print_header("TESTING EXPORT")
+    """Test export endpoints including PDF exports"""
+    print_header("TESTING EXPORT FUNCTIONALITY")
     
     if not project_id:
         results.add_fail("Export test", "No project ID available")
@@ -380,6 +451,62 @@ def test_export(results, project_id):
             
     except Exception as e:
         results.add_fail("JSON export", f"Request failed: {str(e)}")
+    
+    # Test Story PDF Export
+    try:
+        response = requests.get(f"{API_BASE}/projects/{project_id}/export/story-pdf", timeout=15)
+        
+        if response.status_code == 200:
+            content_type = response.headers.get('content-type', '')
+            content_disposition = response.headers.get('content-disposition', '')
+            content_length = len(response.content)
+            
+            print_info(f"Story PDF - Content-Type: {content_type}")
+            print_info(f"Story PDF - Content-Disposition: {content_disposition}")
+            print_info(f"Story PDF - Content Length: {content_length} bytes")
+            
+            # Verify it's actually a PDF
+            if content_type == 'application/pdf':
+                # Check if content starts with PDF signature
+                if response.content.startswith(b'%PDF'):
+                    results.add_pass("Story PDF export - PDF generated successfully")
+                else:
+                    results.add_fail("Story PDF export", "PDF signature verification failed")
+            else:
+                results.add_fail("Story PDF export", f"Expected 'application/pdf', got '{content_type}'")
+        else:
+            results.add_fail("Story PDF export", f"Status code: {response.status_code}")
+            
+    except Exception as e:
+        results.add_fail("Story PDF export", f"Request failed: {str(e)}")
+    
+    # Test Prompts PDF Export
+    try:
+        response = requests.get(f"{API_BASE}/projects/{project_id}/export/prompts-pdf", timeout=15)
+        
+        if response.status_code == 200:
+            content_type = response.headers.get('content-type', '')
+            content_disposition = response.headers.get('content-disposition', '')
+            content_length = len(response.content)
+            
+            print_info(f"Prompts PDF - Content-Type: {content_type}")
+            print_info(f"Prompts PDF - Content-Disposition: {content_disposition}")
+            print_info(f"Prompts PDF - Content Length: {content_length} bytes")
+            
+            # Verify it's actually a PDF
+            if content_type == 'application/pdf':
+                # Check if content starts with PDF signature
+                if response.content.startswith(b'%PDF'):
+                    results.add_pass("Prompts PDF export - PDF generated successfully")
+                else:
+                    results.add_fail("Prompts PDF export", "PDF signature verification failed")
+            else:
+                results.add_fail("Prompts PDF export", f"Expected 'application/pdf', got '{content_type}'")
+        else:
+            results.add_fail("Prompts PDF export", f"Status code: {response.status_code}")
+            
+    except Exception as e:
+        results.add_fail("Prompts PDF export", f"Request failed: {str(e)}")
 
 def main():
     """Run all tests"""
