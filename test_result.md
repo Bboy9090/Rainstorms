@@ -232,6 +232,44 @@ test_plan:
   test_all: true
   test_priority: "high_first"
 
+  - task: "Autosave Functionality"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "PUT /api/pages/{page_id} autosave functionality tested successfully. Page updates are properly persisted to database and can be verified by subsequent API calls. Tested with demo project page 1, confirmed update persistence."
+
+  - task: "Story PDF Export"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/projects/{project_id}/export/story-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,505 bytes PDF for Captain Blanket story."
+
+  - task: "Prompts PDF Export"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "GET /api/projects/{project_id}/export/prompts-pdf working correctly. PDF generated successfully with proper content-type 'application/pdf', valid PDF signature, and appropriate content-disposition header. Generated 10,754 bytes PDF for illustration prompts."
+
 agent_communication:
     - agent: "testing"
       message: "Comprehensive backend API testing completed. All 9 backend tasks tested successfully. Found and fixed one MongoDB ObjectId serialization issue in JSON export endpoint. All endpoints now working correctly including health check, complete auth flow, demo project, project CRUD, AI generation, characters, pages, and both export formats. The Rainstorms API is fully functional."
+    - agent: "testing"
+      message: "Focused testing completed for autosave and export functionality as requested. All 3 specific features tested successfully: 1) Autosave functionality via PUT /api/pages/{page_id} - updates persist correctly, 2) Story PDF export - generates valid PDFs with proper headers, 3) Prompts PDF export - generates valid PDFs with proper headers. All backend functionality working correctly."
