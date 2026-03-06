@@ -410,6 +410,138 @@ def test_autosave_functionality(results, project_id):
     except Exception as e:
         results.add_fail("Autosave functionality", f"Request failed: {str(e)}")
 
+def test_story_memory_endpoints(results, project_id):
+    """Test Story Memory endpoints (v1.2 features)"""
+    print_header("TESTING STORY MEMORY ENDPOINTS (v1.2)")
+    
+    if not project_id:
+        results.add_fail("Story Memory test", "No project ID available")
+        return
+    
+    # Test GET story memory
+    try:
+        response = requests.get(f"{API_BASE}/projects/{project_id}/story-memory", timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            expected_fields = ['characters', 'relationships', 'settings', 'events', 'tone_notes', 'style_guide']
+            if all(field in data for field in expected_fields):
+                results.add_pass("GET story memory")
+            else:
+                missing = [f for f in expected_fields if f not in data]
+                results.add_fail("GET story memory", f"Missing fields: {missing}")
+        else:
+            results.add_fail("GET story memory", f"Status code: {response.status_code}")
+            
+    except Exception as e:
+        results.add_fail("GET story memory", f"Request failed: {str(e)}")
+    
+    # Test POST generate story memory
+    try:
+        response = requests.post(f"{API_BASE}/projects/{project_id}/story-memory/generate", timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'characters' in data and isinstance(data['characters'], list):
+                char_count = len(data['characters'])
+                print_info(f"Generated story memory with {char_count} character summaries")
+                results.add_pass("POST generate story memory")
+            else:
+                results.add_fail("POST generate story memory", "Invalid response format")
+        else:
+            results.add_fail("POST generate story memory", f"Status code: {response.status_code}")
+            
+    except Exception as e:
+        results.add_fail("POST generate story memory", f"Request failed: {str(e)}")
+    
+    # Test PUT update story memory
+    try:
+        update_data = {
+            "tone_notes": "Test tone notes: Keep the story cozy and bedtime-friendly",
+            "style_guide": "Test style guide: Use simple language appropriate for ages 3-8"
+        }
+        
+        response = requests.put(
+            f"{API_BASE}/projects/{project_id}/story-memory", 
+            json=update_data,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if (data.get('tone_notes') == update_data['tone_notes'] and 
+                data.get('style_guide') == update_data['style_guide']):
+                results.add_pass("PUT update story memory")
+            else:
+                results.add_fail("PUT update story memory", "Updates not applied correctly")
+        else:
+            results.add_fail("PUT update story memory", f"Status code: {response.status_code}")
+            
+    except Exception as e:
+        results.add_fail("PUT update story memory", f"Request failed: {str(e)}")
+
+def test_improve_page_endpoint(results, project_id):
+    """Test Improve Page endpoint (v1.2 features)"""
+    print_header("TESTING IMPROVE PAGE ENDPOINT (v1.2)")
+    
+    if not project_id:
+        results.add_fail("Improve Page test", "No project ID available")
+        return
+    
+    # Get a page ID from demo project
+    try:
+        response = requests.get(f"{API_BASE}/demo", timeout=10)
+        if response.status_code != 200:
+            results.add_fail("Improve Page test", "Could not get demo project pages")
+            return
+        
+        demo_data = response.json()
+        pages = demo_data.get("pages", [])
+        
+        if not pages:
+            results.add_fail("Improve Page test", "No pages available for testing")
+            return
+        
+        page_id = pages[0]["id"]
+        print_info(f"Testing with page ID: {page_id}")
+        
+    except Exception as e:
+        results.add_fail("Improve Page test", f"Failed to get page ID: {str(e)}")
+        return
+    
+    # Test all modifier values
+    modifiers = ["funnier", "cozier", "dialogue", "simpler", "emotional"]
+    
+    for modifier in modifiers:
+        try:
+            test_data = {
+                "project_id": project_id,
+                "page_id": page_id,
+                "page_text": "Test page text for improvement",
+                "modifier": modifier
+            }
+            
+            response = requests.post(
+                f"{API_BASE}/generate/improve-page",
+                json=test_data,
+                headers={"Content-Type": "application/json"},
+                timeout=60  # AI generation can take time
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if 'page_text' in data and isinstance(data['page_text'], str) and len(data['page_text'].strip()) > 0:
+                    print_info(f"Modifier '{modifier}': Generated {len(data['page_text'])} characters")
+                    results.add_pass(f"Improve page with modifier '{modifier}'")
+                else:
+                    results.add_fail(f"Improve page with modifier '{modifier}'", "Invalid or empty response")
+            else:
+                results.add_fail(f"Improve page with modifier '{modifier}'", f"Status code: {response.status_code}")
+                
+        except Exception as e:
+            results.add_fail(f"Improve page with modifier '{modifier}'", f"Request failed: {str(e)}")
+
 def test_export(results, project_id):
     """Test export endpoints including PDF exports"""
     print_header("TESTING EXPORT FUNCTIONALITY")
