@@ -185,6 +185,59 @@ class StoryMemoryUpdate(BaseModel):
     tone_notes: Optional[str] = None
     style_guide: Optional[str] = None
 
+# ==================== NEW V1.3 MODELS ====================
+
+class StoryPathRequest(BaseModel):
+    original_idea: str
+    tone: str
+    age_range: str
+
+class StoryPath(BaseModel):
+    id: str
+    title: str
+    description: str
+    theme: str
+
+class StoryPathsResponse(BaseModel):
+    paths: List[StoryPath]
+
+class LegacyCharacter(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    name: str
+    animal_or_type: str = ""  # e.g., "raccoon", "child", "robot"
+    trait: str = ""
+    favorite_thing: str = ""
+    fear: str = ""
+    appearance: str = ""
+    backstory: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class LegacyCharacterCreate(BaseModel):
+    name: str
+    animal_or_type: str = ""
+    trait: str = ""
+    favorite_thing: str = ""
+    fear: str = ""
+    appearance: str = ""
+    backstory: str = ""
+
+class BookFormat(BaseModel):
+    format_type: str  # "picture_book", "early_reader", "chapter_book"
+    page_count: int
+    words_per_page: str  # e.g., "1-2 sentences", "3-5 sentences", "paragraph"
+    chapter_count: Optional[int] = None
+
+class LessonType(BaseModel):
+    lesson: str  # kindness, teamwork, patience, honesty, courage, etc.
+
+class StorytimeScript(BaseModel):
+    page_number: int
+    narrator_text: str
+    narrator_direction: str  # e.g., "soft voice", "excited voice"
+    character_lines: List[dict]  # [{character: "Milo", line: "Oh no!", direction: "nervous"}]
+    pacing_cue: str  # e.g., "pause for effect", "speed up"
+
 # ==================== AUTH HELPERS ====================
 
 def hash_password(password: str) -> str:
