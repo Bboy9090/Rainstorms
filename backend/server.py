@@ -392,12 +392,28 @@ You create engaging, age-appropriate stories for picture books.
 Always respond with valid JSON only, no additional text."""
     ).with_model("openai", "gpt-4.1")
 
+    # Build additional context
+    extra_context = ""
+    if lesson:
+        extra_context += f"\nLESSON TO TEACH: {lesson} (weave this message naturally into the story)"
+    if legacy_character:
+        extra_context += f"""
+MAIN CHARACTER (use this character):
+- Name: {legacy_character.get('name', '')}
+- Type: {legacy_character.get('animal_or_type', '')}
+- Trait: {legacy_character.get('trait', '')}
+- Favorite thing: {legacy_character.get('favorite_thing', '')}
+- Fear: {legacy_character.get('fear', '')}
+- Appearance: {legacy_character.get('appearance', '')}
+"""
+
     prompt = f"""Create a children's book blueprint for this story idea:
 
 IDEA: {idea}
 TONE: {tone}
 AGE RANGE: {age_range} years
 PAGE COUNT: {page_count} pages
+{extra_context}
 
 Generate a complete blueprint in this exact JSON format:
 {{
@@ -428,6 +444,8 @@ Rules:
 - Include 2-4 characters depending on the story
 - Ensure the story has a clear beginning, middle, and satisfying ending
 - Match the {tone} tone throughout
+{f'- Naturally incorporate the lesson about {lesson}' if lesson else ''}
+{f'- The main character must be {legacy_character.get("name", "")} with their established traits' if legacy_character else ''}
 
 Return ONLY the JSON, no other text."""
 
