@@ -700,14 +700,33 @@ async def delete_project(project_id: str, user = Depends(require_auth)):
 
 # ==================== AI GENERATION ENDPOINTS ====================
 
+@api_router.post("/generate/story-paths")
+async def generate_story_paths_endpoint(request: StoryPathRequest):
+    """Generate 3 story path options for user to choose from"""
+    paths = await generate_story_paths(
+        request.original_idea,
+        request.tone,
+        request.age_range
+    )
+    return {"paths": paths}
+
 @api_router.post("/generate/blueprint", response_model=BlueprintResponse)
-async def generate_story_blueprint(request: BlueprintRequest):
+async def generate_story_blueprint(request: BlueprintRequest, lesson: str = None, legacy_character_id: str = None, user = Depends(get_current_user)):
     """Generate a story blueprint from an idea"""
+    # Get legacy character if specified
+    legacy_char = None
+    if legacy_character_id and user:
+        legacy_char_doc = await db.legacy_characters.find_one({"id": legacy_character_id, "user_id": user["user_id"]})
+        if legacy_char_doc:
+            legacy_char = legacy_char_doc
+    
     blueprint = await generate_blueprint(
         request.original_idea,
         request.tone,
         request.age_range,
-        request.page_count
+        request.page_count,
+        lesson=lesson,
+        legacy_character=legacy_char
     )
     return BlueprintResponse(**blueprint)
 
