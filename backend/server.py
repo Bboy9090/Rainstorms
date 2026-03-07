@@ -272,7 +272,117 @@ async def require_auth(authorization: Optional[str] = Header(None)):
 
 # ==================== AI GENERATION HELPERS ====================
 
-async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int) -> dict:
+async def generate_story_paths(idea: str, tone: str, age_range: str) -> List[dict]:
+    """Generate 3 different story path options"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"paths-{uuid.uuid4()}",
+        system_message="""You are a children's book story developer.
+Create engaging, distinct story directions for young readers.
+Always respond with valid JSON only."""
+    ).with_model("openai", "gpt-4.1")
+
+    prompt = f"""Given this story idea, create 3 different story directions the user can choose from:
+
+ORIGINAL IDEA: {idea}
+TONE: {tone}
+AGE RANGE: {age_range} years
+
+Generate 3 distinct story paths. Each should take the idea in a different direction.
+
+Return JSON array with exactly 3 paths:
+[
+    {{
+        "id": "path_a",
+        "title": "Short catchy title for this direction",
+        "description": "2-3 sentences describing what this story would be about",
+        "theme": "The main lesson or message"
+    }},
+    {{
+        "id": "path_b",
+        "title": "Different direction title",
+        "description": "2-3 sentences for alternate story approach",
+        "theme": "Different lesson or message"
+    }},
+    {{
+        "id": "path_c",
+        "title": "Third unique direction",
+        "description": "2-3 sentences for third story approach",
+        "theme": "Third lesson or message"
+    }}
+]
+
+Make each path genuinely different:
+- Path A: Focus on protecting/helping others
+- Path B: Focus on the hero's personal growth/overcoming fears
+- Path C: Focus on adventure/exploration/discovery
+
+Return ONLY the JSON array, no other text."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse story paths JSON: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate story paths. Please try again.")
+
+async def generate_storytime_script(page_text: str, characters: List[dict], page_number: int) -> dict:
+    """Generate narrator script with voice directions for dramatic reading"""
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"storytime-{uuid.uuid4()}",
+        system_message="""You are a children's storytelling coach.
+Create engaging narrator scripts with voice directions for parents reading to children.
+Always respond with valid JSON only."""
+    ).with_model("openai", "gpt-4.1")
+
+    char_names = [c['name'] for c in characters]
+    
+    prompt = f"""Create a dramatic reading script for this picture book page:
+
+PAGE {page_number} TEXT:
+{page_text}
+
+CHARACTERS IN STORY: {', '.join(char_names)}
+
+Generate a storytime script with narrator directions and character voice cues.
+
+Return JSON:
+{{
+    "page_number": {page_number},
+    "narrator_text": "The text the narrator reads (may be slightly modified for flow)",
+    "narrator_direction": "Voice direction like 'soft and cozy', 'building excitement', 'whispered'",
+    "character_lines": [
+        {{"character": "Character Name", "line": "What they say", "direction": "How to say it"}}
+    ],
+    "pacing_cue": "Timing note like 'pause for effect', 'read slowly', 'quick and playful'"
+}}
+
+Make it engaging for bedtime reading. If there's no dialogue, character_lines can be empty.
+Return ONLY the JSON, no other text."""
+
+    response = await chat.send_message(UserMessage(text=prompt))
+    
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse storytime script JSON: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate storytime script.")
+
+async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int, lesson: str = None, legacy_character: dict = None) -> dict:
     """Generate story blueprint using AI"""
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
