@@ -1,0 +1,253 @@
+{
+  "_comment": "This is the canonical demo export for Rainstorms v0.1.0. It mirrors the exact data structures used by the backend API (Project, Character, PageData models in backend/server.py) and is pre-loaded when a user clicks 'Try Demo Project' on the home screen.",
+  "project": {
+    "id": "demo-captain-blanket-v1",
+    "user_id": null,
+    "title": "Captain Blanket and the Midnight Brother",
+    "original_idea": "A child with a magical blanket cape protects his baby brother from night monsters at bedtime and learns what it means to be a big brother hero.",
+    "tone": "cozy, adventurous, bedtime calm",
+    "age_range": "3-8",
+    "page_count": 10,
+    "theme": "The power of love and protection between siblings",
+    "hook": "When darkness falls, one brave big brother discovers that the greatest superpower is love.",
+    "summary": "Oliver discovers his old baby blanket transforms into a magical cape when the clock strikes bedtime. When shadow monsters threaten his baby brother Max's peaceful sleep, Captain Blanket springs into action! Through imagination, courage, and brotherly love, Oliver learns that being a hero isn't about being fearless—it's about protecting the ones you love.",
+    "outline": [
+      "Page 1: Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket.",
+      "Page 2: The blanket begins to shimmer and transforms into a magnificent cape. Oliver becomes Captain Blanket!",
+      "Page 3: Captain Blanket tiptoes to the nursery and sees shadow monsters gathering around Max's crib.",
+      "Page 4: The shadows try to steal Max's peaceful dreams. Captain Blanket stands firm.",
+      "Page 5: With a swoosh of his cape, Captain Blanket creates a shield of soft, golden light.",
+      "Page 6: The shadow monsters shrink back, but their leader—the Nightmare King—appears.",
+      "Page 7: Captain Blanket remembers all the times Max smiled at him. Love fills his heart.",
+      "Page 8: The love glows so bright that the Nightmare King melts away into starlight.",
+      "Page 9: Max coos happily in his sleep. Captain Blanket gives his brother a gentle pat.",
+      "Page 10: Oliver hangs up his cape and snuggles in bed, knowing he'll always protect his little brother."
+    ],
+    "story_memory": {
+      "characters": [
+        {
+          "name": "Oliver (Captain Blanket)",
+          "role": "main",
+          "key_traits": "Brave, imaginative, loving, protective",
+          "appearance_summary": "5-year-old boy, messy brown hair, star pajamas, silver-blue cape"
+        },
+        {
+          "name": "Baby Max",
+          "role": "supporting",
+          "key_traits": "Sweet, innocent, peaceful",
+          "appearance_summary": "Chubby infant, wispy blonde hair, yellow duck onesie"
+        },
+        {
+          "name": "Shadow Monsters",
+          "role": "minor",
+          "key_traits": "Mischievous, scattered by light and love",
+          "appearance_summary": "Wispy purple-gray shapes, cartoonish yellow eyes"
+        },
+        {
+          "name": "The Nightmare King",
+          "role": "minor",
+          "key_traits": "Dramatic, pompous, powerless against love",
+          "appearance_summary": "Large shadow with crooked dark crown"
+        }
+      ],
+      "relationships": [
+        {
+          "characters": ["Oliver", "Baby Max"],
+          "relationship": "older brother / baby brother — Oliver is fiercely protective"
+        }
+      ],
+      "settings": [
+        {
+          "name": "Oliver's Bedroom",
+          "description": "Cozy room with star-pattern bedding, moonlight through window, warm lamp glow"
+        },
+        {
+          "name": "The Nursery",
+          "description": "Baby Max's room with white crib, nightlight, rocking chair in corner"
+        }
+      ],
+      "events": [
+        "Oliver hears Max fussing and gets up to help",
+        "Blanket transforms into magical cape",
+        "Shadow monsters gather around Max's crib",
+        "Captain Blanket creates golden light shield",
+        "Nightmare King appears and is defeated by love",
+        "Max sleeps peacefully; Oliver returns to bed"
+      ],
+      "tone_notes": "Keep language warm, cozy, and brave. Not scary — more like a sleepy adventure. Short sentences for picture-book pacing.",
+      "style_guide": "Picture book prose: 2-5 sentences per page. Simple, vivid language for ages 3-8. Onomatopoeia welcome (Whoooosh!). Present danger as silly, not threatening."
+    },
+    "is_demo": true
+  },
+  "characters": [
+    {
+      "id": "char-oliver-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "name": "Oliver (Captain Blanket)",
+      "role": "main",
+      "personality": "Brave, imaginative, loving, and protective. He's sometimes scared but always pushes through for his brother. Has a vivid imagination that turns ordinary things magical.",
+      "appearance": "A 5-year-old boy with messy brown hair, bright curious eyes, and rosy cheeks. Wears blue pajamas with stars. As Captain Blanket, he wears a shimmering silver-blue cape that seems to glow softly.",
+      "special_trait": "His love for his baby brother makes his cape glow with golden light",
+      "notes": "Draw him slightly small compared to furniture to emphasize his bravery despite being little",
+      "visual_tags": {
+        "hair": "messy brown",
+        "eyes": "bright, curious",
+        "clothing": "blue star-pattern pajamas + silver-blue cape",
+        "accessories": "magical blanket-cape",
+        "distinguishing_features": "rosy cheeks, small for his age"
+      }
+    },
+    {
+      "id": "char-max-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "name": "Baby Max",
+      "role": "supporting",
+      "personality": "Sweet, innocent, and peaceful. Giggles easily and always reaches for Oliver when he sees him.",
+      "appearance": "A chubby 10-month-old baby with wispy blonde hair and big blue eyes. Wears a soft yellow onesie with a duck on it. Always has a peaceful, content expression.",
+      "special_trait": "His innocent smile can light up any dark room",
+      "notes": "Keep him looking cozy and protected in his crib throughout",
+      "visual_tags": {
+        "hair": "wispy blonde",
+        "eyes": "big blue",
+        "clothing": "yellow duck onesie",
+        "accessories": "none",
+        "distinguishing_features": "chubby baby features, always peaceful expression"
+      }
+    },
+    {
+      "id": "char-shadows-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "name": "Shadow Monsters",
+      "role": "minor",
+      "personality": "Mischievous but not truly evil — they're more like naughty fears that scatter when confronted with love.",
+      "appearance": "Wispy, purple-gray shapes with big cartoonish yellow eyes. They look more silly than scary, like smoke puppets. They have no defined shape, constantly shifting.",
+      "special_trait": "They shrink when exposed to light or love",
+      "notes": "Keep them non-threatening for young readers — more playful spooky than scary",
+      "visual_tags": {
+        "hair": "none",
+        "eyes": "large cartoonish yellow",
+        "clothing": "none — they are shadow shapes",
+        "accessories": "none",
+        "distinguishing_features": "wispy purple-gray, constantly shifting form"
+      }
+    },
+    {
+      "id": "char-nightmare-king-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "name": "The Nightmare King",
+      "role": "minor",
+      "personality": "Dramatic and pompous but ultimately powerless against love. More bark than bite.",
+      "appearance": "A larger shadow figure wearing a crooked crown made of darkness. Has an exaggerated frown and arms that wave dramatically. Looks like a grumpy cloud.",
+      "special_trait": "Melts into harmless starlight when defeated",
+      "notes": "Make him look huffily defeated rather than scary when he loses",
+      "visual_tags": {
+        "hair": "none",
+        "eyes": "exaggerated frown, dramatic expression",
+        "clothing": "crooked crown of darkness",
+        "accessories": "dark crown",
+        "distinguishing_features": "larger than other shadows, theatrical gestures"
+      }
+    }
+  ],
+  "pages": [
+    {
+      "id": "page-1-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 1,
+      "outline_beat": "Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket.",
+      "page_text": "Oliver snuggled deep in his cozy bed, but sleep wouldn't come. From the nursery next door, he heard a tiny whimper. Baby Max was fussing again. Oliver reached for his old baby blanket—the soft, silver-blue one that always made him feel brave.",
+      "emotional_beat": "gentle concern, comfort",
+      "illustration_prompt": "A cozy bedroom at night with warm lamp light. A young boy with messy brown hair sits up in bed wearing star-pattern pajamas, looking toward the door with caring concern. His hand reaches for a shimmering silver-blue blanket at the foot of his bed. Soft moonlight streams through the window. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-2-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 2,
+      "outline_beat": "The blanket begins to shimmer and transforms into a magnificent cape. Oliver becomes Captain Blanket!",
+      "page_text": "The moment Oliver's fingers touched the blanket, something magical happened. The fabric began to shimmer and sparkle, swirling around his shoulders like a gentle wind. It wasn't just a blanket anymore—it was a magnificent cape! Oliver stood tall. He was Captain Blanket now!",
+      "emotional_beat": "wonder, transformation, excitement",
+      "illustration_prompt": "Magical transformation scene. The silver-blue blanket swirls with sparkles and golden light, wrapping around a young boy's shoulders to become a flowing cape. The boy stands heroically on his bed, arms spread wide, with stars and sparkles surrounding him. His expression shows wonder and newfound courage. The room glows with soft magical light. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-3-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 3,
+      "outline_beat": "Captain Blanket tiptoes to the nursery and sees shadow monsters gathering around Max's crib.",
+      "page_text": "Captain Blanket tiptoed down the hallway, his cape floating softly behind him. He peeked into the nursery and gasped! Wispy shadow monsters with big, silly eyes were gathering around Baby Max's crib, whispering and giggling in the darkness.",
+      "emotional_beat": "suspense, protectiveness",
+      "illustration_prompt": "A nighttime nursery scene. A brave boy in blue star pajamas with a glowing silver cape peers around the doorframe. In the center, a white crib holds a sleeping baby. Around the crib, several wispy purple-gray shadow creatures with cartoonish yellow eyes float and creep, more mischievous than scary. Soft nightlight glow. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-4-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 4,
+      "outline_beat": "The shadows try to steal Max's peaceful dreams. Captain Blanket stands firm.",
+      "page_text": "The shadow monsters reached their wispy fingers toward Max, trying to steal his sweet dreams. But Captain Blanket stepped forward, planting his feet firmly on the soft carpet. 'Not my brother!' he whispered bravely. 'You can't have his dreams!'",
+      "emotional_beat": "courage, determination",
+      "illustration_prompt": "A young superhero boy stands protectively between shadow monsters and a baby's crib. His silver-blue cape billows behind him as he faces the silly-looking shadow creatures with determination. The shadows reach toward the crib but seem to hesitate. The boy's stance is brave and protective. Warm nightlight illuminates the scene. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-5-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 5,
+      "outline_beat": "With a swoosh of his cape, Captain Blanket creates a shield of soft, golden light.",
+      "page_text": "Captain Blanket swooshed his magical cape through the air. Whoooosh! A beautiful shield of soft, golden light spread out around the crib like a warm hug. The shadow monsters squeaked and tumbled backward, covering their big yellow eyes.",
+      "emotional_beat": "triumph, warmth",
+      "illustration_prompt": "Dynamic action scene. A young boy spins with his silver-blue cape creating a swirling arc of golden, warm light that forms a protective dome around a baby's crib. The shadow monsters tumble backward comically, covering their cartoon eyes with wispy arms. Golden sparkles and light rays fill the scene. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-6-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 6,
+      "outline_beat": "The shadow monsters shrink back, but their leader—the Nightmare King—appears.",
+      "page_text": "The little shadow monsters scattered and hid behind the rocking chair. But then the room grew darker. A bigger shadow rose up, wearing a crooked crown of darkness. 'I am the Nightmare King!' it boomed in a grumbly voice. 'And I am NOT afraid of little boys!'",
+      "emotional_beat": "tension, challenge",
+      "illustration_prompt": "A dramatic moment in the nursery. Small shadow creatures hide behind furniture while a larger shadow figure with a crooked dark crown rises dramatically in the center. The Nightmare King waves his arms theatrically, looking more pompous than scary. A brave boy with a glowing cape stands his ground, facing the shadow king. Contrast between dark shadows and warm protective light. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-7-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 7,
+      "outline_beat": "Captain Blanket remembers all the times Max smiled at him. Love fills his heart.",
+      "page_text": "Captain Blanket felt a tiny bit scared. But then he remembered... Max's first giggle. Max reaching for him with tiny hands. Max's drooly smile every morning. Love filled Oliver's heart until it felt like sunshine was growing inside his chest.",
+      "emotional_beat": "tenderness, love building",
+      "illustration_prompt": "A tender emotional moment. Soft, dreamy vignettes float around a young boy: a baby giggling, tiny hands reaching up, a drooly happy smile. The boy closes his eyes with a peaceful expression as a warm golden glow emanates from his heart, spreading through his cape. The Nightmare King looks uncertain in the background. Soft, warm colors. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-8-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 8,
+      "outline_beat": "The love glows so bright that the Nightmare King melts away into starlight.",
+      "page_text": "The love glowed brighter and brighter—brighter than any nightlight! The Nightmare King's crown wobbled. His frown trembled. 'No! Not... not LOVE!' he wailed. And then, poof! He melted away into a shower of tiny, sparkling stars.",
+      "emotional_beat": "victory, joy",
+      "illustration_prompt": "A triumphant climax scene. A young boy radiates brilliant golden light from his heart and cape, filling the entire nursery with warmth. The Nightmare King dramatically melts and transforms into countless tiny sparkles and stars, his crown dissolving last. Small shadow creatures poof into harmless starlight too. The baby sleeps peacefully in the glowing crib. Celebration of light over darkness. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-9-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 9,
+      "outline_beat": "Max coos happily in his sleep. Captain Blanket gives his brother a gentle pat.",
+      "page_text": "The nursery was quiet and warm now, filled with gentle starlight. Baby Max cooed happily in his sleep, dreaming sweet dreams once more. Captain Blanket leaned over the crib and gave his baby brother the softest pat. 'I'll always protect you,' he whispered.",
+      "emotional_beat": "peace, tenderness",
+      "illustration_prompt": "A peaceful, touching scene. A young boy in a glowing cape leans gently over a crib, softly patting a content, sleeping baby. The nursery is now filled with soft starlight and a warm glow. The baby has a sweet smile while sleeping. Big brother looks down with pure love and protectiveness. Gentle, warm lighting throughout. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    },
+    {
+      "id": "page-10-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 10,
+      "outline_beat": "Oliver hangs up his cape and snuggles in bed, knowing he'll always protect his little brother.",
+      "page_text": "Back in his room, Oliver hung up his magical cape. It looked just like an ordinary blanket again, but he knew the truth. Whenever Max needed him, the cape would be ready. Oliver snuggled under his covers with the biggest smile. Being a big brother was the best superpower of all.",
+      "emotional_beat": "contentment, love, closure",
+      "illustration_prompt": "A cozy closing scene. A young boy with messy brown hair snuggles happily under his covers, smiling with contentment. His silver-blue blanket hangs on a hook nearby, looking ordinary but with a subtle shimmer. Moonlight streams through the window, stars twinkle outside. The room feels safe, warm, and full of love. Perfect bedtime feeling. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+    }
+  ],
+  "export_metadata": {
+    "rainstorms_version": "0.1.0",
+    "export_format": "json",
+    "book_type": "picture_book",
+    "target_age": "3-8",
+    "total_pages": 10,
+    "word_count_approximate": 420,
+    "series_note": "Book 1 of the Captain Blanket series. Book 2 idea: Captain Blanket and the Closet Kraken."
+  }
+}

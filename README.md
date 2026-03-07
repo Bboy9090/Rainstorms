@@ -194,11 +194,23 @@ Rainstorms/
 │   │   └── utils/         # api.ts, autosave.ts, theme.ts
 │   ├── assets/            # Icons, fonts, images
 │   └── .env.example       # Frontend env template
+├── demo/
+│   ├── captain_blanket_demo.json    # Full structured export (matches API schema)
+│   ├── captain_blanket_outline.md  # Story outline and character profiles
+│   └── captain_blanket_pages.md    # All 10 pages with illustration prompts
 ├── docs/
 │   ├── APP_VISION.md      # Product philosophy
-│   ├── DEMO_PROJECT.md    # Demo story details
-│   └── STORY_ENGINE.md    # AI generation architecture
+│   ├── DEMO_FLOW.md       # Captain Blanket walkthrough of the full pipeline
+│   ├── DEMO_PROJECT.md    # Demo story background and series notes
+│   ├── ROADMAP.md         # 5-phase product roadmap
+│   └── STORY_ENGINE.md    # AI generation architecture and API endpoints
+├── schemas/
+│   ├── story_blueprint.schema.json    # Blueprint JSON schema
+│   ├── character_profile.schema.json  # Character JSON schema
+│   └── page_layout.schema.json        # Page JSON schema
 ├── screenshots/           # App store-style screenshots
+├── scripts/
+│   └── publish-release.sh # Post-merge release script (tag + GitHub release)
 ├── start.sh               # One-click local dev startup
 └── backend_test.py        # Full API test suite
 ```
