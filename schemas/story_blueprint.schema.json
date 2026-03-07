@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/Bboy9090/Rainstorms/main/schemas/story_blueprint.schema.json",
+  "title": "StoryBlueprint",
+  "description": "The AI-generated story structure returned by POST /api/generate/blueprint. Matches the BlueprintResponse model in backend/server.py. Note: in a full project export (see demo/captain_blanket_demo.json) characters are stored separately; this schema describes the intermediate API response shape.",
+  "type": "object",
+  "required": ["title", "hook", "summary", "theme", "characters", "outline"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The story title",
+      "minLength": 1,
+      "maxLength": 200,
+      "examples": ["Captain Blanket and the Midnight Brother"]
+    },
+    "hook": {
+      "type": "string",
+      "description": "A one-sentence hook that captures the core emotional premise",
+      "minLength": 1,
+      "maxLength": 300,
+      "examples": ["When darkness falls, one brave big brother discovers that the greatest superpower is love."]
+    },
+    "summary": {
+      "type": "string",
+      "description": "A 2–3 sentence story summary",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "theme": {
+      "type": "string",
+      "description": "The central theme or moral of the story",
+      "minLength": 1,
+      "maxLength": 200,
+      "examples": ["The power of love and protection between siblings"]
+    },
+    "characters": {
+      "type": "array",
+      "description": "Initial character list generated with the blueprint (name + role only; full profiles are in CharacterProfile)",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "role"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Character name",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "description": "Character role in the story",
+            "enum": ["main", "supporting", "minor"]
+          }
+        }
+      }
+    },
+    "outline": {
+      "type": "array",
+      "description": "Page-by-page story beats. Each element corresponds to one page.",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": {
+        "type": "string",
+        "description": "A single page beat describing the key action or moment on that page",
+        "minLength": 1,
+        "examples": ["Page 1: Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket."]
+      }
+    }
+  },
+  "examples": [
+    {
+      "title": "Captain Blanket and the Midnight Brother",
+      "hook": "When darkness falls, one brave big brother discovers that the greatest superpower is love.",
+      "summary": "Oliver discovers his old baby blanket transforms into a magical cape at bedtime. When shadow monsters threaten his baby brother Max's peaceful sleep, Captain Blanket springs into action!",
+      "theme": "The power of love and protection between siblings",
+      "characters": [
+        { "name": "Oliver (Captain Blanket)", "role": "main" },
+        { "name": "Baby Max", "role": "supporting" },
+        { "name": "Shadow Monsters", "role": "minor" },
+        { "name": "The Nightmare King", "role": "minor" }
+      ],
+      "outline": [
+        "Page 1: Oliver is tucked in bed but hears his baby brother Max fussing.",
+        "Page 2: The blanket transforms into a magnificent cape — Captain Blanket!",
+        "Page 3: Captain Blanket sees shadow monsters around Max's crib.",
+        "Page 4: The shadows try to steal Max's dreams. Captain Blanket stands firm.",
+        "Page 5: Cape creates a shield of golden light. Shadows retreat.",
+        "Page 6: The Nightmare King appears.",
+        "Page 7: Oliver remembers loving moments with Max. Love fills his heart.",
+        "Page 8: Love defeats the Nightmare King — he melts into starlight.",
+        "Page 9: Max sleeps peacefully. Captain Blanket gives him a gentle pat.",
+        "Page 10: Oliver hangs up his cape. Being a big brother is the best superpower."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/Bboy9090/Rainstorms/main/schemas/character_profile.schema.json",
+  "title": "CharacterProfile",
+  "description": "A fully-defined character stored in the Character Forge. Matches the Character model in backend/server.py. Used by the Story Memory engine to keep AI generation consistent.",
+  "type": "object",
+  "required": ["id", "project_id", "name", "role", "personality", "appearance", "special_trait"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (UUID v4)",
+      "format": "uuid",
+      "examples": ["c3a1b2d4-e5f6-7890-abcd-ef1234567890"]
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the parent project",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string",
+      "description": "Character name (may include alias or title)",
+      "minLength": 1,
+      "maxLength": 200,
+      "examples": ["Oliver (Captain Blanket)", "Baby Max"]
+    },
+    "role": {
+      "type": "string",
+      "description": "Character's narrative role",
+      "enum": ["main", "supporting", "minor"],
+      "examples": ["main"]
+    },
+    "personality": {
+      "type": "string",
+      "description": "Personality description — used by AI to maintain consistent characterization",
+      "minLength": 1,
+      "maxLength": 1000,
+      "examples": ["Brave, imaginative, loving, and protective. Sometimes scared but always pushes through for his brother."]
+    },
+    "appearance": {
+      "type": "string",
+      "description": "Visual appearance description — injected into illustration prompts for consistency",
+      "minLength": 1,
+      "maxLength": 1000,
+      "examples": ["A 5-year-old boy with messy brown hair, bright curious eyes, and rosy cheeks. Wears blue pajamas with stars and a shimmering silver-blue cape."]
+    },
+    "special_trait": {
+      "type": "string",
+      "description": "A single memorable special quality that defines this character",
+      "minLength": 1,
+      "maxLength": 300,
+      "examples": ["His love for his baby brother makes his cape glow with golden light"]
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional illustration or writing notes for contributors",
+      "maxLength": 500,
+      "default": "",
+      "examples": ["Draw him slightly small compared to furniture to emphasize his bravery despite being little"]
+    },
+    "visual_tags": {
+      "type": ["object", "null"],
+      "description": "Structured visual attributes for consistent illustration generation",
+      "additionalProperties": false,
+      "properties": {
+        "hair": {
+          "type": "string",
+          "description": "Hair color and style",
+          "examples": ["messy brown"]
+        },
+        "eyes": {
+          "type": "string",
+          "description": "Eye color and expression",
+          "examples": ["bright, curious"]
+        },
+        "clothing": {
+          "type": "string",
+          "description": "Primary clothing description",
+          "examples": ["blue star-pattern pajamas + silver-blue cape"]
+        },
+        "accessories": {
+          "type": "string",
+          "description": "Key accessories or props",
+          "examples": ["magical blanket-cape"]
+        },
+        "distinguishing_features": {
+          "type": "string",
+          "description": "Unique visual characteristics",
+          "examples": ["rosy cheeks, small for his age"]
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp"
+    }
+  },
+  "examples": [
+    {
+      "id": "char-oliver-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "name": "Oliver (Captain Blanket)",
+      "role": "main",
+      "personality": "Brave, imaginative, loving, and protective. He's sometimes scared but always pushes through for his brother.",
+      "appearance": "A 5-year-old boy with messy brown hair, bright curious eyes, and rosy cheeks. Wears blue pajamas with stars and a shimmering silver-blue cape.",
+      "special_trait": "His love for his baby brother makes his cape glow with golden light",
+      "notes": "Draw him slightly small compared to furniture to emphasize his bravery despite being little",
+      "visual_tags": {
+        "hair": "messy brown",
+        "eyes": "bright, curious",
+        "clothing": "blue star-pattern pajamas + silver-blue cape",
+        "accessories": "magical blanket-cape",
+        "distinguishing_features": "rosy cheeks, small for his age"
+      }
+    }
+  ]
+}

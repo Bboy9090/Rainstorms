@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/Bboy9090/Rainstorms/main/schemas/page_layout.schema.json",
+  "title": "PageLayout",
+  "description": "A single page of a Rainstorms story. Matches the PageData model in backend/server.py. Contains the prose text, illustration prompt, and structural metadata for one book page.",
+  "type": "object",
+  "required": ["id", "project_id", "page_number", "outline_beat"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (UUID v4)",
+      "format": "uuid",
+      "examples": ["p1a2b3c4-d5e6-7890-abcd-ef1234567890"]
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the parent project",
+      "format": "uuid"
+    },
+    "page_number": {
+      "type": "integer",
+      "description": "1-based page number within the book",
+      "minimum": 1,
+      "maximum": 100,
+      "examples": [1]
+    },
+    "outline_beat": {
+      "type": "string",
+      "description": "The story beat for this page, taken from the blueprint outline. Read-only reference for the author.",
+      "minLength": 1,
+      "maxLength": 500,
+      "examples": ["Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket."]
+    },
+    "page_text": {
+      "type": "string",
+      "description": "The final prose text for this page. Picture-book style: 2–5 sentences, simple vivid language for the target age range.",
+      "maxLength": 2000,
+      "default": "",
+      "examples": ["Oliver snuggled deep in his cozy bed, but sleep wouldn't come. From the nursery next door, he heard a tiny whimper. Baby Max was fussing again."]
+    },
+    "illustration_prompt": {
+      "type": "string",
+      "description": "Detailed scene description for an illustrator or image-generation model. Includes character appearances, setting, mood, and art style.",
+      "maxLength": 2000,
+      "default": "",
+      "examples": ["A cozy bedroom at night with warm lamp light. A young boy with messy brown hair sits up in bed wearing star-pattern pajamas, looking toward the door with caring concern. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"]
+    },
+    "emotional_beat": {
+      "type": "string",
+      "description": "Short mood descriptor for this page — used in Story Memory and as a generation hint",
+      "maxLength": 200,
+      "default": "",
+      "examples": ["gentle concern, comfort"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 last-updated timestamp (changes on each autosave)"
+    }
+  },
+  "examples": [
+    {
+      "id": "page-1-v1",
+      "project_id": "demo-captain-blanket-v1",
+      "page_number": 1,
+      "outline_beat": "Oliver is tucked in bed but hears his baby brother Max fussing. He reaches for his old blanket.",
+      "page_text": "Oliver snuggled deep in his cozy bed, but sleep wouldn't come. From the nursery next door, he heard a tiny whimper. Baby Max was fussing again. Oliver reached for his old baby blanket — the soft, silver-blue one that always made him feel brave.",
+      "illustration_prompt": "A cozy bedroom at night with warm lamp light. A young boy with messy brown hair sits up in bed wearing star-pattern pajamas, looking toward the door with caring concern. His hand reaches for a shimmering silver-blue blanket at the foot of his bed. Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette",
+      "emotional_beat": "gentle concern, comfort",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
