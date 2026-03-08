@@ -1888,6 +1888,43 @@ async def health_check():
 
 # ==================== LORE POOL ====================
 
+# -- Abstraction Engine shared constants --
+
+# Maximum character length for description/summary fields in abstracted entries
+_MAX_DESC_LEN: int = 100
+
+# Stop words shared across abstraction helpers — common English words that add
+# no creative value to tag clouds or role patterns
+_ABSTRACTION_STOP_WORDS: frozenset = frozenset({
+    "with", "and", "the", "has", "have", "that", "from", "into", "when",
+    "their", "always", "looks", "about", "which", "often", "there", "being",
+    "never", "very", "this", "more", "most", "some", "them", "they",
+    "wears", "wear", "drawn", "world", "universe", "cannot",
+})
+
+
+def _build_arc_doc_from_project(project: dict) -> dict:
+    """Build a minimal arc-like dict from a Rainstorms project for abstraction."""
+    return {
+        "theme": project.get("theme", ""),
+        "arc_type": "story arc",
+        "conflict": project.get("hook", ""),
+        "resolution": "",
+        "tone": project.get("tone", ""),
+    }
+
+
+def _build_rule_doc_from_project(project: dict) -> dict:
+    """Build a lore rule dict from a Rainstorms project's story_memory for abstraction."""
+    memory = project.get("story_memory") or {}
+    return {
+        "description": memory.get("world_rules", ""),
+        "rule_type": "narrative rule",
+        "scope": "story",
+        "consequence": memory.get("tone", ""),
+    }
+
+
 # -- Abstraction Engine helpers --
 
 def _abstract_character(char: dict) -> dict:
@@ -1927,19 +1964,14 @@ def _abstract_character(char: dict) -> dict:
         summary_template += f". Special trait: {special_trait[:80]}"
 
     # Derive role_pattern from personality words (generalised), excluding stop words
-    _role_stop = {
-        "with", "and", "the", "has", "have", "that", "from", "into", "when",
-        "their", "always", "looks", "about", "which", "often", "there", "being",
-        "never", "very", "this", "more", "most", "some", "them", "they",
-    }
     role_pattern = ""
     if personality:
         words = personality.lower().replace(",", " ").split()
-        descriptors = [w for w in words if len(w) > 4 and w not in _role_stop][:4]
+        descriptors = [w for w in words if len(w) > 4 and w not in _ABSTRACTION_STOP_WORDS][:4]
         role_pattern = " ".join(descriptors)
 
     abstraction_summary = (
-        f"{role_type.title()}: {personality[:100]}" if personality else role_type
+        f"{role_type.title()}: {personality[:_MAX_DESC_LEN]}" if personality else role_type
     )
 
     return {
@@ -1963,17 +1995,13 @@ def _abstract_faction(faction: dict) -> dict:
     conflicts = faction.get("conflicts", "")
     faction_type = faction.get("faction_type", "organisation")
 
-    stop_words = {
-        "the", "and", "with", "for", "that", "from", "into", "when", "their",
-        "about", "through", "which", "often", "there"
-    }
     tag_src = (description + " " + values).lower().replace(",", " ").split()
     theme_tags = list(dict.fromkeys(
-        w for w in tag_src if len(w) > 4 and w not in stop_words
+        w for w in tag_src if len(w) > 4 and w not in _ABSTRACTION_STOP_WORDS
     ))[:8]
 
     ideology_pattern = description[:120] if description else faction_type
-    conflict_pattern = conflicts[:100] if conflicts else ""
+    conflict_pattern = conflicts[:_MAX_DESC_LEN] if conflicts else ""
     abstraction_summary = f"A {faction_type} characterised by: {ideology_pattern[:80]}"
 
     return {
@@ -1984,7 +2012,7 @@ def _abstract_faction(faction: dict) -> dict:
         "conflict_pattern": conflict_pattern,
         "theme_tags": theme_tags,
         "abstraction_summary": abstraction_summary,
-        "summary_template": f"A faction that {ideology_pattern[:100]}",
+        "summary_template": f"A faction that {ideology_pattern[:_MAX_DESC_LEN]}",
     }
 
 
@@ -1999,14 +2027,11 @@ def _abstract_location(location: dict) -> dict:
 
     visual_keywords = [
         w.lower() for w in (description + " " + atmosphere).replace(",", " ").split()
-        if len(w) > 3 and w.lower() not in {
-            "with", "and", "the", "has", "have", "that", "from", "into", "when",
-            "their", "always", "looks", "very", "this", "where"
-        }
+        if len(w) > 3 and w.lower() not in _ABSTRACTION_STOP_WORDS
     ]
     visual_tags = list(dict.fromkeys(visual_keywords))[:8]
 
-    location_pattern = f"{location_type}: {description[:100]}" if description else location_type
+    location_pattern = f"{location_type}: {description[:_MAX_DESC_LEN]}" if description else location_type
     abstraction_summary = f"A {location_type} with: {atmosphere[:80]}" if atmosphere else location_pattern
 
     return {
@@ -2016,7 +2041,7 @@ def _abstract_location(location: dict) -> dict:
         "location_pattern": location_pattern,
         "visual_tags": visual_tags,
         "abstraction_summary": abstraction_summary,
-        "summary_template": f"A setting that is {description[:100]}",
+        "summary_template": f"A setting that is {description[:_MAX_DESC_LEN]}",
     }
 
 
@@ -2028,20 +2053,15 @@ def _abstract_story_arc(arc: dict) -> dict:
     theme = arc.get("theme", "")
     arc_type = arc.get("arc_type", "story arc")
     conflict = arc.get("conflict", "")
-    resolution = arc.get("resolution", "")
 
-    stop_words = {
-        "the", "and", "with", "for", "that", "from", "into", "when", "their",
-        "about", "what", "this", "have", "must", "will"
-    }
     raw_tags = (theme + " " + arc_type).lower().replace(",", " ").split()
     theme_tags = list(dict.fromkeys(
-        w for w in raw_tags if len(w) > 4 and w not in stop_words
+        w for w in raw_tags if len(w) > 4 and w not in _ABSTRACTION_STOP_WORDS
     ))[:8]
 
-    conflict_pattern = conflict[:100] if conflict else ""
+    conflict_pattern = conflict[:_MAX_DESC_LEN] if conflict else ""
     abstraction_summary = (
-        f"An arc about {theme[:100]}" if theme else f"A {arc_type}"
+        f"An arc about {theme[:_MAX_DESC_LEN]}" if theme else f"A {arc_type}"
     )
 
     return {
@@ -2051,7 +2071,7 @@ def _abstract_story_arc(arc: dict) -> dict:
         "conflict_pattern": conflict_pattern,
         "theme_tags": theme_tags,
         "abstraction_summary": abstraction_summary,
-        "summary_template": f"A story arc exploring {theme[:100]}",
+        "summary_template": f"A story arc exploring {theme[:_MAX_DESC_LEN]}",
     }
 
 
@@ -2063,15 +2083,10 @@ def _abstract_world_seed(world: dict) -> dict:
     genre = world.get("genre", "")
     tone = world.get("tone", "")
     description = world.get("description", "")
-    rules = world.get("rules", "")
 
-    stop_words = {
-        "the", "and", "with", "for", "that", "from", "into", "when", "their",
-        "about", "world", "universe", "where", "which", "there"
-    }
     raw_tags = (genre + " " + tone + " " + description).lower().replace(",", " ").split()
     theme_tags = list(dict.fromkeys(
-        w for w in raw_tags if len(w) > 4 and w not in stop_words
+        w for w in raw_tags if len(w) > 4 and w not in _ABSTRACTION_STOP_WORDS
     ))[:10]
 
     abstraction_summary = (
@@ -2087,7 +2102,7 @@ def _abstract_world_seed(world: dict) -> dict:
         "tone": tone,
         "theme_tags": theme_tags,
         "abstraction_summary": abstraction_summary,
-        "summary_template": f"A world that is {description[:100]}" if description else "",
+        "summary_template": f"A world that is {description[:_MAX_DESC_LEN]}" if description else "",
     }
 
 
@@ -2126,6 +2141,40 @@ def _abstract_project(project: dict) -> dict:
     }
 
 
+def _abstract_lore_rule(rule: dict) -> dict:
+    """
+    Abstract a lore rule / world law into a reusable world-constraint pattern.
+    Strips exact universe names, franchise identifiers, and canon references.
+    """
+    description = rule.get("description", "")
+    rule_type = rule.get("rule_type", "world rule")
+    scope = rule.get("scope", "")  # e.g. "physics", "magic", "social"
+    consequence = rule.get("consequence", "")
+
+    # Combine source text, normalize, and extract meaningful tag words
+    tag_source = f"{rule_type} {scope} {description}".lower().replace(",", " ")
+    raw_words = tag_source.split()
+    theme_tags = list(dict.fromkeys(
+        w for w in raw_words if len(w) > 4 and w not in _ABSTRACTION_STOP_WORDS
+    ))[:8]
+
+    abstraction_summary = (
+        f"A {scope} rule: {description[:_MAX_DESC_LEN]}" if description
+        else f"A {rule_type} world constraint"
+    )
+    consequence_pattern = consequence[:_MAX_DESC_LEN] if consequence else ""
+
+    return {
+        "archetype_name": f"{rule_type.title()} World Constraint",
+        "category": "lore_rule",
+        "role_type": rule_type,
+        "conflict_pattern": consequence_pattern,
+        "theme_tags": theme_tags,
+        "abstraction_summary": abstraction_summary,
+        "summary_template": f"A world where {description[:_MAX_DESC_LEN]}" if description else "",
+    }
+
+
 def _run_abstraction_engine(source_type: str, source_doc: dict) -> dict:
     """
     Dispatch to the correct abstraction helper based on source_type.
@@ -2138,7 +2187,9 @@ def _run_abstraction_engine(source_type: str, source_doc: dict) -> dict:
         "faction": _abstract_faction,
         "location": _abstract_location,
         "arc": _abstract_story_arc,
-        "story_seed": _abstract_project,  # treat as book_concept
+        "story_arc": _abstract_story_arc,   # explicit alias for cross-app callers
+        "story_seed": _abstract_project,    # treat as book_concept
+        "lore_rule": _abstract_lore_rule,
     }
     handler = dispatch.get(source_type)
     if handler is None:
@@ -2210,6 +2261,7 @@ def _entry_matches_structured_query(
     age_band: Optional[str],
     theme: Optional[str],
     category: Optional[str],
+    theme_tags: Optional[List[str]] = None,
 ) -> bool:
     """Return True if the entry matches all provided structured filter values."""
     if source_type and entry.get("source_type", "") != source_type:
@@ -2227,6 +2279,13 @@ def _entry_matches_structured_query(
         tags_text = " ".join(entry.get("theme_tags", [])).lower()
         if theme_lc not in tags_text and theme_lc not in entry.get("abstraction_summary", "").lower():
             return False
+    if theme_tags:
+        # All requested theme_tags must appear somewhere in the entry's theme_tags or abstraction_summary
+        entry_tags_text = " ".join(entry.get("theme_tags", [])).lower()
+        entry_summary = entry.get("abstraction_summary", "").lower()
+        for tag in theme_tags:
+            if tag.lower() not in entry_tags_text and tag.lower() not in entry_summary:
+                return False
     return True
 
 
@@ -2338,10 +2397,35 @@ async def _shared_lore_pool_share(request: SharedLorePoolShareRequest, user: dic
         abstracted["visual_tags"] = []
         abstracted["universe_id"] = project.get("lore_universe_id")
 
+    elif request.source_type in {"story_arc", "arc"}:
+        project = await db.projects.find_one(
+            {"id": request.source_id, "user_id": user["user_id"]}
+        )
+        if not project:
+            raise HTTPException(status_code=404, detail="Project (arc source) not found")
+        if project.get("is_locked"):
+            raise HTTPException(status_code=403, detail="Project is locked and cannot be shared.")
+        abstracted = _abstract_story_arc(_build_arc_doc_from_project(project))
+        abstracted["universe_id"] = project.get("lore_universe_id")
+
+    elif request.source_type == "lore_rule":
+        project = await db.projects.find_one(
+            {"id": request.source_id, "user_id": user["user_id"]}
+        )
+        if not project:
+            raise HTTPException(status_code=404, detail="Project (lore rule source) not found")
+        if project.get("is_locked"):
+            raise HTTPException(status_code=403, detail="Project is locked and cannot be shared.")
+        abstracted = _abstract_lore_rule(_build_rule_doc_from_project(project))
+        abstracted["universe_id"] = project.get("lore_universe_id")
+
     else:
         raise HTTPException(
             status_code=422,
-            detail=f"source_type '{request.source_type}' is not supported. Supported: character, book_concept, story_seed."
+            detail=(
+                f"source_type '{request.source_type}' is not supported. "
+                "Supported: character, book_concept, story_seed, story_arc, arc, lore_rule."
+            )
         )
 
     # Check for existing pool entry for this source to avoid duplicates
@@ -2504,6 +2588,9 @@ async def _generate_from_pool(
 
     # Apply structured filters if provided
     if structured_filters:
+        theme_tags_filter = structured_filters.get("theme_tags")
+        if isinstance(theme_tags_filter, str):
+            theme_tags_filter = [t.strip() for t in theme_tags_filter.split(",") if t.strip()]
         pool = [
             e for e in pool
             if _entry_matches_structured_query(
@@ -2514,6 +2601,7 @@ async def _generate_from_pool(
                 age_band=structured_filters.get("age_band") or age_range,
                 theme=structured_filters.get("theme"),
                 category=structured_filters.get("category"),
+                theme_tags=theme_tags_filter or None,
             )
         ]
     elif genre or tone:
@@ -2680,6 +2768,7 @@ async def list_shared_lore_pool(
     tone: Optional[str] = None,
     age_band: Optional[str] = None,
     theme: Optional[str] = None,
+    theme_tags: Optional[str] = None,   # comma-separated, e.g. "bedtime,siblings"
     category: Optional[str] = None,
     limit: int = 50,
 ):
@@ -2687,7 +2776,15 @@ async def list_shared_lore_pool(
     GET /api/shared-lore-pool — list shared archetypes with structured query params.
     Only shared_archetype / public_template / demo_only entries are returned.
     owner_user_id and source_id are NEVER exposed.
+
+    Query params:
+      source_type, source_app, genre, tone, age_band, theme, theme_tags (csv), category
     """
+    # Parse theme_tags csv into a list
+    theme_tags_list: Optional[List[str]] = (
+        [t.strip() for t in theme_tags.split(",") if t.strip()] if theme_tags else None
+    )
+
     cursor = db.shared_lore_pool.find(
         {
             "visibility": {"$in": ["shared_archetype", "public_template", "demo_only"]},
@@ -2710,6 +2807,7 @@ async def list_shared_lore_pool(
             age_band=age_band,
             theme=theme,
             category=category,
+            theme_tags=theme_tags_list,
         ):
             continue
         entries.append(_sanitize_pool_doc(doc))
@@ -2768,6 +2866,26 @@ async def extract_to_shared_lore_pool(
             if project.get("is_locked"):
                 raise HTTPException(status_code=403, detail="Project is locked")
             source_doc = project
+        elif request.source_type in {"story_arc", "arc"}:
+            # Story arcs live on the story_memory of a project in Rainstorms
+            project = await db.projects.find_one(
+                {"id": request.source_id, "user_id": user["user_id"]}
+            )
+            if not project:
+                raise HTTPException(status_code=404, detail="Project (arc source) not found")
+            if project.get("is_locked"):
+                raise HTTPException(status_code=403, detail="Project is locked")
+            source_doc = _build_arc_doc_from_project(project)
+        elif request.source_type == "lore_rule":
+            # For Rainstorms, lore rules are stored in the story memory block
+            project = await db.projects.find_one(
+                {"id": request.source_id, "user_id": user["user_id"]}
+            )
+            if not project:
+                raise HTTPException(status_code=404, detail="Project (lore rule source) not found")
+            if project.get("is_locked"):
+                raise HTTPException(status_code=403, detail="Project is locked")
+            source_doc = _build_rule_doc_from_project(project)
         else:
             raise HTTPException(
                 status_code=422,
