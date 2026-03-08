@@ -264,20 +264,42 @@ class StorytimeScript(BaseModel):
 # Allowed visibility values
 VISIBILITY_OPTIONS = {"private", "shared_archetype", "public_template", "demo_only"}
 
+# Allowed source apps (Rainstorms itself + SagaARCH cross-app)
+SOURCE_APPS = {"rainstorms", "sagaarch"}
+
 class LorePoolEntry(BaseModel):
+    """Full shared_lore_pool document — matches the cross-app spec."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    source_type: str  # character | story_seed | faction | world_seed | book_concept
+    # Provenance
+    source_app: str = "rainstorms"          # rainstorms | sagaarch
+    source_type: str                        # character | story_seed | faction | world_seed | book_concept | location | arc
     source_id: str
     owner_user_id: Optional[str] = None
-    visibility: str  # shared_archetype | public_template | demo_only
+    universe_id: Optional[str] = None
+    # Visibility / safety
+    visibility: str                         # shared_archetype | public_template | demo_only
+    safety_level: str = "safe"             # safe | flagged | locked
+    is_locked: bool = False
+    is_demo: bool = False
+    allow_derivatives: bool = True
+    derivative_rules: Optional[dict] = Field(
+        default_factory=lambda: {"rename_required": True, "exact_plot_reuse": False, "exact_visual_copy": False}
+    )
+    # Archetype / abstraction fields
     archetype_name: str = ""
+    category: str = ""                      # hero | villain | mentor | world | faction | location | arc
     role_type: str = ""
+    role_pattern: str = ""                  # generalised pattern (e.g. "reluctant mythic warrior")
+    ideology_pattern: str = ""             # for factions (e.g. "conquest through order")
+    conflict_pattern: str = ""             # internal / external conflict pattern
+    location_pattern: str = ""             # for locations (e.g. "ruined fortress-city")
     tone: str = ""
+    genre: str = ""
     age_band: str = ""
     visual_tags: List[str] = []
     theme_tags: List[str] = []
-    summary_template: str = ""
-    safety_level: str = "safe"  # safe | flagged | locked
+    abstraction_summary: str = ""          # human-readable safe summary
+    summary_template: str = ""             # generation-facing pattern text
     # Moderation flags
     flag_suspected_copying: bool = False
     flag_locked_archetype: bool = False
@@ -290,11 +312,35 @@ class LorePoolShareRequest(BaseModel):
     source_id: str
     visibility: str  # shared_archetype | public_template
 
+class SharedLorePoolShareRequest(BaseModel):
+    """Request body for POST /api/shared-lore-pool/share (full contract)."""
+    source_app: str = "rainstorms"
+    source_type: str
+    source_id: str
+    visibility: str
+    universe_id: Optional[str] = None
+
+class SharedLorePoolExtractRequest(BaseModel):
+    """Request body for POST /api/shared-lore-pool/extract."""
+    source_app: str = "rainstorms"
+    source_type: str  # character | book_concept | faction | location | arc | world_seed
+    source_id: str
+
 class LorePoolGenerateRequest(BaseModel):
     filters: List[str] = []  # bedtime, funny, adventure, emotional, fantasy, sibling, animal_hero, magic
     tone: Optional[str] = None
     age_range: Optional[str] = None
+    genre: Optional[str] = None
+    story_type: Optional[str] = None
     page_count: int = 10
+    count: int = 1  # number of story seeds to generate
+    generation_mode: str = "story_seed"  # story_seed | full_blueprint | fresh_recombination
+
+class SharedLorePoolGenerateRequest(BaseModel):
+    """Request body for POST /api/shared-lore-pool/generate (full contract)."""
+    filters: Optional[dict] = None   # {"tone": ..., "age_band": ..., "genre": ..., "theme_tags": [...], "category": ...}
+    count: int = 1
+    generation_mode: str = "fresh_recombination"  # fresh_recombination | story_seed | full_blueprint
 
 class VisibilityUpdate(BaseModel):
     visibility: str
@@ -1880,11 +1926,168 @@ def _abstract_character(char: dict) -> dict:
     if special_trait:
         summary_template += f". Special trait: {special_trait[:80]}"
 
+    # Derive role_pattern from personality words (generalised), excluding stop words
+    _role_stop = {
+        "with", "and", "the", "has", "have", "that", "from", "into", "when",
+        "their", "always", "looks", "about", "which", "often", "there", "being",
+        "never", "very", "this", "more", "most", "some", "them", "they",
+    }
+    role_pattern = ""
+    if personality:
+        words = personality.lower().replace(",", " ").split()
+        descriptors = [w for w in words if len(w) > 4 and w not in _role_stop][:4]
+        role_pattern = " ".join(descriptors)
+
+    abstraction_summary = (
+        f"{role_type.title()}: {personality[:100]}" if personality else role_type
+    )
+
     return {
         "archetype_name": f"{role_type.title()} Archetype",
+        "category": "character",
         "role_type": role_type,
+        "role_pattern": role_pattern,
         "visual_tags": visual_tags,
         "summary_template": summary_template,
+        "abstraction_summary": abstraction_summary,
+    }
+
+
+def _abstract_faction(faction: dict) -> dict:
+    """
+    Abstract a faction/organisation into a reusable ideology pattern.
+    Strips exact name and tied-to-canon references.
+    """
+    description = faction.get("description", "")
+    values = faction.get("values", "")
+    conflicts = faction.get("conflicts", "")
+    faction_type = faction.get("faction_type", "organisation")
+
+    stop_words = {
+        "the", "and", "with", "for", "that", "from", "into", "when", "their",
+        "about", "through", "which", "often", "there"
+    }
+    tag_src = (description + " " + values).lower().replace(",", " ").split()
+    theme_tags = list(dict.fromkeys(
+        w for w in tag_src if len(w) > 4 and w not in stop_words
+    ))[:8]
+
+    ideology_pattern = description[:120] if description else faction_type
+    conflict_pattern = conflicts[:100] if conflicts else ""
+    abstraction_summary = f"A {faction_type} characterised by: {ideology_pattern[:80]}"
+
+    return {
+        "archetype_name": f"{faction_type.title()} Pattern",
+        "category": "faction",
+        "role_type": faction_type,
+        "ideology_pattern": ideology_pattern,
+        "conflict_pattern": conflict_pattern,
+        "theme_tags": theme_tags,
+        "abstraction_summary": abstraction_summary,
+        "summary_template": f"A faction that {ideology_pattern[:100]}",
+    }
+
+
+def _abstract_location(location: dict) -> dict:
+    """
+    Abstract a location into a reusable setting pattern.
+    Strips exact place names and tied-to-canon references.
+    """
+    description = location.get("description", "")
+    atmosphere = location.get("atmosphere", "")
+    location_type = location.get("location_type", "place")
+
+    visual_keywords = [
+        w.lower() for w in (description + " " + atmosphere).replace(",", " ").split()
+        if len(w) > 3 and w.lower() not in {
+            "with", "and", "the", "has", "have", "that", "from", "into", "when",
+            "their", "always", "looks", "very", "this", "where"
+        }
+    ]
+    visual_tags = list(dict.fromkeys(visual_keywords))[:8]
+
+    location_pattern = f"{location_type}: {description[:100]}" if description else location_type
+    abstraction_summary = f"A {location_type} with: {atmosphere[:80]}" if atmosphere else location_pattern
+
+    return {
+        "archetype_name": f"{location_type.title()} Setting Pattern",
+        "category": "location",
+        "role_type": location_type,
+        "location_pattern": location_pattern,
+        "visual_tags": visual_tags,
+        "abstraction_summary": abstraction_summary,
+        "summary_template": f"A setting that is {description[:100]}",
+    }
+
+
+def _abstract_story_arc(arc: dict) -> dict:
+    """
+    Abstract a story arc into a reusable conflict/resolution pattern.
+    Strips exact titles, character names, and canon beats.
+    """
+    theme = arc.get("theme", "")
+    arc_type = arc.get("arc_type", "story arc")
+    conflict = arc.get("conflict", "")
+    resolution = arc.get("resolution", "")
+
+    stop_words = {
+        "the", "and", "with", "for", "that", "from", "into", "when", "their",
+        "about", "what", "this", "have", "must", "will"
+    }
+    raw_tags = (theme + " " + arc_type).lower().replace(",", " ").split()
+    theme_tags = list(dict.fromkeys(
+        w for w in raw_tags if len(w) > 4 and w not in stop_words
+    ))[:8]
+
+    conflict_pattern = conflict[:100] if conflict else ""
+    abstraction_summary = (
+        f"An arc about {theme[:100]}" if theme else f"A {arc_type}"
+    )
+
+    return {
+        "archetype_name": f"{arc_type.title()} Arc Pattern",
+        "category": "arc",
+        "role_type": arc_type,
+        "conflict_pattern": conflict_pattern,
+        "theme_tags": theme_tags,
+        "abstraction_summary": abstraction_summary,
+        "summary_template": f"A story arc exploring {theme[:100]}",
+    }
+
+
+def _abstract_world_seed(world: dict) -> dict:
+    """
+    Abstract a world/universe seed into a reusable world-theme template.
+    Strips exact universe names, canon timelines, and locked lore.
+    """
+    genre = world.get("genre", "")
+    tone = world.get("tone", "")
+    description = world.get("description", "")
+    rules = world.get("rules", "")
+
+    stop_words = {
+        "the", "and", "with", "for", "that", "from", "into", "when", "their",
+        "about", "world", "universe", "where", "which", "there"
+    }
+    raw_tags = (genre + " " + tone + " " + description).lower().replace(",", " ").split()
+    theme_tags = list(dict.fromkeys(
+        w for w in raw_tags if len(w) > 4 and w not in stop_words
+    ))[:10]
+
+    abstraction_summary = (
+        f"A {genre} world with {tone} tone: {description[:80]}" if description
+        else f"A {genre} {tone} world"
+    )
+
+    return {
+        "archetype_name": "World Theme Template",
+        "category": "world_seed",
+        "role_type": "world_seed",
+        "genre": genre,
+        "tone": tone,
+        "theme_tags": theme_tags,
+        "abstraction_summary": abstraction_summary,
+        "summary_template": f"A world that is {description[:100]}" if description else "",
     }
 
 
@@ -1909,15 +2112,45 @@ def _abstract_project(project: dict) -> dict:
 
     # Build summary_template from theme only (no title, no outline details)
     summary_template = f"A story exploring {theme[:150]}" if theme else ""
+    abstraction_summary = f"A children's book concept: tone={tone}, age={age_range}, theme={theme[:80]}"
 
     return {
         "archetype_name": "Book Concept Archetype",
+        "category": "book_concept",
         "role_type": "book_concept",
         "tone": tone,
         "age_band": age_range,
         "theme_tags": theme_tags,
         "summary_template": summary_template,
+        "abstraction_summary": abstraction_summary,
     }
+
+
+def _run_abstraction_engine(source_type: str, source_doc: dict) -> dict:
+    """
+    Dispatch to the correct abstraction helper based on source_type.
+    Returns a dict of abstracted fields ready to merge into a LorePoolEntry.
+    """
+    dispatch = {
+        "character": _abstract_character,
+        "book_concept": _abstract_project,
+        "world_seed": _abstract_world_seed,
+        "faction": _abstract_faction,
+        "location": _abstract_location,
+        "arc": _abstract_story_arc,
+        "story_seed": _abstract_project,  # treat as book_concept
+    }
+    handler = dispatch.get(source_type)
+    if handler is None:
+        # Fallback: generic abstraction from any dict
+        return {
+            "archetype_name": f"{source_type.replace('_', ' ').title()} Archetype",
+            "category": source_type,
+            "role_type": source_type,
+            "abstraction_summary": f"A {source_type} archetype",
+            "summary_template": "",
+        }
+    return handler(source_doc)
 
 
 POOL_FILTER_TAG_MAP = {
@@ -1929,25 +2162,72 @@ POOL_FILTER_TAG_MAP = {
     "sibling": ["sibling", "brother", "sister", "family"],
     "animal_hero": ["animal", "dog", "cat", "rabbit", "bear", "fox", "bird"],
     "magic": ["magic", "magical", "enchanted", "spell", "wand"],
+    # Extended tags
+    "mystery": ["mystery", "detective", "secret", "hidden", "clue"],
+    "friendship": ["friendship", "friend", "together", "bond", "trust"],
+    "nature": ["nature", "forest", "ocean", "garden", "animal", "tree"],
+    "sci_fi": ["robot", "space", "future", "technology", "alien"],
+    "courage": ["courage", "brave", "fear", "overcome", "strength"],
+}
+
+# Genre filter values recognised for structured filtering
+GENRE_VALUES = {
+    "fantasy", "sci-fi", "adventure", "bedtime", "comedy", "mystery",
+    "emotional", "nature", "friendship", "folklore",
 }
 
 
 def _entry_matches_filters(entry: dict, filters: List[str]) -> bool:
     if not filters:
         return True
-    all_tags = set(
-        t.lower() for t in (entry.get("theme_tags", []) + entry.get("visual_tags", []))
-    )
-    all_tags.add(entry.get("tone", "").lower())
-    all_tags.add(entry.get("role_type", "").lower())
-    all_tags.add(entry.get("summary_template", "").lower())
+    all_text = " ".join([
+        " ".join(entry.get("theme_tags", [])),
+        " ".join(entry.get("visual_tags", [])),
+        entry.get("tone", ""),
+        entry.get("role_type", ""),
+        entry.get("genre", ""),
+        entry.get("category", ""),
+        entry.get("summary_template", ""),
+        entry.get("abstraction_summary", ""),
+        entry.get("ideology_pattern", ""),
+        entry.get("conflict_pattern", ""),
+        entry.get("location_pattern", ""),
+        entry.get("role_pattern", ""),
+    ]).lower()
 
     for f in filters:
         keywords = POOL_FILTER_TAG_MAP.get(f, [f])
-        # At least one keyword from this filter must appear in any tag/text
-        if any(kw in " ".join(all_tags) for kw in keywords):
+        if any(kw in all_text for kw in keywords):
             return True
     return False
+
+
+def _entry_matches_structured_query(
+    entry: dict,
+    source_type: Optional[str],
+    genre: Optional[str],
+    tone: Optional[str],
+    age_band: Optional[str],
+    theme: Optional[str],
+    category: Optional[str],
+) -> bool:
+    """Return True if the entry matches all provided structured filter values."""
+    if source_type and entry.get("source_type", "") != source_type:
+        return False
+    if category and entry.get("category", "").lower() != category.lower():
+        return False
+    if genre and genre.lower() not in entry.get("genre", "").lower():
+        return False
+    if tone and tone.lower() not in entry.get("tone", "").lower():
+        return False
+    if age_band and entry.get("age_band", "") and age_band not in entry.get("age_band", ""):
+        return False
+    if theme:
+        theme_lc = theme.lower()
+        tags_text = " ".join(entry.get("theme_tags", [])).lower()
+        if theme_lc not in tags_text and theme_lc not in entry.get("abstraction_summary", "").lower():
+            return False
+    return True
 
 
 # -- Lore Pool API endpoints --
@@ -2010,6 +2290,17 @@ async def share_to_lore_pool(
     Only shared_archetype and public_template visibility values are accepted.
     Private content is NEVER accepted.
     """
+    full_request = SharedLorePoolShareRequest(
+        source_app="rainstorms",
+        source_type=request.source_type,
+        source_id=request.source_id,
+        visibility=request.visibility,
+    )
+    return await _shared_lore_pool_share(full_request, user)
+
+
+async def _shared_lore_pool_share(request: SharedLorePoolShareRequest, user: dict) -> dict:
+    """Core implementation for sharing to the pool (used by both /lore-pool/share and /shared-lore-pool/share)."""
     if request.visibility not in {"shared_archetype", "public_template"}:
         raise HTTPException(
             status_code=422,
@@ -2027,15 +2318,15 @@ async def share_to_lore_pool(
         )
         if not project:
             raise HTTPException(status_code=403, detail="Not authorized")
-        # Refuse if the character is marked private or locked
         if char.get("is_locked"):
             raise HTTPException(status_code=403, detail="Character is locked and cannot be shared.")
         abstracted = _abstract_character(char)
         abstracted["tone"] = project.get("tone", "")
         abstracted["age_band"] = project.get("age_range", "")
         abstracted["theme_tags"] = []
+        abstracted["universe_id"] = project.get("lore_universe_id")
 
-    elif request.source_type == "book_concept":
+    elif request.source_type in {"book_concept", "story_seed"}:
         project = await db.projects.find_one(
             {"id": request.source_id, "user_id": user["user_id"]}
         )
@@ -2045,11 +2336,12 @@ async def share_to_lore_pool(
             raise HTTPException(status_code=403, detail="Project is locked and cannot be shared.")
         abstracted = _abstract_project(project)
         abstracted["visual_tags"] = []
+        abstracted["universe_id"] = project.get("lore_universe_id")
 
     else:
         raise HTTPException(
             status_code=422,
-            detail="source_type must be 'character' or 'book_concept'."
+            detail=f"source_type '{request.source_type}' is not supported. Supported: character, book_concept, story_seed."
         )
 
     # Check for existing pool entry for this source to avoid duplicates
@@ -2057,28 +2349,41 @@ async def share_to_lore_pool(
         {"source_id": request.source_id, "owner_user_id": user["user_id"]}
     )
     if existing:
-        # Update visibility and abstracted fields
+        update_fields = {
+            "visibility": request.visibility,
+            "source_app": request.source_app,
+            "updated_at": datetime.utcnow(),
+            **{k: v for k, v in abstracted.items() if v is not None},
+        }
         await db.shared_lore_pool.update_one(
             {"id": existing["id"]},
-            {"$set": {
-                "visibility": request.visibility,
-                "updated_at": datetime.utcnow(),
-                **abstracted,
-            }}
+            {"$set": update_fields}
         )
         logger.info("Updated Lore Pool entry %s for source %s", existing["id"], request.source_id)
-        return {**existing, **abstracted, "visibility": request.visibility}
+        return {**existing, **update_fields}
 
     entry = LorePoolEntry(
+        source_app=request.source_app,
         source_type=request.source_type,
         source_id=request.source_id,
         owner_user_id=user["user_id"],
+        universe_id=abstracted.pop("universe_id", None),
         visibility=request.visibility,
         **abstracted,
     )
     await db.shared_lore_pool.insert_one(entry.dict())
     logger.info("New Lore Pool entry %s (type=%s, visibility=%s)", entry.id, request.source_type, request.visibility)
     return entry.dict()
+
+
+def _sanitize_pool_doc(doc: dict) -> dict:
+    """Strip private fields and serialize datetimes before returning to client."""
+    doc.pop("owner_user_id", None)
+    doc.pop("source_id", None)
+    for k in ("created_at", "updated_at"):
+        if isinstance(doc.get(k), datetime):
+            doc[k] = doc[k].isoformat()
+    return doc
 
 
 @api_router.get("/lore-pool")
@@ -2103,13 +2408,7 @@ async def list_lore_pool(
 
     entries = []
     for doc in docs:
-        # Strip owner_user_id before returning (privacy)
-        doc.pop("owner_user_id", None)
-        doc.pop("source_id", None)
-        # Convert datetime fields
-        for k in ("created_at", "updated_at"):
-            if isinstance(doc.get(k), datetime):
-                doc[k] = doc[k].isoformat()
+        doc = _sanitize_pool_doc(doc)
         if filter_tags and not _entry_matches_filters(doc, filter_tags):
             continue
         entries.append(doc)
@@ -2126,116 +2425,21 @@ async def generate_from_lore_pool(
     Generate a fresh story blueprint inspired by shared Lore Pool archetypes.
     Never copies exact names, plots, or summaries.
     Combines multiple archetypes to produce an original result.
+    generation_mode: story_seed | full_blueprint | fresh_recombination
     """
-    # Fetch eligible pool entries
-    cursor = db.shared_lore_pool.find(
-        {
-            "visibility": {"$in": ["shared_archetype", "public_template", "demo_only"]},
-            "safety_level": "safe",
-            "flag_suspected_copying": {"$ne": True},
-        }
-    ).limit(100)
-    all_entries = await cursor.to_list(100)
-
-    if request.filters:
-        pool = [e for e in all_entries if _entry_matches_filters(e, request.filters)]
-    else:
-        pool = all_entries
-
-    if not pool:
-        raise HTTPException(
-            status_code=404,
-            detail="No shared archetypes found matching your filters. Try different filter tags or ask others to share archetypes first."
-        )
-
-    import random
-    # Pick up to 5 entries to blend
-    selected = random.sample(pool, min(5, len(pool)))
-
-    # Build an inspiration block from the archetypes (no exact names / summaries)
-    archetype_lines = []
-    for e in selected:
-        parts = []
-        if e.get("role_type"):
-            parts.append(f"role: {e['role_type']}")
-        if e.get("tone"):
-            parts.append(f"tone: {e['tone']}")
-        if e.get("age_band"):
-            parts.append(f"age band: {e['age_band']}")
-        if e.get("theme_tags"):
-            parts.append(f"themes: {', '.join(e['theme_tags'][:5])}")
-        if e.get("visual_tags"):
-            parts.append(f"visuals: {', '.join(e['visual_tags'][:4])}")
-        if e.get("summary_template"):
-            parts.append(f"pattern: {e['summary_template'][:100]}")
-        archetype_lines.append(" | ".join(parts))
-
-    inspiration_block = "\n".join(f"- {line}" for line in archetype_lines)
-    tone = request.tone or selected[0].get("tone", "cozy")
-    age_range = request.age_range or selected[0].get("age_band", "4-6")
-
-    logger.info(
-        "Generating from Lore Pool: %d archetypes selected, filters=%s",
-        len(selected), request.filters
+    # Normalise fresh_recombination alias
+    mode = request.generation_mode
+    if mode == "fresh_recombination":
+        mode = "story_seed"
+    return await _generate_from_pool(
+        filter_tags=request.filters,
+        tone=request.tone,
+        age_range=request.age_range,
+        genre=request.genre,
+        page_count=request.page_count,
+        count=request.count,
+        generation_mode=mode,
     )
-
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"lorepool-{uuid.uuid4()}",
-        system_message=(
-            "You are a creative children's book author. "
-            "You generate ORIGINAL stories inspired by creative patterns and archetypes. "
-            "You NEVER copy exact character names, plot lines, or stories. "
-            "You remix, recombine, and invent fresh new stories. "
-            "Always respond with valid JSON only."
-        )
-    ).with_model("openai", "gpt-4.1")
-
-    prompt = f"""You are given creative archetype patterns from a shared inspiration pool.
-Generate a COMPLETELY ORIGINAL children's picture book concept inspired by these patterns.
-Do NOT copy any names or exact story beats — invent everything fresh.
-
-INSPIRATION PATTERNS (archetypes only — remix freely):
-{inspiration_block}
-
-TARGET TONE: {tone}
-AGE RANGE: {age_range} years
-PAGE COUNT: {request.page_count}
-
-Rules:
-- Rename ALL characters (no copying archetype names)
-- Create a fresh setting
-- Build an original plot
-- Keep tone and age appropriateness consistent
-
-Respond with JSON:
-{{
-  "title": "...",
-  "hook": "...",
-  "summary": "...",
-  "theme": "...",
-  "characters": [
-    {{"name": "...", "role": "main", "personality": "...", "appearance": "...", "special_trait": "..."}}
-  ],
-  "outline": ["Page 1: ...", "Page 2: ...", ...]
-}}
-"""
-    response = await chat.chat(UserMessage(text=prompt))
-    try:
-        cleaned = response.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("```")[1]
-            if cleaned.startswith("json"):
-                cleaned = cleaned[4:]
-        blueprint = json.loads(cleaned.strip())
-    except Exception as exc:
-        logger.error("Lore Pool generation JSON parse error: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to generate from Lore Pool. Please try again.")
-
-    blueprint["_generated_from_pool"] = True
-    blueprint["_archetype_count"] = len(selected)
-    logger.info("Lore Pool generation complete: title='%s'", blueprint.get("title", ""))
-    return blueprint
 
 
 @api_router.put("/lore-pool/{entry_id}/flag")
@@ -2262,6 +2466,408 @@ async def flag_lore_pool_entry(
         logger.info("Lore Pool entry %s flagged: %s", entry_id, updates)
 
     return {"id": entry_id, "updated": list(k for k in updates if k != "updated_at")}
+
+
+# ==================== SHARED LORE POOL (cross-app contract) ====================
+
+async def _generate_from_pool(
+    filter_tags: List[str],
+    tone: Optional[str],
+    age_range: Optional[str],
+    genre: Optional[str],
+    page_count: int,
+    count: int = 1,
+    generation_mode: str = "story_seed",
+    structured_filters: Optional[dict] = None,
+) -> dict:
+    """
+    Core implementation: blend shared archetypes and generate original story output.
+    Used by both /lore-pool/generate and /shared-lore-pool/generate.
+    """
+    import random
+
+    # Fetch eligible pool entries
+    cursor = db.shared_lore_pool.find(
+        {
+            "visibility": {"$in": ["shared_archetype", "public_template", "demo_only"]},
+            "safety_level": "safe",
+            "flag_suspected_copying": {"$ne": True},
+        }
+    ).limit(200)
+    all_entries = await cursor.to_list(200)
+
+    # Apply tag filters
+    if filter_tags:
+        pool = [e for e in all_entries if _entry_matches_filters(e, filter_tags)]
+    else:
+        pool = all_entries
+
+    # Apply structured filters if provided
+    if structured_filters:
+        pool = [
+            e for e in pool
+            if _entry_matches_structured_query(
+                e,
+                source_type=structured_filters.get("source_type"),
+                genre=structured_filters.get("genre") or genre,
+                tone=structured_filters.get("tone") or tone,
+                age_band=structured_filters.get("age_band") or age_range,
+                theme=structured_filters.get("theme"),
+                category=structured_filters.get("category"),
+            )
+        ]
+    elif genre or tone:
+        pool = [
+            e for e in pool
+            if _entry_matches_structured_query(
+                e, source_type=None, genre=genre, tone=tone,
+                age_band=age_range, theme=None, category=None
+            )
+        ]
+
+    if not pool:
+        raise HTTPException(
+            status_code=404,
+            detail="No shared archetypes found matching your filters. Try different filters or add more archetypes to the pool."
+        )
+
+    # Pick up to 5 entries to blend
+    selected = random.sample(pool, min(5, len(pool)))
+
+    # Build an inspiration block (no exact names or private details)
+    archetype_lines = []
+    for e in selected:
+        parts = []
+        if e.get("category"):
+            parts.append(f"category: {e['category']}")
+        if e.get("role_type"):
+            parts.append(f"role: {e['role_type']}")
+        if e.get("role_pattern"):
+            parts.append(f"pattern: {e['role_pattern']}")
+        if e.get("ideology_pattern"):
+            parts.append(f"ideology: {e['ideology_pattern'][:60]}")
+        if e.get("conflict_pattern"):
+            parts.append(f"conflict: {e['conflict_pattern'][:60]}")
+        if e.get("location_pattern"):
+            parts.append(f"setting: {e['location_pattern'][:60]}")
+        if e.get("tone"):
+            parts.append(f"tone: {e['tone']}")
+        if e.get("genre"):
+            parts.append(f"genre: {e['genre']}")
+        if e.get("age_band"):
+            parts.append(f"age band: {e['age_band']}")
+        if e.get("theme_tags"):
+            parts.append(f"themes: {', '.join(e['theme_tags'][:5])}")
+        if e.get("visual_tags"):
+            parts.append(f"visuals: {', '.join(e['visual_tags'][:4])}")
+        if e.get("abstraction_summary"):
+            parts.append(f"summary: {e['abstraction_summary'][:80]}")
+        archetype_lines.append(" | ".join(parts))
+
+    inspiration_block = "\n".join(f"- {line}" for line in archetype_lines)
+    resolved_tone = tone or selected[0].get("tone", "cozy")
+    resolved_age = age_range or selected[0].get("age_band", "4-6")
+    resolved_genre = genre or selected[0].get("genre", "")
+
+    logger.info(
+        "Generating from Shared Lore Pool: %d archetypes selected, filters=%s, mode=%s",
+        len(selected), filter_tags, generation_mode
+    )
+
+    system_msg = (
+        "You are a creative children's book author. "
+        "You generate ORIGINAL stories inspired by creative patterns and archetypes. "
+        "You NEVER copy exact character names, plot lines, or stories. "
+        "You remix, recombine, and invent fresh new stories. "
+        "Always respond with valid JSON only."
+    )
+
+    if generation_mode in ("story_seed", "fresh_recombination"):
+        prompt = f"""You are given creative archetype patterns from a shared inspiration pool.
+Generate {count} COMPLETELY ORIGINAL children's story seed(s) inspired by these patterns.
+Do NOT copy any names, settings, or exact beats — invent everything fresh.
+
+INSPIRATION PATTERNS (archetypes only — remix freely):
+{inspiration_block}
+
+TARGET TONE: {resolved_tone}
+{'GENRE: ' + resolved_genre if resolved_genre else ''}
+AGE RANGE: {resolved_age} years
+
+Rules:
+- Rename ALL characters (no copying archetype names)
+- Create a fresh setting
+- Build an original premise
+- Keep tone and age appropriateness consistent
+- Each seed must be distinct
+
+Respond with JSON:
+{{
+  "results": [
+    {{
+      "title": "...",
+      "hook": "...",
+      "theme": "...",
+      "tone": "...",
+      "hero_archetype": "...",
+      "story_premise": "...",
+      "inspiration_tags": ["...", "..."]
+    }}
+  ]
+}}
+"""
+    else:
+        prompt = f"""You are given creative archetype patterns from a shared inspiration pool.
+Generate a COMPLETELY ORIGINAL children's picture book concept inspired by these patterns.
+Do NOT copy any names or exact story beats — invent everything fresh.
+
+INSPIRATION PATTERNS (archetypes only — remix freely):
+{inspiration_block}
+
+TARGET TONE: {resolved_tone}
+{'GENRE: ' + resolved_genre if resolved_genre else ''}
+AGE RANGE: {resolved_age} years
+PAGE COUNT: {page_count}
+
+Rules:
+- Rename ALL characters (no copying archetype names)
+- Create a fresh setting
+- Build an original plot
+- Keep tone and age appropriateness consistent
+
+Respond with JSON:
+{{
+  "title": "...",
+  "hook": "...",
+  "summary": "...",
+  "theme": "...",
+  "characters": [
+    {{"name": "...", "role": "main", "personality": "...", "appearance": "...", "special_trait": "..."}}
+  ],
+  "outline": ["Page 1: ...", "Page 2: ...", ...]
+}}
+"""
+
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"lorepool-{uuid.uuid4()}",
+        system_message=system_msg,
+    ).with_model("openai", "gpt-4.1")
+
+    response = await chat.chat(UserMessage(text=prompt))
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        result = json.loads(cleaned.strip())
+    except Exception as exc:
+        logger.error("Shared Lore Pool generation JSON parse error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to generate from Lore Pool. Please try again.")
+
+    result["_generated_from_pool"] = True
+    result["_archetype_count"] = len(selected)
+    logger.info("Shared Lore Pool generation complete, mode=%s", generation_mode)
+    return result
+
+
+@api_router.get("/shared-lore-pool")
+async def list_shared_lore_pool(
+    source_type: Optional[str] = None,
+    source_app: Optional[str] = None,
+    genre: Optional[str] = None,
+    tone: Optional[str] = None,
+    age_band: Optional[str] = None,
+    theme: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = 50,
+):
+    """
+    GET /api/shared-lore-pool — list shared archetypes with structured query params.
+    Only shared_archetype / public_template / demo_only entries are returned.
+    owner_user_id and source_id are NEVER exposed.
+    """
+    cursor = db.shared_lore_pool.find(
+        {
+            "visibility": {"$in": ["shared_archetype", "public_template", "demo_only"]},
+            "safety_level": "safe",
+            "flag_suspected_copying": {"$ne": True},
+        }
+    ).sort("created_at", -1).limit(max(1, min(limit, 200)))
+    docs = await cursor.to_list(max(1, min(limit, 200)))
+
+    entries = []
+    for doc in docs:
+        # source_app filter (exact match)
+        if source_app and doc.get("source_app", "") != source_app:
+            continue
+        if not _entry_matches_structured_query(
+            doc,
+            source_type=source_type,
+            genre=genre,
+            tone=tone,
+            age_band=age_band,
+            theme=theme,
+            category=category,
+        ):
+            continue
+        entries.append(_sanitize_pool_doc(doc))
+
+    return entries
+
+
+@api_router.get("/shared-lore-pool/{entry_id}")
+async def get_shared_lore_pool_entry(entry_id: str):
+    """
+    GET /api/shared-lore-pool/{id} — return a single safe pool entry.
+    Private entries and flagged entries are rejected.
+    owner_user_id and source_id are NEVER exposed.
+    """
+    doc = await db.shared_lore_pool.find_one({"id": entry_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Lore Pool entry not found")
+    if doc.get("visibility") == "private":
+        raise HTTPException(status_code=403, detail="This entry is private")
+    if doc.get("flag_suspected_copying") or doc.get("safety_level") != "safe":
+        raise HTTPException(status_code=403, detail="This entry is not available")
+    return _sanitize_pool_doc(doc)
+
+
+@api_router.post("/shared-lore-pool/extract")
+async def extract_to_shared_lore_pool(
+    request: SharedLorePoolExtractRequest,
+    user=Depends(require_auth),
+):
+    """
+    POST /api/shared-lore-pool/extract — abstract a source document into a safe pool entry.
+    This does NOT save the entry (preview only). Use /share to persist.
+    The source_app may be 'rainstorms' or 'sagaarch'.
+    """
+    source_doc: dict = {}
+
+    if request.source_app == "rainstorms":
+        if request.source_type == "character":
+            char = await db.characters.find_one({"id": request.source_id})
+            if not char:
+                raise HTTPException(status_code=404, detail="Character not found")
+            project = await db.projects.find_one(
+                {"id": char["project_id"], "user_id": user["user_id"]}
+            )
+            if not project:
+                raise HTTPException(status_code=403, detail="Not authorized")
+            if char.get("is_locked"):
+                raise HTTPException(status_code=403, detail="Character is locked")
+            source_doc = {**char, "tone": project.get("tone", ""), "age_range": project.get("age_range", "")}
+        elif request.source_type in {"book_concept", "story_seed"}:
+            project = await db.projects.find_one(
+                {"id": request.source_id, "user_id": user["user_id"]}
+            )
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            if project.get("is_locked"):
+                raise HTTPException(status_code=403, detail="Project is locked")
+            source_doc = project
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=f"source_type '{request.source_type}' not supported for Rainstorms extraction."
+            )
+    else:
+        # SagaARCH or other cross-app extraction: the caller provides the document
+        # in the source_id field as a JSON reference. We cannot fetch it directly;
+        # the cross-app POST /shared-lore-pool/share is the correct flow.
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Cross-app extraction (source_app='sagaarch') is handled via "
+                "POST /api/shared-lore-pool/share with pre-abstracted fields."
+            )
+        )
+
+    abstracted = _run_abstraction_engine(request.source_type, source_doc)
+    abstracted["source_type"] = request.source_type
+    abstracted["source_app"] = request.source_app
+    logger.info(
+        "Abstraction preview for %s/%s: archetype=%s",
+        request.source_app, request.source_type, abstracted.get("archetype_name")
+    )
+    return abstracted
+
+
+@api_router.post("/shared-lore-pool/generate")
+async def generate_from_shared_lore_pool(
+    request: SharedLorePoolGenerateRequest,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/shared-lore-pool/generate — generate original story seeds from the shared pool.
+    Accepts structured filters dict: {tone, age_band, genre, theme_tags (list), category, source_type}.
+    generation_mode: fresh_recombination | story_seed | full_blueprint
+    """
+    filters_dict = request.filters or {}
+
+    # Collect tag-based filter chips from non-structured keys and list values
+    STRUCTURED_KEYS = {"tone", "age_band", "genre", "theme", "theme_tags", "category", "source_type"}
+    filter_tags: List[str] = []
+    for k, v in filters_dict.items():
+        if k in STRUCTURED_KEYS:
+            continue
+        if isinstance(v, list):
+            filter_tags.extend(str(tag) for tag in v if tag)
+        elif v:
+            filter_tags.append(str(v))
+
+    # theme_tags list → add to filter_tags too
+    theme_tags_from_filter = filters_dict.get("theme_tags", [])
+    if isinstance(theme_tags_from_filter, list):
+        filter_tags.extend(str(t) for t in theme_tags_from_filter if t)
+    elif theme_tags_from_filter:
+        filter_tags.append(str(theme_tags_from_filter))
+
+    # Normalise generation mode: fresh_recombination is an alias for story_seed
+    mode = request.generation_mode
+    if mode == "fresh_recombination":
+        mode = "story_seed"
+
+    raw = await _generate_from_pool(
+        filter_tags=filter_tags,
+        tone=filters_dict.get("tone"),
+        age_range=filters_dict.get("age_band"),
+        genre=filters_dict.get("genre"),
+        page_count=10,
+        count=max(1, min(request.count, 5)),
+        generation_mode=mode,
+        structured_filters=filters_dict,
+    )
+
+    # Normalise response: always wrap in {"results": [...]} format per contract
+    if "seeds" in raw:
+        results = raw["seeds"]
+    elif "title" in raw:
+        # full blueprint — wrap as single-item results list
+        results = [raw]
+    else:
+        results = raw.get("results", [raw])
+
+    return {
+        "results": results,
+        "_generated_from_pool": True,
+        "_archetype_count": raw.get("_archetype_count", 0),
+    }
+
+
+@api_router.post("/shared-lore-pool/share")
+async def share_to_shared_lore_pool(
+    request: SharedLorePoolShareRequest,
+    user=Depends(require_auth),
+):
+    """
+    POST /api/shared-lore-pool/share — share content from any supported app to the shared pool.
+    For SagaARCH content the entry should already be abstracted by the caller;
+    for Rainstorms content we run the abstraction engine here.
+    """
+    return await _shared_lore_pool_share(request, user)
 
 # Include the router in the main app
 app.include_router(api_router)

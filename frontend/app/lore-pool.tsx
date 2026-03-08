@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
+import { Select } from '../src/components/Select';
 import { useProject } from '../src/context/ProjectContext';
 import { useAuth } from '../src/context/AuthContext';
 import { api } from '../src/utils/api';
@@ -22,36 +23,91 @@ import { api } from '../src/utils/api';
 interface PoolEntry {
   id: string;
   source_type: string;
+  source_app: string;
   visibility: string;
   archetype_name: string;
+  category: string;
   role_type: string;
+  role_pattern: string;
+  ideology_pattern: string;
+  conflict_pattern: string;
+  location_pattern: string;
   tone: string;
+  genre: string;
   age_band: string;
   visual_tags: string[];
   theme_tags: string[];
+  abstraction_summary: string;
   summary_template: string;
   safety_level: string;
+  allow_derivatives: boolean;
   created_at: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FILTER_CHIPS = [
-  { key: 'bedtime', label: '🌙 Bedtime', icon: 'moon-outline' },
-  { key: 'funny', label: '😄 Funny', icon: 'happy-outline' },
-  { key: 'adventure', label: '⚔️ Adventure', icon: 'compass-outline' },
-  { key: 'emotional', label: '💛 Emotional', icon: 'heart-outline' },
-  { key: 'fantasy', label: '✨ Fantasy', icon: 'sparkles-outline' },
-  { key: 'sibling', label: '👦 Sibling', icon: 'people-outline' },
-  { key: 'animal_hero', label: '🐾 Animal Hero', icon: 'paw-outline' },
-  { key: 'magic', label: '🪄 Magic', icon: 'star-outline' },
+  { key: 'bedtime', label: '🌙 Bedtime' },
+  { key: 'funny', label: '😄 Funny' },
+  { key: 'adventure', label: '⚔️ Adventure' },
+  { key: 'emotional', label: '💛 Emotional' },
+  { key: 'fantasy', label: '✨ Fantasy' },
+  { key: 'sibling', label: '👦 Sibling' },
+  { key: 'animal_hero', label: '🐾 Animal Hero' },
+  { key: 'magic', label: '🪄 Magic' },
+  { key: 'mystery', label: '🔍 Mystery' },
+  { key: 'friendship', label: '🤝 Friendship' },
+  { key: 'nature', label: '🌿 Nature' },
+  { key: 'sci_fi', label: '🤖 Sci-Fi' },
+  { key: 'courage', label: '🦁 Courage' },
 ] as const;
+
+const GENRE_OPTIONS = [
+  { label: 'Any genre', value: '' },
+  { label: 'Fantasy', value: 'fantasy' },
+  { label: 'Adventure', value: 'adventure' },
+  { label: 'Bedtime', value: 'bedtime' },
+  { label: 'Comedy', value: 'comedy' },
+  { label: 'Emotional', value: 'emotional' },
+  { label: 'Mystery', value: 'mystery' },
+  { label: 'Nature', value: 'nature' },
+  { label: 'Friendship', value: 'friendship' },
+  { label: 'Sci-Fi', value: 'sci-fi' },
+  { label: 'Folklore', value: 'folklore' },
+];
+
+const STORY_TYPE_OPTIONS = [
+  { label: 'Any type', value: '' },
+  { label: 'Picture Book', value: 'picture_book' },
+  { label: 'Bedtime Story', value: 'bedtime' },
+  { label: 'Early Reader', value: 'early_reader' },
+  { label: 'Chapter Book', value: 'chapter_book' },
+];
+
+const AGE_BAND_OPTIONS = [
+  { label: 'Any age', value: '' },
+  { label: '0–2 years', value: '0-2' },
+  { label: '3–5 years', value: '3-5' },
+  { label: '4–6 years', value: '4-6' },
+  { label: '5–8 years', value: '5-8' },
+  { label: '6–10 years', value: '6-10' },
+];
+
+const GENERATION_MODE_OPTIONS = [
+  { label: 'Story Seeds (quick)', value: 'story_seed' },
+  { label: 'Full Blueprint', value: 'full_blueprint' },
+];
 
 const VISIBILITY_LABELS: Record<string, { label: string; color: string }> = {
   private: { label: 'Private', color: colors.gray400 },
   shared_archetype: { label: 'Shared Archetype', color: colors.primary },
   public_template: { label: 'Public Template', color: colors.success },
   demo_only: { label: 'Demo Only', color: colors.accent },
+};
+
+const SOURCE_APP_LABELS: Record<string, string> = {
+  rainstorms: '🌧 Rainstorms',
+  sagaarch: '📜 SagaARCH',
 };
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -65,25 +121,32 @@ export default function LorePoolScreen() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [genre, setGenre] = useState('');
+  const [ageBand, setAgeBand] = useState('');
+  const [storyType, setStoryType] = useState('');
+  const [generationMode, setGenerationMode] = useState('story_seed');
   const [error, setError] = useState<string | null>(null);
-  const [generatedBlueprint, setGeneratedBlueprint] = useState<any | null>(null);
+  const [generatedResult, setGeneratedResult] = useState<any | null>(null);
 
   // ── fetch pool entries ──
   const fetchPool = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = selectedFilters.length
-        ? { filters: selectedFilters.join(',') }
-        : {};
-      const res = await api.get('/lore-pool', { params });
+      const params: Record<string, string> = {};
+      if (selectedFilters.length) params.filters = selectedFilters.join(',');
+      if (genre) params.genre = genre;
+      if (ageBand) params.age_band = ageBand;
+      if (storyType) params.category = storyType;
+      // Use new shared-lore-pool endpoint for structured filtering
+      const res = await api.get('/shared-lore-pool', { params });
       setEntries(res.data || []);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load the Lore Pool. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [selectedFilters]);
+  }, [selectedFilters, genre, ageBand, storyType]);
 
   useEffect(() => {
     fetchPool();
@@ -94,20 +157,29 @@ export default function LorePoolScreen() {
     setSelectedFilters((prev) =>
       prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]
     );
-    setGeneratedBlueprint(null);
+    setGeneratedResult(null);
   };
 
   // ── generate from pool ──
   const handleGenerateFromPool = async () => {
     setGenerating(true);
     setError(null);
-    setGeneratedBlueprint(null);
+    setGeneratedResult(null);
     try {
-      const res = await api.post('/lore-pool/generate', {
-        filters: selectedFilters,
-        page_count: 10,
+      // Build structured filters object per the API contract
+      const filters: Record<string, any> = {};
+      if (genre) filters.genre = genre;
+      if (ageBand) filters.age_band = ageBand;
+      if (storyType) filters.category = storyType;
+      // selectedFilters maps to theme_tags list (tag-style chip filters)
+      if (selectedFilters.length) filters.theme_tags = selectedFilters;
+
+      const res = await api.post('/shared-lore-pool/generate', {
+        filters,
+        count: generationMode === 'full_blueprint' ? 1 : 3,
+        generation_mode: generationMode || 'fresh_recombination',
       });
-      setGeneratedBlueprint(res.data);
+      setGeneratedResult(res.data);
     } catch (err: any) {
       setError(
         err.response?.data?.detail ||
@@ -118,38 +190,50 @@ export default function LorePoolScreen() {
     }
   };
 
-  // ── use generated blueprint as a new project ──
-  const handleUseBlueprint = async () => {
-    if (!generatedBlueprint) return;
+  // ── use a story seed or full blueprint as a new project ──
+  const handleUseBlueprint = async (item?: any) => {
+    // item may be: an individual seed object, a full blueprint, or null (use generatedResult)
+    const source = item || generatedResult;
+    if (!source) return;
+
+    // Detect whether item is an individual seed (has story_premise but no outline/summary)
+    // or a full blueprint (has outline/summary)
+    const isSeed = !source.outline && !source.summary && (source.story_premise !== undefined || source.hero_archetype !== undefined);
+    const title = source.title || 'Lore Pool Story';
+    const idea = isSeed
+      ? (source.story_premise || source.hook || '')
+      : (source.summary || source.hook || '');
+    const tone = source.tone || 'cozy';
+
     setGenerating(true);
     try {
       const projectRes = await api.post('/projects', {
-        title: generatedBlueprint.title,
-        original_idea: generatedBlueprint.summary,
-        tone: 'cozy',
-        age_range: '4-6',
-        page_count: generatedBlueprint.outline?.length || 10,
+        title,
+        original_idea: idea,
+        tone,
+        age_range: ageBand || '4-6',
+        page_count: source.outline?.length || 10,
         origin_type: 'generated_from_pool',
       });
 
       await api.put(`/projects/${projectRes.data.id}`, {
-        title: generatedBlueprint.title,
-        hook: generatedBlueprint.hook,
-        summary: generatedBlueprint.summary,
-        theme: generatedBlueprint.theme,
-        outline: generatedBlueprint.outline,
+        title,
+        hook: source.hook || '',
+        summary: isSeed ? idea : (source.summary || ''),
+        theme: source.theme || '',
+        outline: source.outline || [],
       });
 
-      const pagesData = (generatedBlueprint.outline || []).map(
-        (beat: string, index: number) => ({
+      if (source.outline?.length) {
+        const pagesData = source.outline.map((beat: string, index: number) => ({
           page_number: index + 1,
           outline_beat: beat,
           page_text: '',
           illustration_prompt: '',
           emotional_beat: '',
-        })
-      );
-      await api.post(`/projects/${projectRes.data.id}/pages/bulk`, pagesData);
+        }));
+        await api.post(`/projects/${projectRes.data.id}/pages/bulk`, pagesData);
+      }
 
       const [fullProject, chars, pages] = await Promise.all([
         api.get(`/projects/${projectRes.data.id}`),
@@ -178,6 +262,8 @@ export default function LorePoolScreen() {
       Alert.alert('Error', 'Could not flag this entry. Please try again.');
     }
   };
+
+  const hasFilters = selectedFilters.length > 0 || genre || ageBand || storyType;
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -208,9 +294,37 @@ export default function LorePoolScreen() {
             <Text style={styles.safetyBold}>Safe by design.</Text> All user content is
             private by default. Shared entries are automatically abstracted into role
             patterns, tones, and themes — never exact names or private story text.
+            Archetypes may also be contributed by SagaARCH.
           </Text>
         </View>
       </Card>
+
+      {/* Structured Filters */}
+      <Text style={styles.sectionLabel}>Narrow by genre, age & type</Text>
+      <View style={styles.selectRow}>
+        <View style={styles.selectCol}>
+          <Select
+            label="Genre"
+            value={genre}
+            options={GENRE_OPTIONS}
+            onChange={(v) => { setGenre(v); setGeneratedResult(null); }}
+          />
+        </View>
+        <View style={styles.selectCol}>
+          <Select
+            label="Age Range"
+            value={ageBand}
+            options={AGE_BAND_OPTIONS}
+            onChange={(v) => { setAgeBand(v); setGeneratedResult(null); }}
+          />
+        </View>
+      </View>
+      <Select
+        label="Story Type"
+        value={storyType}
+        options={STORY_TYPE_OPTIONS}
+        onChange={(v) => { setStoryType(v); setGeneratedResult(null); }}
+      />
 
       {/* Filter Chips */}
       <Text style={styles.sectionLabel}>Filter inspiration by theme</Text>
@@ -231,11 +345,30 @@ export default function LorePoolScreen() {
           );
         })}
       </View>
-      {selectedFilters.length > 0 && (
-        <TouchableOpacity onPress={() => { setSelectedFilters([]); setGeneratedBlueprint(null); }}>
-          <Text style={styles.clearFilters}>✕ Clear filters</Text>
+
+      {hasFilters && (
+        <TouchableOpacity onPress={() => {
+          setSelectedFilters([]);
+          setGenre('');
+          setAgeBand('');
+          setStoryType('');
+          setGeneratedResult(null);
+        }}>
+          <Text style={styles.clearFilters}>✕ Clear all filters</Text>
         </TouchableOpacity>
       )}
+
+      {/* Generation Settings */}
+      <View style={styles.genSettingsRow}>
+        <View style={{ flex: 1 }}>
+          <Select
+            label="Output mode"
+            value={generationMode}
+            options={GENERATION_MODE_OPTIONS}
+            onChange={setGenerationMode}
+          />
+        </View>
+      </View>
 
       {/* Generate Button */}
       <View style={styles.generateRow}>
@@ -260,28 +393,84 @@ export default function LorePoolScreen() {
         </Card>
       )}
 
-      {/* Generated Blueprint Result */}
-      {generatedBlueprint && (
+      {/* Story Seed Results — uses `results` array from /shared-lore-pool/generate */}
+      {(generatedResult?.results || generatedResult?.seeds) && (
+        <View style={styles.seedsContainer}>
+          {(() => {
+            const items: any[] = generatedResult.results ?? generatedResult.seeds ?? [];
+            return (
+              <>
+                <Text style={styles.seedsTitle}>
+                  ✨ {items.length} fresh story seed{items.length !== 1 ? 's' : ''} generated
+                </Text>
+                <Text style={styles.poolNote}>
+                  Built from {generatedResult._archetype_count ?? '?'} shared archetypes. All names and details are original.
+                </Text>
+                {items.map((seed: any, idx: number) => (
+                  <Card key={idx} style={styles.seedCard} variant="elevated">
+                    <Text style={styles.seedTitle}>{seed.title}</Text>
+                    <Text style={styles.seedTheme}>{seed.theme}</Text>
+                    {seed.hook ? <Text style={styles.seedHook}>"{seed.hook}"</Text> : null}
+                    {seed.story_premise ? <Text style={styles.seedPremise}>{seed.story_premise}</Text> : null}
+                    {seed.inspiration_tags?.length > 0 && (
+                      <View style={styles.tagList}>
+                        {seed.inspiration_tags.map((t: string) => (
+                          <TagChip key={t} label={t} color={colors.primary} />
+                        ))}
+                      </View>
+                    )}
+                    {seed.hero_archetype ? (
+                      <View style={styles.seedArchRow}>
+                        <Ionicons name="person-circle-outline" size={14} color={colors.textMuted} />
+                        <Text style={styles.seedArchText}>{seed.hero_archetype}</Text>
+                      </View>
+                    ) : null}
+                    <Button
+                      title="Use This Seed"
+                      onPress={() => handleUseBlueprint(seed)}
+                      variant="outline"
+                      size="md"
+                      loading={generating}
+                      icon={<Ionicons name="checkmark-circle" size={18} color={colors.primary} />}
+                      style={styles.seedUseButton}
+                    />
+                  </Card>
+                ))}
+                <Button
+                  title="Generate More"
+                  onPress={handleGenerateFromPool}
+                  loading={generating}
+                  variant="outline"
+                  size="md"
+                  icon={<Ionicons name="refresh" size={18} color={colors.primary} />}
+                  style={{ marginTop: spacing.sm }}
+                />
+              </>
+            );
+          })()}
+        </View>
+      )}
+
+      {/* Full Blueprint Result — only shown when there are no seeds/results */}
+      {generatedResult && !generatedResult.results && !generatedResult.seeds && generatedResult.title && (
         <Card style={styles.blueprintCard} variant="elevated">
           <View style={styles.blueprintHeader}>
             <Ionicons name="document-text" size={22} color={colors.primary} />
             <Text style={styles.blueprintTitle}>Generated Blueprint</Text>
           </View>
-          <Text style={styles.blueprintName}>{generatedBlueprint.title}</Text>
-          <Text style={styles.blueprintMeta}>
-            {generatedBlueprint.theme}
-          </Text>
-          {generatedBlueprint.hook ? (
-            <Text style={styles.blueprintHook}>"{generatedBlueprint.hook}"</Text>
+          <Text style={styles.blueprintName}>{generatedResult.title}</Text>
+          <Text style={styles.blueprintMeta}>{generatedResult.theme}</Text>
+          {generatedResult.hook ? (
+            <Text style={styles.blueprintHook}>"{generatedResult.hook}"</Text>
           ) : null}
           <Text style={styles.poolNote}>
-            ✨ Generated from {generatedBlueprint._archetype_count ?? '?'} shared archetypes.
-            All names and plot details are original — none were copied from the pool.
+            ✨ Generated from {generatedResult._archetype_count ?? '?'} shared archetypes.
+            All names and plot details are original.
           </Text>
           <View style={styles.blueprintActions}>
             <Button
               title="Use This Story"
-              onPress={handleUseBlueprint}
+              onPress={() => handleUseBlueprint()}
               loading={generating}
               size="md"
               icon={<Ionicons name="checkmark-circle" size={20} color={colors.white} />}
@@ -312,7 +501,7 @@ export default function LorePoolScreen() {
           <Ionicons name="cloud-outline" size={40} color={colors.gray300} />
           <Text style={styles.emptyTitle}>No archetypes yet</Text>
           <Text style={styles.emptyText}>
-            {selectedFilters.length > 0
+            {hasFilters
               ? 'No archetypes match your current filters. Try clearing some filters.'
               : 'Be the first to share! Open any project or character and choose "Share as Archetype".'}
           </Text>
@@ -339,6 +528,9 @@ export default function LorePoolScreen() {
           3. Rainstorms automatically strips your exact names and details — only
           creative patterns are shared.
         </Text>
+        <Text style={styles.howToStep}>
+          4. SagaARCH users can also contribute archetypes from their universes and factions.
+        </Text>
         <View style={styles.visibilityLegend}>
           {Object.entries(VISIBILITY_LABELS).map(([key, val]) => (
             <View key={key} style={styles.legendItem}>
@@ -360,6 +552,19 @@ export default function LorePoolScreen() {
 
 // ─── Pool Entry Card ──────────────────────────────────────────────────────────
 
+function _categoryIcon(category: string): React.ComponentProps<typeof Ionicons>['name'] {
+  const iconMap: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+    character: 'person-circle-outline',
+    faction: 'shield-outline',
+    location: 'location-outline',
+    arc: 'git-branch-outline',
+    world_seed: 'planet-outline',
+    book_concept: 'book-outline',
+    story_seed: 'bulb-outline',
+  };
+  return iconMap[category] ?? 'book-outline';
+}
+
 function PoolEntryCard({
   entry,
   onFlag,
@@ -371,6 +576,7 @@ function PoolEntryCard({
     label: entry.visibility,
     color: colors.gray400,
   };
+  const sourceLabel = SOURCE_APP_LABELS[entry.source_app] ?? entry.source_app;
 
   return (
     <Card style={styles.entryCard} variant="outlined">
@@ -378,7 +584,7 @@ function PoolEntryCard({
       <View style={styles.entryHeader}>
         <View style={styles.entryTitleRow}>
           <Ionicons
-            name={entry.source_type === 'character' ? 'person-circle-outline' : 'book-outline'}
+            name={_categoryIcon(entry.category)}
             size={20}
             color={colors.primary}
           />
@@ -391,16 +597,36 @@ function PoolEntryCard({
         </View>
       </View>
 
+      {/* Source app badge */}
+      {entry.source_app && entry.source_app !== 'rainstorms' && (
+        <Text style={styles.sourceAppBadge}>{sourceLabel}</Text>
+      )}
+
       {/* Role type */}
       {entry.role_type ? (
         <Text style={styles.entryRole}>{entry.role_type}</Text>
       ) : null}
 
-      {/* Summary template */}
-      {entry.summary_template ? (
+      {/* Abstraction summary */}
+      {entry.abstraction_summary ? (
+        <Text style={styles.entrySummary} numberOfLines={3}>
+          {entry.abstraction_summary}
+        </Text>
+      ) : entry.summary_template ? (
         <Text style={styles.entrySummary} numberOfLines={3}>
           {entry.summary_template}
         </Text>
+      ) : null}
+
+      {/* Pattern fields */}
+      {entry.ideology_pattern ? (
+        <Text style={styles.patternText}>⚖️ {entry.ideology_pattern}</Text>
+      ) : null}
+      {entry.conflict_pattern ? (
+        <Text style={styles.patternText}>⚡ {entry.conflict_pattern}</Text>
+      ) : null}
+      {entry.location_pattern ? (
+        <Text style={styles.patternText}>📍 {entry.location_pattern}</Text>
       ) : null}
 
       {/* Tag rows */}
@@ -410,6 +636,14 @@ function PoolEntryCard({
             <Text style={styles.tagGroupLabel}>Tone</Text>
             <View style={styles.tagList}>
               <TagChip label={entry.tone} color={colors.primaryLight} />
+            </View>
+          </View>
+        ) : null}
+        {entry.genre ? (
+          <View style={styles.tagGroup}>
+            <Text style={styles.tagGroupLabel}>Genre</Text>
+            <View style={styles.tagList}>
+              <TagChip label={entry.genre} color={colors.secondary} />
             </View>
           </View>
         ) : null}
@@ -443,6 +677,11 @@ function PoolEntryCard({
             ))}
           </View>
         </View>
+      )}
+
+      {/* Derivative rules note */}
+      {entry.allow_derivatives === false && (
+        <Text style={styles.noDerivText}>⚠️ Derivatives not permitted for this archetype</Text>
       )}
 
       {/* Flag button */}
@@ -521,6 +760,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
+  selectRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xs },
+  selectCol: { flex: 1 },
+  genSettingsRow: { marginTop: spacing.sm, marginBottom: spacing.xs },
+
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.xs },
   chip: {
     paddingVertical: spacing.xs,
@@ -547,6 +790,18 @@ const styles = StyleSheet.create({
   errorRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   errorText: { flex: 1, fontSize: 14, color: colors.error, lineHeight: 20 },
 
+  seedsContainer: { marginBottom: spacing.lg },
+  seedsTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs },
+  poolNote: { fontSize: 12, color: colors.success, marginBottom: spacing.md, lineHeight: 18 },
+  seedCard: { padding: spacing.md, marginBottom: spacing.md },
+  seedTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, marginBottom: 2 },
+  seedTheme: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs },
+  seedHook: { fontSize: 13, fontStyle: 'italic', color: colors.primary, marginBottom: spacing.xs },
+  seedPremise: { fontSize: 13, color: colors.textSecondary, lineHeight: 18, marginBottom: spacing.xs },
+  seedArchRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.sm },
+  seedArchText: { fontSize: 12, color: colors.textMuted },
+  seedUseButton: { marginTop: spacing.xs },
+
   blueprintCard: { padding: spacing.lg, marginBottom: spacing.lg },
   blueprintHeader: {
     flexDirection: 'row',
@@ -567,12 +822,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: colors.primary,
     marginBottom: spacing.sm,
-  },
-  poolNote: {
-    fontSize: 12,
-    color: colors.success,
-    marginBottom: spacing.md,
-    lineHeight: 18,
   },
   blueprintActions: { flexDirection: 'row', gap: spacing.sm },
 
@@ -611,6 +860,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   visibilityBadgeText: { fontSize: 11, fontWeight: '600' },
+  sourceAppBadge: { fontSize: 11, color: colors.textMuted, marginBottom: spacing.xs, fontStyle: 'italic' },
   entryRole: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, fontStyle: 'italic' },
   entrySummary: {
     fontSize: 13,
@@ -618,6 +868,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: spacing.sm,
   },
+  patternText: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
+  noDerivText: { fontSize: 11, color: colors.warning, marginTop: spacing.xs },
 
   tagSection: { marginBottom: spacing.xs },
   tagGroup: { marginBottom: spacing.xs },
