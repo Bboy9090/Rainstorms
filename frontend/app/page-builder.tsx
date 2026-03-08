@@ -19,7 +19,7 @@ import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject } from '../src/context/ProjectContext';
-import { api, BASE_URL } from '../src/utils/api';
+import { api, BASE_URL, buildImageUrl } from '../src/utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -367,7 +367,7 @@ export default function PageBuilderScreen() {
                   </View>
                 ) : currentPageData.illustration_url ? (
                   <Image
-                    source={{ uri: `${BASE_URL}${currentPageData.illustration_url}`.replace(/(?<!:)\/\//g, '/') }}
+                    source={{ uri: buildImageUrl(currentPageData.illustration_url) }}
                     style={styles.illustrationPreviewImage}
                     resizeMode="cover"
                   />

@@ -20,7 +20,7 @@ import { Card } from '../src/components/Card';
 import { Button } from '../src/components/Button';
 import { Loading } from '../src/components/Loading';
 import { useProject } from '../src/context/ProjectContext';
-import { api, BASE_URL } from '../src/utils/api';
+import { api, BASE_URL, buildImageUrl } from '../src/utils/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const PREVIEW_WIDTH = Math.min(SCREEN_W - 48, 600);
@@ -32,13 +32,6 @@ const STYLE_PRESETS = [
   { key: 'cartoon', label: 'Cartoon Picture Book', emoji: '🖍️' },
   { key: 'flat_modern', label: 'Flat Modern Illustration', emoji: '✏️' },
 ];
-
-// Build a full URL for an illustration path (handles /static/... paths)
-function buildImageUrl(illustrationUrl: string): string {
-  if (!illustrationUrl) return '';
-  if (illustrationUrl.startsWith('http')) return illustrationUrl;
-  return `${BASE_URL}${illustrationUrl}`;
-}
 
 export default function StorybookPreviewScreen() {
   const router = useRouter();
@@ -234,7 +227,7 @@ export default function StorybookPreviewScreen() {
           {/* Left: Illustration */}
           <TouchableOpacity
             style={styles.illustrationSide}
-            onPress={() => currentImageUrl ? setShowFullscreenImage(true) : undefined}
+            onPress={currentImageUrl ? () => setShowFullscreenImage(true) : undefined}
             activeOpacity={currentImageUrl ? 0.85 : 1}
           >
             {isGeneratingCurrent ? (

@@ -2573,7 +2573,7 @@ async def _generate_illustration_image(
     Args:
         prompt: The illustration prompt text.
         style_preset: The style preset key (e.g. "watercolor").
-        project_id: Used for file path organisation.
+        project_id: Used for file path organization.
         page_id: Used for file naming.
 
     Returns:
@@ -2598,7 +2598,7 @@ async def _generate_illustration_image(
                 },
                 json={
                     "model": "dall-e-3",
-                    "prompt": full_prompt[:4000],  # DALL-E 3 max prompt length
+                    "prompt": full_prompt[:4096],  # DALL-E 3 max prompt length
                     "n": 1,
                     "size": "1024x1024",
                     "response_format": "b64_json",
