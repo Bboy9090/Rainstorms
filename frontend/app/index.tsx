@@ -83,6 +83,14 @@ export default function HomeScreen() {
           style={styles.primaryButton}
         />
 
+        <Button
+          title="Lore Pool"
+          onPress={() => router.push('/lore-pool')}
+          size="lg"
+          icon={<Ionicons name="library" size={24} color={colors.white} />}
+          style={[styles.primaryButton, { backgroundColor: colors.secondary }]}
+        />
+
         {user && (
           <Button
             title="My Projects"

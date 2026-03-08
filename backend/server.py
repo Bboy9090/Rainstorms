@@ -94,6 +94,11 @@ class Character(BaseModel):
     special_trait: str
     notes: str = ""
     visual_tags: Optional[dict] = None  # For visual consistency in illustrations
+    # Lore Pool fields
+    visibility: str = "private"  # private | shared_archetype | public_template | demo_only
+    is_locked: bool = False
+    origin_type: str = "user"  # user | demo | generated_from_pool
+    shared_template_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class CharacterCreate(BaseModel):
@@ -145,6 +150,11 @@ class Project(BaseModel):
     outline: List[str] = []
     story_memory: Optional[dict] = None  # Story Consistency Engine data
     lore_universe_id: Optional[str] = None  # Linked LoreEngine universe
+    # Lore Pool fields
+    visibility: str = "private"  # private | shared_archetype | public_template | demo_only
+    is_locked: bool = False
+    origin_type: str = "user"  # user | demo | generated_from_pool
+    shared_template_id: Optional[str] = None
     is_demo: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -248,6 +258,51 @@ class StorytimeScript(BaseModel):
     narrator_direction: str  # e.g., "soft voice", "excited voice"
     character_lines: List[dict]  # [{character: "Milo", line: "Oh no!", direction: "nervous"}]
     pacing_cue: str  # e.g., "pause for effect", "speed up"
+
+# ==================== LORE POOL MODELS ====================
+
+# Allowed visibility values
+VISIBILITY_OPTIONS = {"private", "shared_archetype", "public_template", "demo_only"}
+
+class LorePoolEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    source_type: str  # character | story_seed | faction | world_seed | book_concept
+    source_id: str
+    owner_user_id: Optional[str] = None
+    visibility: str  # shared_archetype | public_template | demo_only
+    archetype_name: str = ""
+    role_type: str = ""
+    tone: str = ""
+    age_band: str = ""
+    visual_tags: List[str] = []
+    theme_tags: List[str] = []
+    summary_template: str = ""
+    safety_level: str = "safe"  # safe | flagged | locked
+    # Moderation flags
+    flag_suspected_copying: bool = False
+    flag_locked_archetype: bool = False
+    flag_admin_reviewed: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class LorePoolShareRequest(BaseModel):
+    source_type: str  # character | book_concept
+    source_id: str
+    visibility: str  # shared_archetype | public_template
+
+class LorePoolGenerateRequest(BaseModel):
+    filters: List[str] = []  # bedtime, funny, adventure, emotional, fantasy, sibling, animal_hero, magic
+    tone: Optional[str] = None
+    age_range: Optional[str] = None
+    page_count: int = 10
+
+class VisibilityUpdate(BaseModel):
+    visibility: str
+
+class LorePoolFlagRequest(BaseModel):
+    flag_suspected_copying: Optional[bool] = None
+    flag_locked_archetype: Optional[bool] = None
+    flag_admin_reviewed: Optional[bool] = None
 
 # ==================== AUTH HELPERS ====================
 
@@ -1784,6 +1839,429 @@ async def root():
 @api_router.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+# ==================== LORE POOL ====================
+
+# -- Abstraction Engine helpers --
+
+def _abstract_character(char: dict) -> dict:
+    """
+    Strip exact names, summaries, and canon references from a character
+    and return an abstracted archetype pattern safe for the shared pool.
+    """
+    role = char.get("role", "supporting")
+    personality = char.get("personality", "")
+    appearance = char.get("appearance", "")
+    special_trait = char.get("special_trait", "")
+
+    # Build visual_tags from appearance keywords without exact names
+    visual_keywords = [
+        w.lower() for w in appearance.replace(",", " ").split()
+        if len(w) > 3 and w.lower() not in {
+            "with", "and", "the", "has", "have", "wears", "wear", "that", "from",
+            "into", "when", "them", "their", "always", "looks", "drawn"
+        }
+    ]
+    visual_tags = list(dict.fromkeys(visual_keywords))[:8]  # deduplicate, cap at 8
+
+    # Map role to archetype role_type
+    role_map = {
+        "main": "protagonist hero",
+        "supporting": "supporting companion",
+        "antagonist": "antagonist / villain",
+        "minor": "minor role",
+    }
+    role_type = role_map.get(role, role)
+
+    # Build summary_template from personality + trait, removing names
+    summary_template = ""
+    if personality:
+        summary_template = f"A {role_type} who is {personality[:120]}"
+    if special_trait:
+        summary_template += f". Special trait: {special_trait[:80]}"
+
+    return {
+        "archetype_name": f"{role_type.title()} Archetype",
+        "role_type": role_type,
+        "visual_tags": visual_tags,
+        "summary_template": summary_template,
+    }
+
+
+def _abstract_project(project: dict) -> dict:
+    """
+    Strip exact story details from a project and return an abstracted
+    book-concept pattern safe for the shared pool.
+    """
+    tone = project.get("tone", "")
+    age_range = project.get("age_range", "")
+    theme = project.get("theme", "")
+
+    # Derive theme_tags from tone and theme, no story-specific names
+    raw_tags = (tone + " " + theme).lower().replace(",", " ").split()
+    stop_words = {
+        "the", "and", "with", "for", "that", "from", "into", "when",
+        "their", "about", "between", "what", "being", "power", "learns"
+    }
+    theme_tags = list(dict.fromkeys(
+        w for w in raw_tags if len(w) > 3 and w not in stop_words
+    ))[:10]
+
+    # Build summary_template from theme only (no title, no outline details)
+    summary_template = f"A story exploring {theme[:150]}" if theme else ""
+
+    return {
+        "archetype_name": "Book Concept Archetype",
+        "role_type": "book_concept",
+        "tone": tone,
+        "age_band": age_range,
+        "theme_tags": theme_tags,
+        "summary_template": summary_template,
+    }
+
+
+POOL_FILTER_TAG_MAP = {
+    "bedtime": ["bedtime", "sleep", "calm", "cozy", "night"],
+    "funny": ["funny", "humor", "comedy", "silly", "laugh"],
+    "adventure": ["adventure", "adventurous", "brave", "quest", "journey"],
+    "emotional": ["emotional", "empathy", "feelings", "love", "heart"],
+    "fantasy": ["fantasy", "magic", "magical", "wizard", "dragon"],
+    "sibling": ["sibling", "brother", "sister", "family"],
+    "animal_hero": ["animal", "dog", "cat", "rabbit", "bear", "fox", "bird"],
+    "magic": ["magic", "magical", "enchanted", "spell", "wand"],
+}
+
+
+def _entry_matches_filters(entry: dict, filters: List[str]) -> bool:
+    if not filters:
+        return True
+    all_tags = set(
+        t.lower() for t in (entry.get("theme_tags", []) + entry.get("visual_tags", []))
+    )
+    all_tags.add(entry.get("tone", "").lower())
+    all_tags.add(entry.get("role_type", "").lower())
+    all_tags.add(entry.get("summary_template", "").lower())
+
+    for f in filters:
+        keywords = POOL_FILTER_TAG_MAP.get(f, [f])
+        # At least one keyword from this filter must appear in any tag/text
+        if any(kw in " ".join(all_tags) for kw in keywords):
+            return True
+    return False
+
+
+# -- Lore Pool API endpoints --
+
+@api_router.put("/projects/{project_id}/visibility")
+async def update_project_visibility(
+    project_id: str,
+    body: VisibilityUpdate,
+    user=Depends(require_auth),
+):
+    """Update the visibility of a project (private / shared_archetype / public_template)."""
+    if body.visibility not in VISIBILITY_OPTIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"visibility must be one of: {sorted(VISIBILITY_OPTIONS)}"
+        )
+    project = await db.projects.find_one({"id": project_id, "user_id": user["user_id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"visibility": body.visibility, "updated_at": datetime.utcnow()}}
+    )
+    return {"id": project_id, "visibility": body.visibility}
+
+
+@api_router.put("/characters/{character_id}/visibility")
+async def update_character_visibility(
+    character_id: str,
+    body: VisibilityUpdate,
+    user=Depends(require_auth),
+):
+    """Update the visibility of a character (private / shared_archetype / public_template)."""
+    if body.visibility not in VISIBILITY_OPTIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"visibility must be one of: {sorted(VISIBILITY_OPTIONS)}"
+        )
+    char = await db.characters.find_one({"id": character_id})
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+    # Verify ownership via the project
+    project = await db.projects.find_one({"id": char["project_id"], "user_id": user["user_id"]})
+    if not project:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this character")
+    await db.characters.update_one(
+        {"id": character_id},
+        {"$set": {"visibility": body.visibility}}
+    )
+    return {"id": character_id, "visibility": body.visibility}
+
+
+@api_router.post("/lore-pool/share")
+async def share_to_lore_pool(
+    request: LorePoolShareRequest,
+    user=Depends(require_auth),
+):
+    """
+    Abstract and share a project or character into the shared Lore Pool.
+    Only shared_archetype and public_template visibility values are accepted.
+    Private content is NEVER accepted.
+    """
+    if request.visibility not in {"shared_archetype", "public_template"}:
+        raise HTTPException(
+            status_code=422,
+            detail="Only 'shared_archetype' or 'public_template' can be shared to the pool."
+        )
+
+    abstracted: dict = {}
+
+    if request.source_type == "character":
+        char = await db.characters.find_one({"id": request.source_id})
+        if not char:
+            raise HTTPException(status_code=404, detail="Character not found")
+        project = await db.projects.find_one(
+            {"id": char["project_id"], "user_id": user["user_id"]}
+        )
+        if not project:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        # Refuse if the character is marked private or locked
+        if char.get("is_locked"):
+            raise HTTPException(status_code=403, detail="Character is locked and cannot be shared.")
+        abstracted = _abstract_character(char)
+        abstracted["tone"] = project.get("tone", "")
+        abstracted["age_band"] = project.get("age_range", "")
+        abstracted["theme_tags"] = []
+
+    elif request.source_type == "book_concept":
+        project = await db.projects.find_one(
+            {"id": request.source_id, "user_id": user["user_id"]}
+        )
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if project.get("is_locked"):
+            raise HTTPException(status_code=403, detail="Project is locked and cannot be shared.")
+        abstracted = _abstract_project(project)
+        abstracted["visual_tags"] = []
+
+    else:
+        raise HTTPException(
+            status_code=422,
+            detail="source_type must be 'character' or 'book_concept'."
+        )
+
+    # Check for existing pool entry for this source to avoid duplicates
+    existing = await db.shared_lore_pool.find_one(
+        {"source_id": request.source_id, "owner_user_id": user["user_id"]}
+    )
+    if existing:
+        # Update visibility and abstracted fields
+        await db.shared_lore_pool.update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                "visibility": request.visibility,
+                "updated_at": datetime.utcnow(),
+                **abstracted,
+            }}
+        )
+        logger.info("Updated Lore Pool entry %s for source %s", existing["id"], request.source_id)
+        return {**existing, **abstracted, "visibility": request.visibility}
+
+    entry = LorePoolEntry(
+        source_type=request.source_type,
+        source_id=request.source_id,
+        owner_user_id=user["user_id"],
+        visibility=request.visibility,
+        **abstracted,
+    )
+    await db.shared_lore_pool.insert_one(entry.dict())
+    logger.info("New Lore Pool entry %s (type=%s, visibility=%s)", entry.id, request.source_type, request.visibility)
+    return entry.dict()
+
+
+@api_router.get("/lore-pool")
+async def list_lore_pool(
+    filters: Optional[str] = None,  # comma-separated filter tags
+    limit: int = 50,
+):
+    """
+    List Lore Pool entries that are safe to browse.
+    Only shared_archetype, public_template, and demo_only entries are returned.
+    Private entries are NEVER included.
+    """
+    filter_tags = [f.strip() for f in filters.split(",")] if filters else []
+    cursor = db.shared_lore_pool.find(
+        {
+            "visibility": {"$in": ["shared_archetype", "public_template", "demo_only"]},
+            "safety_level": "safe",
+            "flag_suspected_copying": {"$ne": True},
+        }
+    ).sort("created_at", -1).limit(max(1, min(limit, 200)))
+    docs = await cursor.to_list(max(1, min(limit, 200)))
+
+    entries = []
+    for doc in docs:
+        # Strip owner_user_id before returning (privacy)
+        doc.pop("owner_user_id", None)
+        doc.pop("source_id", None)
+        # Convert datetime fields
+        for k in ("created_at", "updated_at"):
+            if isinstance(doc.get(k), datetime):
+                doc[k] = doc[k].isoformat()
+        if filter_tags and not _entry_matches_filters(doc, filter_tags):
+            continue
+        entries.append(doc)
+
+    return entries
+
+
+@api_router.post("/lore-pool/generate")
+async def generate_from_lore_pool(
+    request: LorePoolGenerateRequest,
+    user=Depends(get_current_user),
+):
+    """
+    Generate a fresh story blueprint inspired by shared Lore Pool archetypes.
+    Never copies exact names, plots, or summaries.
+    Combines multiple archetypes to produce an original result.
+    """
+    # Fetch eligible pool entries
+    cursor = db.shared_lore_pool.find(
+        {
+            "visibility": {"$in": ["shared_archetype", "public_template", "demo_only"]},
+            "safety_level": "safe",
+            "flag_suspected_copying": {"$ne": True},
+        }
+    ).limit(100)
+    all_entries = await cursor.to_list(100)
+
+    if request.filters:
+        pool = [e for e in all_entries if _entry_matches_filters(e, request.filters)]
+    else:
+        pool = all_entries
+
+    if not pool:
+        raise HTTPException(
+            status_code=404,
+            detail="No shared archetypes found matching your filters. Try different filter tags or ask others to share archetypes first."
+        )
+
+    import random
+    # Pick up to 5 entries to blend
+    selected = random.sample(pool, min(5, len(pool)))
+
+    # Build an inspiration block from the archetypes (no exact names / summaries)
+    archetype_lines = []
+    for e in selected:
+        parts = []
+        if e.get("role_type"):
+            parts.append(f"role: {e['role_type']}")
+        if e.get("tone"):
+            parts.append(f"tone: {e['tone']}")
+        if e.get("age_band"):
+            parts.append(f"age band: {e['age_band']}")
+        if e.get("theme_tags"):
+            parts.append(f"themes: {', '.join(e['theme_tags'][:5])}")
+        if e.get("visual_tags"):
+            parts.append(f"visuals: {', '.join(e['visual_tags'][:4])}")
+        if e.get("summary_template"):
+            parts.append(f"pattern: {e['summary_template'][:100]}")
+        archetype_lines.append(" | ".join(parts))
+
+    inspiration_block = "\n".join(f"- {line}" for line in archetype_lines)
+    tone = request.tone or selected[0].get("tone", "cozy")
+    age_range = request.age_range or selected[0].get("age_band", "4-6")
+
+    logger.info(
+        "Generating from Lore Pool: %d archetypes selected, filters=%s",
+        len(selected), request.filters
+    )
+
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY,
+        session_id=f"lorepool-{uuid.uuid4()}",
+        system_message=(
+            "You are a creative children's book author. "
+            "You generate ORIGINAL stories inspired by creative patterns and archetypes. "
+            "You NEVER copy exact character names, plot lines, or stories. "
+            "You remix, recombine, and invent fresh new stories. "
+            "Always respond with valid JSON only."
+        )
+    ).with_model("openai", "gpt-4.1")
+
+    prompt = f"""You are given creative archetype patterns from a shared inspiration pool.
+Generate a COMPLETELY ORIGINAL children's picture book concept inspired by these patterns.
+Do NOT copy any names or exact story beats — invent everything fresh.
+
+INSPIRATION PATTERNS (archetypes only — remix freely):
+{inspiration_block}
+
+TARGET TONE: {tone}
+AGE RANGE: {age_range} years
+PAGE COUNT: {request.page_count}
+
+Rules:
+- Rename ALL characters (no copying archetype names)
+- Create a fresh setting
+- Build an original plot
+- Keep tone and age appropriateness consistent
+
+Respond with JSON:
+{{
+  "title": "...",
+  "hook": "...",
+  "summary": "...",
+  "theme": "...",
+  "characters": [
+    {{"name": "...", "role": "main", "personality": "...", "appearance": "...", "special_trait": "..."}}
+  ],
+  "outline": ["Page 1: ...", "Page 2: ...", ...]
+}}
+"""
+    response = await chat.chat(UserMessage(text=prompt))
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        blueprint = json.loads(cleaned.strip())
+    except Exception as exc:
+        logger.error("Lore Pool generation JSON parse error: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to generate from Lore Pool. Please try again.")
+
+    blueprint["_generated_from_pool"] = True
+    blueprint["_archetype_count"] = len(selected)
+    logger.info("Lore Pool generation complete: title='%s'", blueprint.get("title", ""))
+    return blueprint
+
+
+@api_router.put("/lore-pool/{entry_id}/flag")
+async def flag_lore_pool_entry(
+    entry_id: str,
+    request: LorePoolFlagRequest,
+    user=Depends(require_auth),
+):
+    """Update moderation flags on a Lore Pool entry (admin / self-moderation)."""
+    entry = await db.shared_lore_pool.find_one({"id": entry_id})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Lore Pool entry not found")
+
+    updates: dict = {"updated_at": datetime.utcnow()}
+    if request.flag_suspected_copying is not None:
+        updates["flag_suspected_copying"] = request.flag_suspected_copying
+    if request.flag_locked_archetype is not None:
+        updates["flag_locked_archetype"] = request.flag_locked_archetype
+    if request.flag_admin_reviewed is not None:
+        updates["flag_admin_reviewed"] = request.flag_admin_reviewed
+
+    if updates:
+        await db.shared_lore_pool.update_one({"id": entry_id}, {"$set": updates})
+        logger.info("Lore Pool entry %s flagged: %s", entry_id, updates)
+
+    return {"id": entry_id, "updated": list(k for k in updates if k != "updated_at")}
 
 # Include the router in the main app
 app.include_router(api_router)
