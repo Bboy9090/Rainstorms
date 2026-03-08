@@ -240,6 +240,28 @@ export default function ExportScreen() {
         />
       </Card>
 
+      {/* Publishing Center CTA */}
+      <Card style={[styles.exportCard, { borderWidth: 2, borderColor: colors.primary }]}>
+        <View style={styles.exportHeader}>
+          <View style={[styles.exportIcon, { backgroundColor: '#EEF2FF' }]}>
+            <Ionicons name="library" size={24} color={colors.primary} />
+          </View>
+          <View style={styles.exportInfo}>
+            <Text style={styles.exportTitle}>Publishing Center</Text>
+            <Text style={styles.exportDesc}>
+              Prepare print-ready files for Amazon KDP, IngramSpark, and Lulu.
+              Add metadata, configure trim size, validate, and export.
+            </Text>
+          </View>
+        </View>
+        <Button
+          title="Open Publishing Center"
+          onPress={() => router.push('/publishing-center')}
+          icon={<Ionicons name="arrow-forward" size={18} color={colors.white} />}
+          style={styles.exportButton}
+        />
+      </Card>
+
       {/* Continue Working */}
       <View style={styles.bottomActions}>
         <Button
