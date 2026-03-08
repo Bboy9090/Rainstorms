@@ -1,9 +1,11 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import base64
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -39,6 +41,14 @@ JWT_EXPIRATION_HOURS = 72
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
+# OpenAI API key for image generation (defaults to EMERGENT_LLM_KEY for environments
+# where the same key proxies both text and image generation endpoints)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
+
+# Directory where generated illustration images are stored
+ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
+ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
+
 # SagaArchitect / LoreEngine base URL for remote story-context fetch
 SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
 
@@ -47,6 +57,9 @@ init_lore_engine(db, EMERGENT_LLM_KEY)
 
 # Create the main app
 app = FastAPI(title="Rainstorms API", version="1.0.0")
+
+# Serve generated illustrations as static files
+app.mount("/static", StaticFiles(directory=str(ROOT_DIR / "static")), name="static")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -117,6 +130,7 @@ class PageData(BaseModel):
     outline_beat: str
     page_text: str = ""
     illustration_prompt: str = ""
+    illustration_url: str = ""   # URL of the generated illustration image
     emotional_beat: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -181,6 +195,38 @@ class PublishingMetadataUpdate(BaseModel):
     book_format: Optional[dict] = None
 
 
+# ── Illustration Style Presets ──────────────────────────────────────────────────
+
+STYLE_PRESETS: dict = {
+    "watercolor": {
+        "label": "Storybook Watercolor",
+        "suffix": "Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette, hand-painted look",
+        "emoji": "🎨",
+    },
+    "pastel": {
+        "label": "Soft Pastel Bedtime",
+        "suffix": "Style: soft pastel bedtime illustration, dreamy muted tones, cozy warm lighting, gentle children's book art, soothing color palette",
+        "emoji": "🌙",
+    },
+    "cartoon": {
+        "label": "Cartoon Picture Book",
+        "suffix": "Style: bright cartoon picture book illustration, bold outlines, vivid colors, playful expressive characters, cheerful composition",
+        "emoji": "🖍️",
+    },
+    "flat_modern": {
+        "label": "Flat Modern Illustration",
+        "suffix": "Style: flat modern children's illustration, clean geometric shapes, contemporary color palette, minimalist composition, editorial picture book style",
+        "emoji": "✏️",
+    },
+}
+DEFAULT_STYLE_PRESET = "watercolor"
+
+
+class IllustrationStyleUpdate(BaseModel):
+    """Body for PUT /api/projects/{id}/illustration-style."""
+    style_preset: str  # watercolor | pastel | cartoon | flat_modern
+
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None
@@ -207,6 +253,8 @@ class Project(BaseModel):
     series_id: Optional[str] = None
     series_order: Optional[int] = None
     series_title: Optional[str] = None
+    # Illustration system fields
+    illustration_style: str = DEFAULT_STYLE_PRESET  # style preset key
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -2508,6 +2556,278 @@ async def export_publishing_package(
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ==================== ILLUSTRATION SYSTEM ====================
+
+async def _generate_illustration_image(
+    prompt: str,
+    style_preset: str,
+    project_id: str,
+    page_id: str,
+) -> str:
+    """
+    Generate an illustration for a single page using OpenAI's image generation API.
+    Saves the image to the local static directory and returns the relative URL path.
+
+    Args:
+        prompt: The illustration prompt text.
+        style_preset: The style preset key (e.g. "watercolor").
+        project_id: Used for file path organisation.
+        page_id: Used for file naming.
+
+    Returns:
+        Relative URL path to the saved image (e.g. "/static/illustrations/...").
+        Returns empty string if image generation is not configured or fails.
+    """
+    if not OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY not set — skipping image generation")
+        return ""
+
+    # Append the style suffix to the prompt
+    style = STYLE_PRESETS.get(style_preset, STYLE_PRESETS[DEFAULT_STYLE_PRESET])
+    full_prompt = f"{prompt}\n\n{style['suffix']}"
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            response = await http_client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": full_prompt[:4000],  # DALL-E 3 max prompt length
+                    "n": 1,
+                    "size": "1024x1024",
+                    "response_format": "b64_json",
+                    "quality": "standard",
+                },
+            )
+        response.raise_for_status()
+        data = response.json()
+        image_b64 = data["data"][0]["b64_json"]
+
+    except httpx.HTTPStatusError as exc:
+        logger.error("Image generation HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
+        return ""
+    except Exception as exc:
+        logger.error("Image generation failed: %s", exc)
+        return ""
+
+    # Save image to local static directory
+    proj_dir = ILLUSTRATIONS_DIR / project_id
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    image_path = proj_dir / f"{page_id}.png"
+
+    image_bytes = base64.b64decode(image_b64)
+    image_path.write_bytes(image_bytes)
+
+    logger.info("Illustration saved: %s (%d bytes)", image_path, len(image_bytes))
+    return f"/static/illustrations/{project_id}/{page_id}.png"
+
+
+@api_router.get("/illustration-styles")
+async def get_illustration_styles():
+    """Return available illustration style presets."""
+    return {
+        "styles": [
+            {"key": key, "label": v["label"], "emoji": v["emoji"]}
+            for key, v in STYLE_PRESETS.items()
+        ],
+        "default": DEFAULT_STYLE_PRESET,
+    }
+
+
+@api_router.put("/projects/{project_id}/illustration-style")
+async def update_illustration_style(
+    project_id: str,
+    body: IllustrationStyleUpdate,
+    user=Depends(get_current_user),
+):
+    """
+    PUT /api/projects/{id}/illustration-style
+    Set the illustration style preset for a project (style lock system).
+    """
+    if body.style_preset not in STYLE_PRESETS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"style_preset must be one of: {list(STYLE_PRESETS.keys())}"
+        )
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"illustration_style": body.style_preset, "updated_at": datetime.utcnow()}}
+    )
+    preset = STYLE_PRESETS[body.style_preset]
+    return {
+        "project_id": project_id,
+        "illustration_style": body.style_preset,
+        "label": preset["label"],
+        "emoji": preset["emoji"],
+    }
+
+
+@api_router.post("/projects/{project_id}/pages/{page_id}/illustrations/generate")
+async def generate_page_illustration(
+    project_id: str,
+    page_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/projects/{id}/pages/{page_id}/illustrations/generate
+    Generate an illustration image for a single page and store the URL in the page document.
+    """
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    page = await db.pages.find_one({"id": page_id, "project_id": project_id})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    prompt = page.get("illustration_prompt", "").strip()
+    if not prompt:
+        raise HTTPException(
+            status_code=422,
+            detail="Page has no illustration prompt. Generate a prompt first."
+        )
+
+    style_preset = project.get("illustration_style", DEFAULT_STYLE_PRESET)
+    illustration_url = await _generate_illustration_image(
+        prompt=prompt,
+        style_preset=style_preset,
+        project_id=project_id,
+        page_id=page_id,
+    )
+
+    if not illustration_url:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Image generation is not available. "
+                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
+            )
+        )
+
+    await db.pages.update_one(
+        {"id": page_id},
+        {"$set": {"illustration_url": illustration_url, "updated_at": datetime.utcnow()}}
+    )
+    logger.info("Illustration generated for page %s (project %s)", page_id, project_id)
+    return {
+        "page_id": page_id,
+        "illustration_url": illustration_url,
+        "style_preset": style_preset,
+    }
+
+
+@api_router.post("/projects/{project_id}/illustrations/batch")
+async def batch_generate_illustrations(
+    project_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/projects/{id}/illustrations/batch
+    Generate illustrations for ALL pages in the project that have an illustration_prompt.
+    Returns a summary of successes and failures — does not stop on individual page errors.
+    """
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Image generation is not available. "
+                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
+            )
+        )
+
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(100)
+    style_preset = project.get("illustration_style", DEFAULT_STYLE_PRESET)
+
+    results = []
+    success_count = 0
+    skip_count = 0
+    fail_count = 0
+
+    for page in pages:
+        page_id = page["id"]
+        page_number = page.get("page_number", "?")
+        prompt = page.get("illustration_prompt", "").strip()
+
+        if not prompt:
+            skip_count += 1
+            results.append({"page_id": page_id, "page_number": page_number, "status": "skipped", "reason": "no prompt"})
+            continue
+
+        illustration_url = await _generate_illustration_image(
+            prompt=prompt,
+            style_preset=style_preset,
+            project_id=project_id,
+            page_id=page_id,
+        )
+
+        if illustration_url:
+            await db.pages.update_one(
+                {"id": page_id},
+                {"$set": {"illustration_url": illustration_url, "updated_at": datetime.utcnow()}}
+            )
+            success_count += 1
+            results.append({"page_id": page_id, "page_number": page_number, "status": "success", "illustration_url": illustration_url})
+        else:
+            fail_count += 1
+            results.append({"page_id": page_id, "page_number": page_number, "status": "failed"})
+
+    logger.info(
+        "Batch illustration complete for project %s: %d success, %d skipped, %d failed",
+        project_id, success_count, skip_count, fail_count
+    )
+    return {
+        "project_id": project_id,
+        "style_preset": style_preset,
+        "total_pages": len(pages),
+        "success_count": success_count,
+        "skip_count": skip_count,
+        "fail_count": fail_count,
+        "results": results,
+    }
+
+
+@api_router.delete("/projects/{project_id}/pages/{page_id}/illustrations")
+async def delete_page_illustration(
+    project_id: str,
+    page_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    DELETE /api/projects/{id}/pages/{page_id}/illustrations
+    Remove the illustration from a page (clears illustration_url and deletes the file).
+    """
+    page = await db.pages.find_one({"id": page_id, "project_id": project_id})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    existing_url = page.get("illustration_url", "")
+    if existing_url:
+        # Remove local file if it exists
+        file_path = ROOT_DIR / existing_url.lstrip("/")
+        try:
+            file_path.unlink(missing_ok=True)
+        except Exception as exc:
+            logger.warning("Could not delete illustration file %s: %s", file_path, exc)
+
+    await db.pages.update_one(
+        {"id": page_id},
+        {"$set": {"illustration_url": "", "updated_at": datetime.utcnow()}}
+    )
+    return {"page_id": page_id, "illustration_url": ""}
 
 
 # ==================== DEMO PROJECT ====================

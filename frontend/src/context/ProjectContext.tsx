@@ -30,6 +30,7 @@ export interface Page {
   outline_beat: string;
   page_text: string;
   illustration_prompt: string;
+  illustration_url: string;
   emotional_beat: string;
 }
 
@@ -46,6 +47,7 @@ export interface Project {
   summary: string;
   outline: string[];
   is_demo: boolean;
+  illustration_style: string;
 }
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';

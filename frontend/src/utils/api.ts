@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 
-const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
+export const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
   process.env.EXPO_PUBLIC_BACKEND_URL ||
   'https://rainstorms.preview.emergentagent.com';
 
