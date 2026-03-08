@@ -16,7 +16,9 @@ from datetime import datetime
 import uuid
 import json
 import logging
+import os
 
+import httpx
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,10 @@ def init_lore_engine(db, llm_key: str):
     global _db, _llm_key
     _db = db
     _llm_key = llm_key
+
+
+def _saga_architect_base_url() -> str:
+    return os.environ.get("SAGA_ARCHITECT_BASE_URL", "").rstrip("/")
 
 
 def _db_ref():
@@ -360,6 +366,33 @@ def _memory_to_prompt_text(memory: dict) -> str:
 
 @lore_router.get("", response_model=List[Universe])
 async def list_universes():
+    saga_url = _saga_architect_base_url()
+    if saga_url:
+        remote_url = f"{saga_url}/api/universes"
+        logger.info("Fetching universe list from SagaArchitect: %s", remote_url)
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as http:
+                resp = await http.get(remote_url)
+            if resp.status_code == 200:
+                data = resp.json()
+                # SagaArchitect may return a list directly or a dict with "universes" key
+                if isinstance(data, list):
+                    universes_raw = data
+                elif isinstance(data, dict) and "universes" in data:
+                    universes_raw = data["universes"]
+                else:
+                    logger.warning(
+                        "Unexpected SagaArchitect universe list shape (expected list or {universes:[]}): %s",
+                        type(data).__name__,
+                    )
+                    universes_raw = []
+                logger.info("Received %d universes from SagaArchitect", len(universes_raw))
+                return universes_raw
+            else:
+                logger.warning("SagaArchitect universe list returned %s; falling back to local DB", resp.status_code)
+        except httpx.RequestError as exc:
+            logger.warning("Could not reach SagaArchitect (%s): %s; falling back to local DB", remote_url, exc)
+
     db = _db_ref()
     docs = await db.lore_universes.find().sort("created_at", -1).to_list(100)
     return [Universe(**d) for d in docs]

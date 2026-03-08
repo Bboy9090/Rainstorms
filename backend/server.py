@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import jwt
 import bcrypt
 import json
+import httpx
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -37,6 +38,9 @@ JWT_EXPIRATION_HOURS = 72
 
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# SagaArchitect / LoreEngine base URL for remote story-context fetch
+SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
 
 # Initialise LoreEngine with database and LLM key
 init_lore_engine(db, EMERGENT_LLM_KEY)
@@ -388,6 +392,22 @@ Return ONLY the JSON, no other text."""
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse storytime script JSON: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate storytime script.")
+
+
+def _normalize_lore_context(data: dict) -> dict:
+    """
+    Normalise a story-context payload from SagaArchitect into the internal field
+    convention expected by generate_blueprint().
+
+    SagaArchitect uses 'name' and 'tone' at the top level; generate_blueprint
+    expects 'universe_name' and 'universe_tone'.  Both shapes are accepted.
+    """
+    ctx = dict(data)
+    if "universe_name" not in ctx:
+        ctx["universe_name"] = ctx.get("name", "")
+    if "universe_tone" not in ctx:
+        ctx["universe_tone"] = ctx.get("tone", "")
+    return ctx
 
 async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int, lesson: str = None, legacy_character: dict = None, lore_context: dict = None) -> dict:
     """Generate story blueprint using AI"""
@@ -769,54 +789,49 @@ async def generate_story_blueprint(request: BlueprintRequest, lesson: str = None
     # Fetch LoreEngine story context when a universe is linked
     lore_context = None
     if request.lore_universe_id:
-        universe = await db.lore_universes.find_one({"id": request.lore_universe_id})
-        if not universe:
+        if not SAGA_ARCHITECT_BASE_URL:
             raise HTTPException(
-                status_code=404,
-                detail=f"Universe '{request.lore_universe_id}' not found. Sync it from SagaArchitect first."
+                status_code=503,
+                detail="SAGA_ARCHITECT_BASE_URL is not configured. Set it in the backend .env file."
             )
-        characters = await db.lore_characters.find(
-            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
-        ).to_list(20)
-        factions = await db.lore_factions.find(
-            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
-        ).to_list(20)
-        locations = await db.lore_locations.find(
-            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
-        ).to_list(20)
-        rules = await db.lore_rules.find(
-            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
-        ).to_list(20)
-        events = await db.lore_timeline_events.find(
-            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
-        ).sort("era_marker", 1).to_list(10)
-
-        lore_context = {
-            "universe_name": universe["name"],
-            "universe_tone": universe.get("tone", ""),
-            "world_overview": universe.get("world_overview", ""),
-            "current_conflict": universe.get("current_conflict", ""),
-            "world_rules": [
-                {"rule_type": r.get("rule_type", ""), "rule": r["rule"], "consequence": r.get("consequence", "")}
-                for r in rules
-            ],
-            "relevant_characters": [
-                {"name": c["name"], "role": c.get("role", ""), "appearance": c.get("appearance", ""), "status": c.get("status", "alive")}
-                for c in characters
-            ],
-            "relevant_factions": [
-                {"name": f["name"], "ideology": f.get("ideology", ""), "territory": f.get("territory", "")}
-                for f in factions
-            ],
-            "relevant_locations": [
-                {"name": l["name"], "type": l.get("type", ""), "description": l.get("description", "")}
-                for l in locations
-            ],
-            "timeline_context": [
-                {"era": e.get("era_marker", ""), "title": e["title"], "summary": e.get("summary", "")}
-                for e in events
-            ],
-        }
+        story_context_url = f"{SAGA_ARCHITECT_BASE_URL}/api/universes/{request.lore_universe_id}/story-context"
+        logger.info("Fetching story context from SagaArchitect: %s", story_context_url)
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client_http:
+                resp = await client_http.get(story_context_url)
+            if resp.status_code == 404:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Universe '{request.lore_universe_id}' not found in SagaArchitect."
+                )
+            if resp.status_code != 200:
+                logger.error("SagaArchitect story-context returned %s: %s", resp.status_code, resp.text)
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"SagaArchitect returned an unexpected status ({resp.status_code}). Cannot fetch story context."
+                )
+            try:
+                raw_context = resp.json()
+            except Exception as parse_exc:
+                logger.error("SagaArchitect story-context response is not valid JSON: %s", parse_exc)
+                raise HTTPException(
+                    status_code=502,
+                    detail="SagaArchitect returned a non-JSON response. Cannot parse story context."
+                )
+            lore_context = _normalize_lore_context(raw_context)
+            logger.info(
+                "Story context loaded for universe '%s' (%s characters, %s factions, %s world rules)",
+                lore_context.get("universe_name", request.lore_universe_id),
+                len(lore_context.get("relevant_characters", [])),
+                len(lore_context.get("relevant_factions", [])),
+                len(lore_context.get("world_rules", [])),
+            )
+        except httpx.RequestError as exc:
+            logger.error("Failed to reach SagaArchitect at %s: %s", story_context_url, exc)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Could not reach SagaArchitect ({SAGA_ARCHITECT_BASE_URL}). Check SAGA_ARCHITECT_BASE_URL and ensure the service is running."
+            )
 
     blueprint = await generate_blueprint(
         request.original_idea,
