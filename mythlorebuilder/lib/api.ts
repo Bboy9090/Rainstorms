@@ -169,6 +169,57 @@ export interface CanonMemory {
   timeline: { title: string; era: string; summary: string }[];
 }
 
+/**
+ * StoryContext — the condensed/processed response returned by
+ * GET /api/universes/{id}/story-context.
+ *
+ * This is what Rainstorms receives and injects directly into AI story-generation
+ * prompts.  It is intentionally compact (only canon-status="canon" objects,
+ * minimal fields per entity).
+ */
+export interface StoryContext {
+  universe_id: string;
+  universe_name: string;
+  universe_tone: string;
+  world_overview: string;
+  current_conflict: string;
+  world_rules: { rule_type: string; rule: string; consequence: string }[];
+  relevant_characters: {
+    name: string;
+    title: string;
+    role: string;
+    appearance: string;
+    motivations: string;
+    status: string;
+  }[];
+  relevant_factions: { name: string; ideology: string; territory: string }[];
+  relevant_locations: { name: string; type: string; description: string }[];
+  timeline_context: { era: string; title: string; summary: string }[];
+}
+
+/**
+ * CanonBlockInput — the raw, unprocessed lore payload.
+ *
+ * This is the format exported by MythLoreBuilder's "Export Canon" button and the
+ * format Rainstorms (or any external tool) should send when it needs to embed full
+ * lore data into its own workflow.
+ *
+ * It contains the FULL objects for every lore entity (not just the condensed
+ * story-context fields), so Rainstorms can pick exactly the fields it needs.
+ *
+ * Shape matches the GET /api/lore/demo-universe response and is the input
+ * format for POST /api/lore-engine/canon-block (SagaArchitect compatibility).
+ */
+export interface CanonBlockInput {
+  universe: Universe;
+  characters: LoreCharacter[];
+  factions: Faction[];
+  locations: LoreLocation[];
+  timeline: TimelineEvent[];
+  lore_rules: LoreRule[];
+  story_arcs: StoryArc[];
+}
+
 // ── Universe API ──────────────────────────────────────────────────────────────
 
 export const api = {
@@ -189,7 +240,7 @@ export const api = {
     canonMemory: (id: string) => request<CanonMemory>(`/api/universes/${id}/canon-memory`),
     validate: (id: string) =>
       request<CanonValidationResult>(`/api/universes/${id}/validate`, { method: "POST" }),
-    storyContext: (id: string) => request<unknown>(`/api/universes/${id}/story-context`),
+    storyContext: (id: string) => request<StoryContext>(`/api/universes/${id}/story-context`),
   },
 
   characters: {
@@ -340,3 +391,32 @@ export const api = {
       }>("/api/lore/demo-universe"),
   },
 };
+
+/**
+ * fetchAllLore — assemble a CanonBlockInput for a given universe.
+ *
+ * Fetches the universe object plus all related lore arrays in parallel and
+ * returns the raw CanonBlockInput.  This is what the Export Canon button
+ * downloads and what Rainstorms (or any integration partner) should POST to
+ * the LoreEngine's canon-block endpoint rather than the condensed StoryContext.
+ *
+ * Why raw and not the StoryContext output?
+ *   • StoryContext is already processed/filtered (only canon-status="canon",
+ *     minimal fields).  Sending it back to the API would lose data.
+ *   • CanonBlockInput contains the full objects so the receiving system can
+ *     choose which fields it needs without data loss.
+ */
+export async function fetchAllLore(universeId: string): Promise<CanonBlockInput> {
+  const [universe, characters, factions, locations, timeline, lore_rules, story_arcs] =
+    await Promise.all([
+      api.universes.get(universeId),
+      api.characters.list(universeId),
+      api.factions.list(universeId),
+      api.locations.list(universeId),
+      api.timeline.list(universeId),
+      api.rules.list(universeId),
+      api.arcs.list(universeId),
+    ]);
+
+  return { universe, characters, factions, locations, timeline, lore_rules, story_arcs };
+}

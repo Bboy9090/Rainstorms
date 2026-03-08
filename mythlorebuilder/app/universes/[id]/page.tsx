@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { Card, Button, Spinner, Badge, SectionHeader, Input, Textarea, Select } from "@/components/ui";
-import { api, Universe } from "@/lib/api";
+import { api, Universe, fetchAllLore } from "@/lib/api";
 
 const GENERATE_FIELDS = [
   { key: "genre", label: "Genre", placeholder: "Dark Fantasy, Sci-Fi, Gothic Horror…" },
@@ -21,6 +21,7 @@ export default function UniversePage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [tab, setTab] = useState<"overview" | "generate">("overview");
   const [form, setForm] = useState<Partial<Universe>>({});
   const [error, setError] = useState("");
@@ -74,6 +75,43 @@ export default function UniversePage() {
     }
   }
 
+  /**
+   * Export the universe as a raw CanonBlockInput JSON file.
+   *
+   * We export the FULL unprocessed objects (universe + all lore arrays) so that
+   * Rainstorms or any integration partner receives the complete data they need.
+   *
+   * This is intentionally different from the StoryContext returned by
+   * GET /api/universes/{id}/story-context, which is a condensed/processed
+   * subset.  Sending the processed output back to the API would lose data
+   * (missing fields like `concept`, full faction structures, etc.).
+   *
+   * Rainstorms usage:
+   *   const payload = <contents of downloaded JSON>
+   *   fetch('https://your-lore-engine/api/universes/{id}/story-context')
+   *   // or POST payload to /api/lore-engine/canon-block for SagaArchitect
+   */
+  async function handleExport() {
+    if (!universe) return;
+    setExporting(true);
+    setError("");
+    try {
+      const canonBlock = await fetchAllLore(id);
+      const json = JSON.stringify(canonBlock, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${universe.name.replace(/\s+/g, "_")}_canon.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function setField(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -110,6 +148,13 @@ export default function UniversePage() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleExport}
+                disabled={exporting}
+              >
+                {exporting ? <Spinner size="sm" /> : "📦 Export Canon"}
+              </Button>
               <Button
                 variant="secondary"
                 onClick={() => setTab(tab === "generate" ? "overview" : "generate")}
