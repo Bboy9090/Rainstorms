@@ -47,6 +47,83 @@ Browser-based requests from Rainstorms are therefore permitted without any proxy
 
 ---
 
+## Receiving a Universe from SagaArchitect
+
+### `POST /api/lore/sync`
+
+SagaArchitect's **Sync to Rainstorms** button calls this endpoint.  It sends the complete universe — factions, characters, locations, timeline, story arcs, and lore rules — in a single request.
+
+The endpoint **upserts** every entity: if an entity's `id` already exists in the database it is updated; otherwise a new document is created.  The `universe_id` on every child entity is always overridden to the incoming universe's `id`, so linkage is correct even when SagaArchitect's internal IDs differ from Rainstorms'.
+
+#### Request body
+
+```json
+{
+  "universe": {
+    "id": "abc123",
+    "name": "The Ashen Veil",
+    "genre": "Dark Fantasy",
+    "tone": "Epic, tragic, mythic",
+    "concept": "A world veiled in silver ash after the gods burned out…",
+    "technology_level": "Medieval-industrial",
+    "magic_system": "Storm magic erases memories proportional to power used.",
+    "era": "The Third Ashfall",
+    "core_theme": "The cost of power and the grief of forgetting",
+    "world_overview": "…",
+    "creation_myth": "…",
+    "current_conflict": "…",
+    "prophecy_hooks": "…"
+  },
+  "factions": [
+    {
+      "id": "f1",
+      "name": "Covenant of Embers",
+      "type": "religious_order",
+      "ideology": "The Hearth Pillars are sacred relics.",
+      "leader": "Arch-Keeper Vael",
+      "territory": "Emberveil Monasteries",
+      "allies": [],
+      "enemies": ["Ashen Throne"],
+      "canon_status": "canon"
+    }
+  ],
+  "characters": [
+    {
+      "id": "c1",
+      "name": "Solen Ashveil",
+      "role": "hero",
+      "status": "alive",
+      "faction_id": "f1",
+      "motivations": "Protect the people; find who he was before the forgetting.",
+      "canon_status": "canon"
+    }
+  ],
+  "locations": [ … ],
+  "timeline":  [ … ],
+  "story_arcs": [ … ],
+  "lore_rules": [ … ]
+}
+```
+
+> **Field mapping** — SagaArchitect's `src/lib/rainstorms.ts` translates SagaArchitect's internal field names to Rainstorms' schema before posting, so field names in the request body already match the Rainstorms models.
+
+#### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "universe_id": "abc123",
+  "universe": "created",
+  "created": { "factions": 3, "characters": 3, "locations": 4, "lore_rules": 5 },
+  "updated": {},
+  "total_entities": 15
+}
+```
+
+A subsequent sync of the same universe returns `"universe": "updated"` and entity counts in `"updated"` instead of `"created"`.
+
+---
+
 ## Primary Integration Endpoint
 
 ### `GET /api/universes/{id}/story-context`
@@ -254,6 +331,7 @@ The demo universe includes:
 
 | What you need | Endpoint |
 |---|---|
+| Receive full universe from SagaArchitect | `POST /api/lore/sync` |
 | List universes for a picker | `GET /api/universes` |
 | Story context for AI prompt | `GET /api/universes/{id}/story-context` |
 | Full raw lore (CanonBlockInput) | Download via **Export Canon** in MythLoreBuilder, or `GET /api/lore/demo-universe` for the demo |

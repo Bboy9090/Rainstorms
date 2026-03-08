@@ -1139,6 +1139,126 @@ async def delete_lore_rule(universe_id: str, rule_id: str):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# META — SAGAARCHITECT SYNC
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SyncPayload(BaseModel):
+    """
+    Full-universe sync payload sent by SagaArchitect's 'Sync to Rainstorms' button.
+
+    SagaArchitect maps its own field names to Rainstorms' schema before posting,
+    so all incoming field names should match the Rainstorms models.  We accept
+    raw dicts (rather than strict Pydantic models) to stay robust against minor
+    schema differences or extra fields.
+
+    Expected shape
+    --------------
+    {
+      "universe":    { id, name, genre, tone, concept, … },
+      "factions":    [ { id, name, type, ideology, … }, … ],
+      "characters":  [ { id, name, role, status, … }, … ],
+      "locations":   [ { id, name, type, description, … }, … ],
+      "timeline":    [ { id, title, era_marker, summary, … }, … ],
+      "story_arcs":  [ { id, title, type, summary, … }, … ],
+      "lore_rules":  [ { id, rule_type, rule, consequence, … }, … ]
+    }
+    """
+    universe: Dict[str, Any]
+    factions: List[Dict[str, Any]] = []
+    characters: List[Dict[str, Any]] = []
+    locations: List[Dict[str, Any]] = []
+    timeline: List[Dict[str, Any]] = []
+    story_arcs: List[Dict[str, Any]] = []
+    lore_rules: List[Dict[str, Any]] = []
+
+
+@meta_router.post("/sync")
+async def sync_from_sagaarchitect(payload: SyncPayload):
+    """
+    POST /api/lore/sync
+
+    Accepts a full-universe sync from SagaArchitect (or any compatible tool)
+    and upserts the universe plus all its lore entities into the database.
+
+    * If an entity's ``id`` already exists it is updated; otherwise a new
+      document is inserted.
+    * ``universe_id`` is always set (or overridden) to the incoming universe's
+      ``id``, ensuring all child entities are correctly linked even if
+      SagaArchitect's internal universe_id differs.
+
+    Returns a summary of what was created and updated.
+    """
+    db = _db_ref()
+    now = datetime.utcnow().isoformat()
+
+    # ── universe ──────────────────────────────────────────────────────────────
+    universe_doc = dict(payload.universe)
+    if not universe_doc.get("id"):
+        universe_doc["id"] = str(uuid.uuid4())
+
+    uid = universe_doc["id"]
+    universe_doc["updated_at"] = now
+
+    existing_universe = await db.lore_universes.find_one({"id": uid})
+    if existing_universe:
+        await db.lore_universes.update_one({"id": uid}, {"$set": universe_doc})
+        universe_action = "updated"
+    else:
+        if not universe_doc.get("created_at"):
+            universe_doc["created_at"] = now
+        await db.lore_universes.insert_one(universe_doc)
+        universe_action = "created"
+
+    # ── entity collections ────────────────────────────────────────────────────
+    collection_map = [
+        ("lore_factions",        payload.factions,    "factions"),
+        ("lore_characters",      payload.characters,  "characters"),
+        ("lore_locations",       payload.locations,   "locations"),
+        ("lore_timeline_events", payload.timeline,    "timeline"),
+        ("lore_story_arcs",      payload.story_arcs,  "story_arcs"),
+        ("lore_rules",           payload.lore_rules,  "lore_rules"),
+    ]
+
+    counts: Dict[str, Dict[str, int]] = {"created": {}, "updated": {}}
+
+    for collection_name, entities, label in collection_map:
+        created = 0
+        updated = 0
+        for entity in entities:
+            doc = dict(entity)
+            # Guarantee linkage to this universe
+            doc["universe_id"] = uid
+            doc["updated_at"] = now
+
+            if not doc.get("id"):
+                doc["id"] = str(uuid.uuid4())
+
+            existing_doc = await db[collection_name].find_one({"id": doc["id"]})
+            if existing_doc:
+                await db[collection_name].update_one({"id": doc["id"]}, {"$set": doc})
+                updated += 1
+            else:
+                if not doc.get("created_at"):
+                    doc["created_at"] = now
+                await db[collection_name].insert_one(doc)
+                created += 1
+
+        if created:
+            counts["created"][label] = created
+        if updated:
+            counts["updated"][label] = updated
+
+    return {
+        "success": True,
+        "universe_id": uid,
+        "universe": universe_action,
+        "created": counts["created"],
+        "updated": counts["updated"],
+        "total_entities": sum(len(e) for _, e, _ in collection_map),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # META — DEMO SEEDING
 # ══════════════════════════════════════════════════════════════════════════════
 
