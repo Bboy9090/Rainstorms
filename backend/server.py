@@ -20,6 +20,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from lore_engine import lore_router, meta_router, init_lore_engine
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -36,6 +37,9 @@ JWT_EXPIRATION_HOURS = 72
 
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# Initialise LoreEngine with database and LLM key
+init_lore_engine(db, EMERGENT_LLM_KEY)
 
 # Create the main app
 app = FastAPI(title="Rainstorms API", version="1.0.0")
@@ -1673,6 +1677,8 @@ async def health_check():
 
 # Include the router in the main app
 app.include_router(api_router)
+app.include_router(lore_router)
+app.include_router(meta_router)
 
 app.add_middleware(
     CORSMiddleware,
