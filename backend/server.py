@@ -140,6 +140,7 @@ class Project(BaseModel):
     summary: str = ""
     outline: List[str] = []
     story_memory: Optional[dict] = None  # Story Consistency Engine data
+    lore_universe_id: Optional[str] = None  # Linked LoreEngine universe
     is_demo: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -150,12 +151,14 @@ class ProjectCreate(BaseModel):
     tone: str
     age_range: str
     page_count: int
+    lore_universe_id: Optional[str] = None
 
 class BlueprintRequest(BaseModel):
     original_idea: str
     tone: str
     age_range: str
     page_count: int
+    lore_universe_id: Optional[str] = None
 
 class BlueprintResponse(BaseModel):
     title: str
@@ -386,7 +389,7 @@ Return ONLY the JSON, no other text."""
         logger.error(f"Failed to parse storytime script JSON: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate storytime script.")
 
-async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int, lesson: str = None, legacy_character: dict = None) -> dict:
+async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int, lesson: str = None, legacy_character: dict = None, lore_context: dict = None) -> dict:
     """Generate story blueprint using AI"""
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
@@ -410,6 +413,44 @@ MAIN CHARACTER (use this character):
 - Fear: {legacy_character.get('fear', '')}
 - Appearance: {legacy_character.get('appearance', '')}
 """
+    if lore_context:
+        lore_block = f"""
+UNIVERSE LORE CONTEXT (story must be consistent with this canon):
+UNIVERSE: {lore_context.get('universe_name', '')}
+TONE: {lore_context.get('universe_tone', '')}
+WORLD OVERVIEW: {lore_context.get('world_overview', '')}"""
+        if lore_context.get('current_conflict'):
+            lore_block += f"\nCURRENT CONFLICT: {lore_context['current_conflict']}"
+        if lore_context.get('world_rules'):
+            rules = "; ".join(
+                r.get('rule', '') for r in lore_context['world_rules'] if r.get('rule')
+            )
+            lore_block += f"\nWORLD RULES: {rules}"
+        if lore_context.get('relevant_factions'):
+            factions = ", ".join(
+                f"{f['name']} ({f.get('ideology', '')})"
+                for f in lore_context['relevant_factions']
+            )
+            lore_block += f"\nFACTIONS: {factions}"
+        if lore_context.get('relevant_characters'):
+            chars = ", ".join(
+                f"{c['name']} ({c.get('role', '')})"
+                for c in lore_context['relevant_characters']
+            )
+            lore_block += f"\nKEY CHARACTERS: {chars}"
+        if lore_context.get('relevant_locations'):
+            locs = ", ".join(
+                f"{l['name']} ({l.get('type', '')})"
+                for l in lore_context['relevant_locations']
+            )
+            lore_block += f"\nLOCATIONS: {locs}"
+        if lore_context.get('timeline_context'):
+            timeline = "; ".join(
+                f"{e.get('era', '')} — {e.get('title', '')}"
+                for e in lore_context['timeline_context'][:5]
+            )
+            lore_block += f"\nTIMELINE: {timeline}"
+        extra_context += lore_block
 
     prompt = f"""Create a children's book blueprint for this story idea:
 
@@ -450,6 +491,7 @@ Rules:
 - Match the {tone} tone throughout
 {f'- Naturally incorporate the lesson about {lesson}' if lesson else ''}
 {f'- The main character must be {legacy_character.get("name", "")} with their established traits' if legacy_character else ''}
+{f'- The story must respect the UNIVERSE LORE CONTEXT above — use real faction/character/location names where fitting, and do not contradict any world rules' if lore_context else ''}
 
 Return ONLY the JSON, no other text."""
 
@@ -723,14 +765,67 @@ async def generate_story_blueprint(request: BlueprintRequest, lesson: str = None
         legacy_char_doc = await db.legacy_characters.find_one({"id": legacy_character_id, "user_id": user["user_id"]})
         if legacy_char_doc:
             legacy_char = legacy_char_doc
-    
+
+    # Fetch LoreEngine story context when a universe is linked
+    lore_context = None
+    if request.lore_universe_id:
+        universe = await db.lore_universes.find_one({"id": request.lore_universe_id})
+        if not universe:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Universe '{request.lore_universe_id}' not found. Sync it from SagaArchitect first."
+            )
+        characters = await db.lore_characters.find(
+            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
+        ).to_list(20)
+        factions = await db.lore_factions.find(
+            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
+        ).to_list(20)
+        locations = await db.lore_locations.find(
+            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
+        ).to_list(20)
+        rules = await db.lore_rules.find(
+            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
+        ).to_list(20)
+        events = await db.lore_timeline_events.find(
+            {"universe_id": request.lore_universe_id, "canon_status": "canon"}
+        ).sort("era_marker", 1).to_list(10)
+
+        lore_context = {
+            "universe_name": universe["name"],
+            "universe_tone": universe.get("tone", ""),
+            "world_overview": universe.get("world_overview", ""),
+            "current_conflict": universe.get("current_conflict", ""),
+            "world_rules": [
+                {"rule_type": r.get("rule_type", ""), "rule": r["rule"], "consequence": r.get("consequence", "")}
+                for r in rules
+            ],
+            "relevant_characters": [
+                {"name": c["name"], "role": c.get("role", ""), "appearance": c.get("appearance", ""), "status": c.get("status", "alive")}
+                for c in characters
+            ],
+            "relevant_factions": [
+                {"name": f["name"], "ideology": f.get("ideology", ""), "territory": f.get("territory", "")}
+                for f in factions
+            ],
+            "relevant_locations": [
+                {"name": l["name"], "type": l.get("type", ""), "description": l.get("description", "")}
+                for l in locations
+            ],
+            "timeline_context": [
+                {"era": e.get("era_marker", ""), "title": e["title"], "summary": e.get("summary", "")}
+                for e in events
+            ],
+        }
+
     blueprint = await generate_blueprint(
         request.original_idea,
         request.tone,
         request.age_range,
         request.page_count,
         lesson=lesson,
-        legacy_character=legacy_char
+        legacy_character=legacy_char,
+        lore_context=lore_context,
     )
     return BlueprintResponse(**blueprint)
 
