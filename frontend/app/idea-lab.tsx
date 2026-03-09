@@ -53,13 +53,14 @@ const SURPRISE_IDEAS = [
 
 export default function IdeaLabScreen() {
   const router = useRouter();
-  const { setCurrentProject, setCharacters, setPages, setIsLoading, setError } = useProject();
+  const { setCurrentProject, setCharacters, setPages, setIsLoading } = useProject();
   
   const [idea, setIdea] = useState('');
   const [tone, setTone] = useState('cozy');
   const [ageRange, setAgeRange] = useState('3-5');
   const [pageCount, setPageCount] = useState('10');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Universe / LoreEngine mode
   const [universeMode, setUniverseMode] = useState(false);
@@ -344,6 +345,16 @@ export default function IdeaLabScreen() {
           </View>
         </View>
 
+        {/* Error Banner */}
+        {error && (
+          <Card style={styles.errorCard} variant="outlined">
+            <View style={styles.errorRow}>
+              <Ionicons name="warning" size={18} color={colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          </Card>
+        )}
+
         {/* Tips Card */}
         <Card style={styles.tipsCard} variant="outlined">
           <View style={styles.tipsHeader}>
@@ -531,5 +542,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  errorCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderColor: colors.error,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.error,
+    lineHeight: 20,
   },
 });
