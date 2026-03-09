@@ -49,6 +49,10 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
 ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Directory where generated character reference sheets are stored
+CHARACTERS_DIR = ROOT_DIR / 'static' / 'characters'
+CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
+
 # SagaArchitect / LoreEngine base URL for remote story-context fetch
 SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
 
@@ -106,6 +110,12 @@ class Character(BaseModel):
     appearance: str
     special_trait: str
     notes: str = ""
+    # Visual profile fields (Character Consistency Engine)
+    color_palette: str = ""      # e.g. "deep blue, silver, warm gold"
+    clothing: str = ""           # e.g. "flowing quilt cape with star patterns"
+    unique_traits: str = ""      # e.g. "glowing star eyes, stitched seams visible"
+    reference_sheet_url: str = ""  # URL of the generated reference sheet image
+    appearance_locked: bool = False  # When True, visual traits cannot be auto-changed
     visual_tags: Optional[dict] = None  # For visual consistency in illustrations
     # Lore Pool fields
     visibility: str = "private"  # private | shared_archetype | public_template | demo_only
@@ -121,6 +131,9 @@ class CharacterCreate(BaseModel):
     appearance: str
     special_trait: str
     notes: str = ""
+    color_palette: str = ""
+    clothing: str = ""
+    unique_traits: str = ""
     visual_tags: Optional[dict] = None
 
 class PageData(BaseModel):
@@ -833,29 +846,49 @@ Return ONLY the JSON, no other text."""
         raise HTTPException(status_code=500, detail="Failed to generate page text. Please try again.")
 
 async def generate_illustration_prompt(project: dict, characters: List[dict], page_number: int, page_text: str) -> str:
-    """Generate illustration prompt for a page"""
+    """
+    Generate an illustration prompt for a page.
+
+    Uses the Character Consistency Engine to:
+    - Detect which characters appear in the page text
+    - Inject their full visual profiles into the prompt
+    - Prefer locked appearance data to ensure consistency
+    """
     chat = LlmChat(
         api_key=EMERGENT_LLM_KEY,
         session_id=f"illustration-{uuid.uuid4()}",
         system_message="""You are a children's book art director.
 Create detailed illustration prompts that capture the essence of each page.
-Focus on composition, mood, and character consistency."""
+Focus on composition, mood, and character consistency.
+When character visual profiles are provided, include those exact visual details in the prompt."""
     ).with_model("openai", "gpt-4.1")
 
-    character_info = "\n".join([f"- {c['name']}: {c['appearance']}" for c in characters])
-    
+    # Detect which characters appear in this page's text
+    detected = _detect_characters_in_text(page_text, characters)
+    # Fall back to all characters if none detected
+    chars_for_prompt = detected if detected else characters
+
+    # Build rich visual briefs using the Character Consistency Engine
+    character_info_lines = []
+    for c in chars_for_prompt:
+        brief = _build_character_visual_brief(c)
+        if brief:
+            locked_note = " [LOCKED APPEARANCE]" if c.get("appearance_locked") else ""
+            character_info_lines.append(f"- {brief}{locked_note}")
+    character_info = "\n".join(character_info_lines) if character_info_lines else "(no specific characters)"
+
     prompt = f"""Create an illustration prompt for page {page_number}:
 
 TITLE: {project.get('title', '')}
 TONE: {project.get('tone', '')}
 PAGE TEXT: {page_text}
 
-CHARACTERS TO POTENTIALLY INCLUDE:
+CHARACTERS WITH VISUAL PROFILES (inject these exact descriptions):
 {character_info}
 
 Create a detailed illustration prompt. Include:
 1. Scene description and setting
-2. Characters present and their poses/expressions
+2. Characters present — use their exact visual descriptions above
 3. Key visual elements and props
 4. Mood and lighting
 5. Composition suggestions
@@ -1089,12 +1122,13 @@ async def generate_page_text_endpoint(request: PageTextRequest):
     project = await db.projects.find_one({"id": request.project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     characters = await db.characters.find({"project_id": request.project_id}).to_list(20)
-    char_list = [{"name": c["name"], "appearance": c["appearance"]} for c in characters]
-    
+    # Provide name + appearance for text generation (consistent with prior behaviour)
+    char_list = [{"name": c["name"], "appearance": c.get("appearance", "")} for c in characters]
+
     result = await generate_page_text(project, char_list, request.page_number, request.outline_beat)
-    
+
     # Update the page in database
     await db.pages.update_one(
         {"project_id": request.project_id, "page_number": request.page_number},
@@ -1105,21 +1139,22 @@ async def generate_page_text_endpoint(request: PageTextRequest):
         }},
         upsert=True
     )
-    
+
     return result
 
 @api_router.post("/generate/illustration-prompt")
 async def generate_illustration_prompt_endpoint(request: IllustrationPromptRequest):
-    """Generate illustration prompt for a page"""
+    """Generate illustration prompt for a page using the Character Consistency Engine"""
     project = await db.projects.find_one({"id": request.project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
+    # Pass full character documents so _detect_characters_in_text and
+    # _build_character_visual_brief can use all visual profile fields
     characters = await db.characters.find({"project_id": request.project_id}).to_list(20)
-    char_list = [{"name": c["name"], "appearance": c["appearance"]} for c in characters]
-    
-    prompt = await generate_illustration_prompt(project, char_list, request.page_number, request.page_text)
-    
+
+    prompt = await generate_illustration_prompt(project, characters, request.page_number, request.page_text)
+
     # Update the page in database
     await db.pages.update_one(
         {"project_id": request.project_id, "page_number": request.page_number},
@@ -1128,7 +1163,7 @@ async def generate_illustration_prompt_endpoint(request: IllustrationPromptReque
             "updated_at": datetime.utcnow()
         }}
     )
-    
+
     return {"illustration_prompt": prompt}
 
 @api_router.post("/generate/title")
@@ -1317,7 +1352,11 @@ async def create_character(project_id: str, char_data: CharacterCreate):
         personality=char_data.personality,
         appearance=char_data.appearance,
         special_trait=char_data.special_trait,
-        notes=char_data.notes
+        notes=char_data.notes,
+        color_palette=char_data.color_palette,
+        clothing=char_data.clothing,
+        unique_traits=char_data.unique_traits,
+        visual_tags=char_data.visual_tags,
     )
     await db.characters.insert_one(char.dict())
     return char
@@ -2558,6 +2597,221 @@ async def export_publishing_package(
     )
 
 
+# ==================== CHARACTER CONSISTENCY ENGINE ====================
+
+def _build_character_visual_brief(char: dict) -> str:
+    """
+    Build a compact visual description for a character suitable for injection into
+    illustration prompts.
+
+    Only includes fields that are non-empty, prioritising locked visual profile data.
+    """
+    parts: list[str] = []
+
+    name = char.get("name", "")
+    if not name:
+        return ""
+
+    parts.append(name)
+
+    appearance = char.get("appearance", "").strip()
+    if appearance:
+        parts.append(appearance)
+
+    color_palette = char.get("color_palette", "").strip()
+    if color_palette:
+        parts.append(f"colors: {color_palette}")
+
+    clothing = char.get("clothing", "").strip()
+    if clothing:
+        parts.append(f"wearing: {clothing}")
+
+    unique_traits = char.get("unique_traits", "").strip()
+    if unique_traits:
+        parts.append(unique_traits)
+
+    return ", ".join(parts)
+
+
+def _detect_characters_in_text(page_text: str, characters: List[dict]) -> List[dict]:
+    """
+    Detect which characters from a project appear in a page's text.
+
+    Performs a simple case-insensitive name-match on the page text.
+    Returns the matching character dicts.
+    """
+    text_lower = page_text.lower()
+    detected: list[dict] = []
+    for char in characters:
+        name = char.get("name", "").strip()
+        if name and name.lower() in text_lower:
+            detected.append(char)
+    return detected
+
+
+async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
+    """
+    Generate a character reference sheet image using DALL-E and save it.
+
+    Returns:
+        Relative URL to the saved image, or empty string on failure.
+    """
+    if not OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY not set — skipping reference sheet generation")
+        return ""
+
+    name = char.get("name", "character")
+    brief = _build_character_visual_brief(char)
+    role = char.get("role", "character")
+
+    prompt = (
+        f"Character reference sheet for '{name}', a {role} in a children's picture book. "
+        f"Visual description: {brief}. "
+        "Show the character from the front with clean background. "
+        "Include their key visual traits clearly. "
+        "Style: soft watercolor children's book illustration, clean white background, "
+        "expressive and friendly design suitable for ages 3-8."
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            response = await http_client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": prompt[:4096],
+                    "n": 1,
+                    "size": "1024x1024",
+                    "response_format": "b64_json",
+                    "quality": "standard",
+                },
+            )
+        response.raise_for_status()
+        data = response.json()
+        image_b64 = data["data"][0]["b64_json"]
+    except httpx.HTTPStatusError as exc:
+        logger.error("Reference sheet HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
+        return ""
+    except Exception as exc:
+        logger.error("Reference sheet generation failed: %s", exc)
+        return ""
+
+    char_dir = CHARACTERS_DIR / char_id
+    char_dir.mkdir(parents=True, exist_ok=True)
+    image_path = char_dir / "reference_sheet.png"
+    image_bytes = base64.b64decode(image_b64)
+    image_path.write_bytes(image_bytes)
+
+    logger.info("Reference sheet saved: %s (%d bytes)", image_path, len(image_bytes))
+    return f"/static/characters/{char_id}/reference_sheet.png"
+
+
+@api_router.post("/characters/{character_id}/reference-sheet")
+async def generate_character_reference_sheet(
+    character_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/characters/{id}/reference-sheet
+    Generate a DALL-E reference sheet image for the character.
+    Stores the URL on the character document.
+    """
+    char = await db.characters.find_one({"id": character_id})
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Image generation is not available. Set OPENAI_API_KEY in the backend .env file.",
+        )
+
+    reference_sheet_url = await _generate_reference_sheet_image(character_id, char)
+    if not reference_sheet_url:
+        raise HTTPException(status_code=503, detail="Reference sheet generation failed.")
+
+    await db.characters.update_one(
+        {"id": character_id},
+        {"$set": {"reference_sheet_url": reference_sheet_url}},
+    )
+    return {"character_id": character_id, "reference_sheet_url": reference_sheet_url}
+
+
+@api_router.post("/characters/{character_id}/lock")
+async def lock_character_appearance(
+    character_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/characters/{id}/lock
+    Lock the character's visual appearance so it cannot be auto-changed.
+    """
+    char = await db.characters.find_one({"id": character_id})
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    await db.characters.update_one(
+        {"id": character_id},
+        {"$set": {"appearance_locked": True}},
+    )
+    return {"character_id": character_id, "appearance_locked": True}
+
+
+@api_router.post("/characters/{character_id}/unlock")
+async def unlock_character_appearance(
+    character_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/characters/{id}/unlock
+    Unlock the character's visual appearance.
+    """
+    char = await db.characters.find_one({"id": character_id})
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+
+    await db.characters.update_one(
+        {"id": character_id},
+        {"$set": {"appearance_locked": False}},
+    )
+    return {"character_id": character_id, "appearance_locked": False}
+
+
+class CharacterDetectionRequest(BaseModel):
+    page_text: str
+
+
+@api_router.post("/projects/{project_id}/detect-characters")
+async def detect_characters_in_page(
+    project_id: str,
+    body: CharacterDetectionRequest,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/projects/{id}/detect-characters
+    Detect which characters (by name) appear in a page text.
+    Returns the matching characters with their visual profiles.
+    """
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
+    detected = _detect_characters_in_text(body.page_text, characters)
+    return {
+        "detected_count": len(detected),
+        "characters": [
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "visual_brief": _build_character_visual_brief(c),
+                "appearance_locked": c.get("appearance_locked", False),
+            }
+            for c in detected
+        ],
+    }
+
+
 # ==================== ILLUSTRATION SYSTEM ====================
 
 async def _generate_illustration_image(
@@ -2908,7 +3162,11 @@ async def seed_demo_project():
             personality="Brave, imaginative, loving, and protective. He's sometimes scared but always pushes through for his brother. Has a vivid imagination that turns ordinary things magical.",
             appearance="A 5-year-old boy with messy brown hair, bright curious eyes, and rosy cheeks. Wears blue pajamas with stars. As Captain Blanket, he wears a shimmering silver-blue cape that seems to glow softly.",
             special_trait="His love for his baby brother makes his cape glow with golden light",
-            notes="Draw him slightly small compared to furniture to emphasize his bravery despite being little"
+            notes="Draw him slightly small compared to furniture to emphasize his bravery despite being little",
+            color_palette="silver-blue, warm gold highlights, star-white",
+            clothing="blue star-pattern pajamas; as Captain Blanket: shimmering silver-blue quilt cape with soft golden glow",
+            unique_traits="messy brown hair, rosy cheeks, cape emits warm golden light when love fills his heart",
+            appearance_locked=True,
         ),
         Character(
             project_id=demo_project.id,
@@ -2917,7 +3175,11 @@ async def seed_demo_project():
             personality="Sweet, innocent, and peaceful. Giggles easily and always reaches for Oliver when he sees him.",
             appearance="A chubby 10-month-old baby with wispy blonde hair and big blue eyes. Wears a soft yellow onesie with a duck on it. Always has a peaceful, content expression.",
             special_trait="His innocent smile can light up any dark room",
-            notes="Keep him looking cozy and protected in his crib throughout"
+            notes="Keep him looking cozy and protected in his crib throughout",
+            color_palette="soft yellow, warm cream, baby blue",
+            clothing="yellow onesie with a small duck embroidery",
+            unique_traits="wispy blonde hair, big blue eyes, rosy chubby cheeks, perpetually content expression",
+            appearance_locked=True,
         ),
         Character(
             project_id=demo_project.id,
@@ -2926,7 +3188,11 @@ async def seed_demo_project():
             personality="Mischievous but not truly evil—they're more like naughty fears that scatter when confronted with love.",
             appearance="Wispy, purple-gray shapes with big cartoonish yellow eyes. They look more silly than scary, like smoke puppets. They have no defined shape, constantly shifting.",
             special_trait="They shrink when exposed to light or love",
-            notes="Keep them non-threatening for young readers—more playful spooky than scary"
+            notes="Keep them non-threatening for young readers—more playful spooky than scary",
+            color_palette="purple-gray, smoky dark blue, yellow (eyes only)",
+            clothing="no clothing — formless wispy shapes",
+            unique_traits="large cartoonish yellow eyes, no fixed shape, slightly translucent edges",
+            appearance_locked=False,
         ),
         Character(
             project_id=demo_project.id,
@@ -2935,10 +3201,27 @@ async def seed_demo_project():
             personality="Dramatic and pompous but ultimately powerless against love. More bark than bite.",
             appearance="A larger shadow figure wearing a crooked crown made of darkness. Has an exaggerated frown and arms that wave dramatically. Looks like a grumpy cloud.",
             special_trait="Melts into harmless starlight when defeated",
-            notes="Make him look huffily defeated rather than scary when he loses"
-        )
+            notes="Make him look huffily defeated rather than scary when he loses",
+            color_palette="deep charcoal, dark navy, faint purple",
+            clothing="crooked crown of solidified darkness, no other clothing",
+            unique_traits="crooked dark crown, exaggerated frown, dramatically waving arms, grumpy-cloud silhouette",
+            appearance_locked=False,
+        ),
+        Character(
+            project_id=demo_project.id,
+            name="Sir Fluffington",
+            role="supporting",
+            personality="Dignified, wise, and secretly very playful. Acts regal but can't resist a good nap or a dangling string.",
+            appearance="A large, fluffy orange tabby cat with green eyes and a white chest patch. Wears a tiny bow tie. Sits regally but has a permanently surprised eyebrow expression.",
+            special_trait="Guides heroes through dark corridors with his glowing green eyes",
+            notes="Can appear in background scenes watching Oliver's adventures with a knowing look",
+            color_palette="warm orange, cream-white, forest green (eyes)",
+            clothing="tiny midnight-blue bow tie with a silver clasp",
+            unique_traits="fluffy orange tabby fur, white chest patch, tiny bow tie, one perpetually raised eyebrow, glowing green eyes in darkness",
+            appearance_locked=True,
+        ),
     ]
-    
+
     for char in demo_characters:
         await db.characters.insert_one(char.dict())
     

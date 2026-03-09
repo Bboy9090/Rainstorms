@@ -21,6 +21,12 @@ export interface Character {
   appearance: string;
   special_trait: string;
   notes: string;
+  // Visual profile fields (Character Consistency Engine)
+  color_palette: string;
+  clothing: string;
+  unique_traits: string;
+  reference_sheet_url: string;
+  appearance_locked: boolean;
 }
 
 export interface Page {
