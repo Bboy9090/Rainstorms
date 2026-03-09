@@ -183,8 +183,13 @@ For scale, swap the local mount for **S3 / R2 / GCS** bucket storage and serve i
 3. Set the **Root Directory** to `frontend`.
 4. Set the **Build Command** to `npx expo export --platform web`.
 5. Set the **Output Directory** to `dist`.
-6. Add the `EXPO_PUBLIC_BACKEND_URL` environment variable.
+6. **Critical:** Add `EXPO_PUBLIC_BACKEND_URL` in Vercel → Settings → Environment Variables:
+   - **Name:** `EXPO_PUBLIC_BACKEND_URL`
+   - **Value:** Your backend URL (e.g. `https://api.rainstorms.app` or your Railway URL) — **no trailing slash**
+   - Apply to Production, Preview, and Development so all deployments work.
 7. Deploy. Vercel gives you `https://rainstorms.vercel.app`.
+
+> **Stories not generating?** If blueprint/character/page generation fails on the deployed app, the frontend is likely calling `http://localhost:8001` instead of your real backend. Re-add `EXPO_PUBLIC_BACKEND_URL` in Vercel, redeploy, and clear cache (Settings → General → Build Cache → Purge).
 8. Add your **custom domain** (e.g., `rainstorms.app`) in Vercel → Settings → Domains.
 
 ### Step 4 — Verify End-to-End

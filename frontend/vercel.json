@@ -2,6 +2,9 @@
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "framework": null,
+  "env": {
+    "EXPO_PUBLIC_BACKEND_URL": "https://backend-production-4938.up.railway.app"
+  },
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
