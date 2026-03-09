@@ -2748,10 +2748,14 @@ def _auto_select_layout(page_text: str, emotional_beat: str, page_number: int, t
     # Story position ratio
     position_ratio = page_number / max(total_pages, 1)
 
-    # Climax signals
+    # Climax signals.
+    # Pages in the 60–85% position range are considered climax territory in a standard
+    # three-act children's book structure (setup ends ~25%, midpoint ~50%, climax ~65–80%).
     climax_words = {"climax", "triumph", "defeat", "transformation", "revelation", "turning point"}
     is_climax = any(w in beat_lower for w in climax_words) or (0.6 <= position_ratio <= 0.85)
 
+    # A word count of 25 or fewer is appropriate for a full spread: the panoramic
+    # image should dominate and the text is a brief caption or exclamation.
     if is_climax and word_count <= 25:
         return "full_spread"
 
@@ -2978,7 +2982,7 @@ async def auto_layout_all_pages(
             {"id": page["id"]},
             {"$set": {"page_layout": layout, "updated_at": datetime.utcnow()}},
         )
-        results.append({"page_id": page["id"], "page_number": page["page_number"], "layout_type": layout["layout_type"]})
+        results.append({"page_id": page["id"], "page_number": page["page_number"], "layout_type": layout["layout_type"], "page_layout": layout})
 
     logger.info("Batch layout completed for project %s: %d pages", project_id, total_pages)
     return {"project_id": project_id, "layouts_applied": len(results), "results": results}
