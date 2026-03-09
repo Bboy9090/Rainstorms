@@ -247,6 +247,19 @@ What's **out** (planned for future versions):
 
 ---
 
+## Deploying to Production
+
+See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full production deployment guide, including:
+
+- Recommended app type and hosting stack (Vercel + Railway + MongoDB Atlas)
+- Step-by-step backend and frontend deployment
+- Environment variable reference
+- CORS hardening and rate limiting
+- Mobile app store publishing via Expo EAS Build
+- Estimated monthly costs
+
+---
+
 ## Contributing
 
 1. Fork the repo and create a feature branch
