@@ -269,6 +269,10 @@ You now have a functioning AI children's book generator that goes from:
 
 ## Troubleshooting
 
+> **📖 For comprehensive troubleshooting**, see **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** for detailed solutions to common issues.
+
+Quick fixes for the most common problems:
+
 ### Backend won't start
 
 **Error: `ModuleNotFoundError: No module named 'fastapi'`**
