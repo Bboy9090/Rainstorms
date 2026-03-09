@@ -29,7 +29,10 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+# Use .get() so the process starts even without the env var set; a clear
+# error is surfaced at request-time (via MongoDB connection failure) rather
+# than crashing the module at import/startup.
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
 
@@ -43,11 +46,17 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # Directory where generated illustration images are stored
 ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
-ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as _e:
+    logging.warning("Could not create illustrations directory %s: %s. Illustration storage unavailable.", ILLUSTRATIONS_DIR, _e)
 
 # Directory where generated character reference sheets are stored
 CHARACTERS_DIR = ROOT_DIR / 'static' / 'characters'
-CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as _e:
+    logging.warning("Could not create characters directory %s: %s. Character sheet storage unavailable.", CHARACTERS_DIR, _e)
 
 # SagaArchitect / LoreEngine base URL for remote story-context fetch
 SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
@@ -58,8 +67,14 @@ init_lore_engine(db, _llm_chat)
 # Create the main app
 app = FastAPI(title="Rainstorms API", version="1.0.0")
 
-# Serve generated illustrations as static files
-app.mount("/static", StaticFiles(directory=str(ROOT_DIR / "static")), name="static")
+# Serve generated illustrations as static files (skipped in serverless environments
+# where the static directory cannot be created on the read-only filesystem)
+_static_dir = ROOT_DIR / "static"
+try:
+    _static_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+except OSError as _e:
+    logging.warning("Could not mount /static directory %s: %s. Static file serving unavailable.", _static_dir, _e)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -385,7 +400,10 @@ DEFAULT_COVER_STYLE = "cozy_bedtime"
 
 # Directory for generated cover images
 COVERS_DIR = ROOT_DIR / "static" / "covers"
-COVERS_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    COVERS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as _e:
+    logging.warning("Could not create covers directory %s: %s. Cover image storage unavailable.", COVERS_DIR, _e)
 
 
 class CoverData(BaseModel):
