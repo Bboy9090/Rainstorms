@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../src/context/AuthContext';
 import { ProjectProvider } from '../src/context/ProjectContext';
+import { Analytics } from '@vercel/analytics/react';
 
 export default function RootLayout() {
   return (
@@ -15,6 +16,7 @@ export default function RootLayout() {
             animation: 'fade',
           }}
         />
+        <Analytics />
       </ProjectProvider>
     </AuthProvider>
   );
