@@ -189,7 +189,10 @@ For scale, swap the local mount for **S3 / R2 / GCS** bucket storage and serve i
    - Apply to Production, Preview, and Development so all deployments work.
 7. Deploy. Vercel gives you `https://rainstorms.vercel.app`.
 
-> **Stories not generating?** If blueprint/character/page generation fails on the deployed app, the frontend is likely calling `http://localhost:8001` instead of your real backend. Re-add `EXPO_PUBLIC_BACKEND_URL` in Vercel, redeploy, and clear cache (Settings → General → Build Cache → Purge).
+> **Stories not generating?** If blueprint/character/page generation fails on the deployed app:
+> 1. Ensure `EXPO_PUBLIC_BACKEND_URL` is set correctly in Vercel → Settings → Environment Variables (or in `frontend/vercel.json`).
+> 2. **Purge build cache**: Vercel → Settings → General → Build Cache → Purge cache.
+> 3. Redeploy (new commit or Deployments → Redeploy).
 8. Add your **custom domain** (e.g., `rainstorms.app`) in Vercel → Settings → Domains.
 
 ### Step 4 — Verify End-to-End
