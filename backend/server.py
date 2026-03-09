@@ -145,6 +145,8 @@ class PageData(BaseModel):
     illustration_prompt: str = ""
     illustration_url: str = ""   # URL of the generated illustration image
     emotional_beat: str = ""
+    # Page Layout Engine
+    page_layout: Optional[dict] = None  # PageLayoutData dict
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -240,6 +242,120 @@ class IllustrationStyleUpdate(BaseModel):
     style_preset: str  # watercolor | pastel | cartoon | flat_modern
 
 
+# ── Page Layout Engine constants + models ──────────────────────────────────────
+
+# Supported layout types with display metadata
+LAYOUT_TYPES: dict = {
+    "full_illustration_text_bottom": {
+        "label": "Full Illustration + Text Bottom",
+        "description": "Large illustration fills the top, short text block below. Best for dramatic moments.",
+        "emoji": "🖼️",
+        "best_for": "dramatic moments, short text",
+    },
+    "full_illustration_text_overlay": {
+        "label": "Full Illustration + Text Overlay",
+        "description": "Full-bleed illustration with text overlaid at the bottom on a semi-transparent strip.",
+        "emoji": "✨",
+        "best_for": "simple short text, strong visuals",
+    },
+    "split_top_bottom": {
+        "label": "Split Layout",
+        "description": "Illustration on top half, text on bottom half with clear separation.",
+        "emoji": "⬆️",
+        "best_for": "longer text, dialogue",
+    },
+    "full_spread": {
+        "label": "Full Spread",
+        "description": "Two-page illustration spanning both left and right pages.",
+        "emoji": "📖",
+        "best_for": "climax scenes, big emotional beats",
+    },
+    "spot_illustration": {
+        "label": "Spot Illustration",
+        "description": "Small illustration inset with a larger text area.",
+        "emoji": "🔍",
+        "best_for": "transition scenes, text-heavy pages",
+    },
+}
+
+# Preset page themes
+PAGE_THEMES: dict = {
+    "cozy_bedtime": {
+        "label": "Cozy Bedtime",
+        "emoji": "🌙",
+        "font_family": "Georgia",
+        "font_size_min": 28,
+        "font_size_max": 38,
+        "text_color": "#2C1810",
+        "bg_color": "#FFF8F0",
+        "overlay_color": "rgba(255,248,240,0.88)",
+    },
+    "bright_storybook": {
+        "label": "Bright Storybook",
+        "emoji": "🌈",
+        "font_family": "Helvetica",
+        "font_size_min": 30,
+        "font_size_max": 40,
+        "text_color": "#1A1A2E",
+        "bg_color": "#FFFFFF",
+        "overlay_color": "rgba(255,255,255,0.90)",
+    },
+    "watercolor_calm": {
+        "label": "Watercolor Calm",
+        "emoji": "🎨",
+        "font_family": "Georgia",
+        "font_size_min": 26,
+        "font_size_max": 36,
+        "text_color": "#3D2B1F",
+        "bg_color": "#F5F0EB",
+        "overlay_color": "rgba(245,240,235,0.87)",
+    },
+    "comic_adventure": {
+        "label": "Comic Adventure",
+        "emoji": "💥",
+        "font_family": "Helvetica",
+        "font_size_min": 32,
+        "font_size_max": 44,
+        "text_color": "#1C1C1C",
+        "bg_color": "#FFFDE7",
+        "overlay_color": "rgba(255,253,231,0.88)",
+    },
+}
+DEFAULT_PAGE_THEME = "cozy_bedtime"
+
+
+class PageLayoutData(BaseModel):
+    """
+    Layout metadata for a single page of the book.
+    Coordinates are in points (72 pt = 1 inch) at 300 DPI equivalent for the
+    rendered page canvas; for UI purposes treat as relative percentages when
+    layout_unit == 'percent'.
+    """
+    layout_type: str = "full_illustration_text_bottom"
+    # Bounding boxes as {x, y, width, height} in points
+    image_box: dict = Field(default_factory=lambda: {"x": 0, "y": 0, "width": 576, "height": 432})
+    text_box: dict = Field(default_factory=lambda: {"x": 36, "y": 450, "width": 504, "height": 108})
+    font_size: int = 34
+    alignment: str = "center"   # left | center | right
+    # Safe-zone flags
+    print_safe: bool = True      # True when margins comply with print rules
+    gutter_safe: bool = True     # True for spread pages when text is clear of gutter
+
+
+class PageThemeUpdate(BaseModel):
+    """Body for PUT /api/projects/{id}/page-theme."""
+    theme_key: str  # cozy_bedtime | bright_storybook | watercolor_calm | comic_adventure
+
+
+class PageLayoutOverride(BaseModel):
+    """Body for PUT /api/projects/{id}/pages/{page_id}/layout."""
+    layout_type: Optional[str] = None
+    font_size: Optional[int] = None
+    alignment: Optional[str] = None
+    image_box: Optional[dict] = None
+    text_box: Optional[dict] = None
+
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None
@@ -268,6 +384,8 @@ class Project(BaseModel):
     series_title: Optional[str] = None
     # Illustration system fields
     illustration_style: str = DEFAULT_STYLE_PRESET  # style preset key
+    # Page Layout Engine fields
+    page_theme: str = DEFAULT_PAGE_THEME  # cozy_bedtime | bright_storybook | watercolor_calm | comic_adventure
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -2597,7 +2715,324 @@ async def export_publishing_package(
     )
 
 
-# ==================== CHARACTER CONSISTENCY ENGINE ====================
+# ==================== PAGE LAYOUT ENGINE ====================
+
+# ── Dimensions (in points; 72 pt per inch) for each trim size ──────────────
+
+_LAYOUT_DIMS: dict = {
+    "8x8":    {"w": 576, "h": 576},
+    "8.5x8.5": {"w": 612, "h": 612},
+    "8.5x11": {"w": 612, "h": 792},
+    "10x8":   {"w": 720, "h": 576},
+}
+_DEFAULT_LAYOUT_DIM = {"w": 576, "h": 576}
+# Safe margin (in points) for print-safe zones
+_SAFE_MARGIN = 36  # 0.5 inch
+
+
+def _auto_select_layout(page_text: str, emotional_beat: str, page_number: int, total_pages: int) -> str:
+    """
+    Choose an appropriate layout type for a page based on text length,
+    emotional intensity, and narrative position.
+
+    Decision rules:
+    - climax / near-end → full_spread
+    - short text (≤ 30 words) + strong beat → full_illustration_text_overlay
+    - short text (≤ 50 words) → full_illustration_text_bottom
+    - long text (> 80 words) → spot_illustration
+    - all other cases → split_top_bottom
+    """
+    word_count = len(page_text.split()) if page_text else 0
+    beat_lower = emotional_beat.lower() if emotional_beat else ""
+
+    # Story position ratio
+    position_ratio = page_number / max(total_pages, 1)
+
+    # Climax signals
+    climax_words = {"climax", "triumph", "defeat", "transformation", "revelation", "turning point"}
+    is_climax = any(w in beat_lower for w in climax_words) or (0.6 <= position_ratio <= 0.85)
+
+    if is_climax and word_count <= 25:
+        return "full_spread"
+
+    strong_beat_words = {"courage", "wonder", "magic", "love", "fear", "joy", "awe", "power"}
+    has_strong_beat = any(w in beat_lower for w in strong_beat_words)
+
+    if word_count <= 30 and has_strong_beat:
+        return "full_illustration_text_overlay"
+
+    if word_count <= 55:
+        return "full_illustration_text_bottom"
+
+    if word_count > 80:
+        return "spot_illustration"
+
+    return "split_top_bottom"
+
+
+def _build_layout_boxes(layout_type: str, trim_size: str) -> dict:
+    """
+    Compute image_box, text_box, font_size, and alignment for the given layout type
+    and trim size. All coordinates are in points (72 pt = 1 inch).
+
+    Returns a dict matching PageLayoutData fields.
+    """
+    dim = _LAYOUT_DIMS.get(trim_size, _DEFAULT_LAYOUT_DIM)
+    w, h = dim["w"], dim["h"]
+    m = _SAFE_MARGIN  # safe margin
+
+    if layout_type == "full_illustration_text_bottom":
+        text_height = max(120, int(h * 0.22))
+        image_height = h - text_height - m
+        return {
+            "layout_type": layout_type,
+            "image_box": {"x": 0, "y": 0, "width": w, "height": image_height},
+            "text_box": {"x": m, "y": image_height + int(m / 2), "width": w - 2 * m, "height": text_height - int(m / 2)},
+            "font_size": 34,
+            "alignment": "center",
+            "print_safe": True,
+            "gutter_safe": True,
+        }
+
+    if layout_type == "full_illustration_text_overlay":
+        strip_height = max(100, int(h * 0.18))
+        return {
+            "layout_type": layout_type,
+            "image_box": {"x": 0, "y": 0, "width": w, "height": h},
+            "text_box": {"x": m, "y": h - strip_height, "width": w - 2 * m, "height": strip_height - m},
+            "font_size": 36,
+            "alignment": "center",
+            "print_safe": True,
+            "gutter_safe": True,
+        }
+
+    if layout_type == "split_top_bottom":
+        split_y = int(h * 0.52)
+        return {
+            "layout_type": layout_type,
+            "image_box": {"x": 0, "y": 0, "width": w, "height": split_y},
+            "text_box": {"x": m, "y": split_y + m, "width": w - 2 * m, "height": h - split_y - 2 * m},
+            "font_size": 30,
+            "alignment": "left",
+            "print_safe": True,
+            "gutter_safe": True,
+        }
+
+    if layout_type == "full_spread":
+        # Spread: double-width canvas; gutter in the centre
+        spread_w = w * 2
+        gutter = int(spread_w * 0.04)
+        text_height = max(110, int(h * 0.20))
+        return {
+            "layout_type": layout_type,
+            "image_box": {"x": 0, "y": 0, "width": spread_w, "height": h - text_height},
+            "text_box": {"x": gutter + m, "y": h - text_height, "width": spread_w - 2 * (gutter + m), "height": text_height - m},
+            "font_size": 38,
+            "alignment": "center",
+            "print_safe": True,
+            "gutter_safe": True,
+        }
+
+    if layout_type == "spot_illustration":
+        img_size = int(min(w, h) * 0.38)
+        return {
+            "layout_type": layout_type,
+            "image_box": {"x": w - img_size - m, "y": m, "width": img_size, "height": img_size},
+            "text_box": {"x": m, "y": m, "width": w - img_size - 3 * m, "height": h - 2 * m},
+            "font_size": 28,
+            "alignment": "left",
+            "print_safe": True,
+            "gutter_safe": True,
+        }
+
+    # Fallback → split
+    return _build_layout_boxes("split_top_bottom", trim_size)
+
+
+def _apply_layout_to_page(page: dict, total_pages: int, trim_size: str) -> dict:
+    """
+    Compute and return a PageLayoutData dict for a single page document.
+    """
+    layout_type = _auto_select_layout(
+        page.get("page_text", ""),
+        page.get("emotional_beat", ""),
+        page.get("page_number", 1),
+        total_pages,
+    )
+    return _build_layout_boxes(layout_type, trim_size)
+
+
+# ── Layout endpoints ──────────────────────────────────────────────────────────
+
+@api_router.get("/layout-types")
+async def get_layout_types():
+    """
+    GET /api/layout-types
+    Return the supported layout types with display metadata.
+    """
+    return {
+        "layout_types": [
+            {"key": k, **v} for k, v in LAYOUT_TYPES.items()
+        ]
+    }
+
+
+@api_router.get("/page-themes")
+async def get_page_themes():
+    """
+    GET /api/page-themes
+    Return the preset page themes.
+    """
+    return {
+        "themes": [
+            {"key": k, **v} for k, v in PAGE_THEMES.items()
+        ],
+        "default": DEFAULT_PAGE_THEME,
+    }
+
+
+@api_router.put("/projects/{project_id}/page-theme")
+async def update_page_theme(
+    project_id: str,
+    body: PageThemeUpdate,
+    user=Depends(get_current_user),
+):
+    """
+    PUT /api/projects/{id}/page-theme
+    Set the page theme for a project.
+    """
+    if body.theme_key not in PAGE_THEMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown theme '{body.theme_key}'. Valid: {list(PAGE_THEMES.keys())}",
+        )
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"page_theme": body.theme_key, "updated_at": datetime.utcnow()}},
+    )
+    return {
+        "project_id": project_id,
+        "page_theme": body.theme_key,
+        "theme": PAGE_THEMES[body.theme_key],
+    }
+
+
+@api_router.post("/projects/{project_id}/pages/{page_id}/layout/auto")
+async def auto_layout_page(
+    project_id: str,
+    page_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/projects/{project_id}/pages/{page_id}/layout/auto
+    Automatically compute and store a layout for one page.
+    """
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    page = await db.pages.find_one({"id": page_id, "project_id": project_id})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    total_pages = await db.pages.count_documents({"project_id": project_id})
+    trim_size = (project.get("book_format") or {}).get("trim_size", "8x8")
+
+    layout = _apply_layout_to_page(page, total_pages, trim_size)
+
+    await db.pages.update_one(
+        {"id": page_id},
+        {"$set": {"page_layout": layout, "updated_at": datetime.utcnow()}},
+    )
+    return {"page_id": page_id, "page_layout": layout}
+
+
+@api_router.post("/projects/{project_id}/layout/batch")
+async def auto_layout_all_pages(
+    project_id: str,
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/projects/{project_id}/layout/batch
+    Automatically compute and store layouts for all pages in the project.
+    """
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(100)
+    if not pages:
+        raise HTTPException(status_code=404, detail="No pages found for project")
+
+    total_pages = len(pages)
+    trim_size = (project.get("book_format") or {}).get("trim_size", "8x8")
+
+    results = []
+    for page in pages:
+        layout = _apply_layout_to_page(page, total_pages, trim_size)
+        await db.pages.update_one(
+            {"id": page["id"]},
+            {"$set": {"page_layout": layout, "updated_at": datetime.utcnow()}},
+        )
+        results.append({"page_id": page["id"], "page_number": page["page_number"], "layout_type": layout["layout_type"]})
+
+    logger.info("Batch layout completed for project %s: %d pages", project_id, total_pages)
+    return {"project_id": project_id, "layouts_applied": len(results), "results": results}
+
+
+@api_router.put("/projects/{project_id}/pages/{page_id}/layout")
+async def update_page_layout(
+    project_id: str,
+    page_id: str,
+    body: PageLayoutOverride,
+    user=Depends(get_current_user),
+):
+    """
+    PUT /api/projects/{project_id}/pages/{page_id}/layout
+    Manually override one or more layout properties for a page.
+    """
+    page = await db.pages.find_one({"id": page_id, "project_id": project_id})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # Start from current layout or compute a default
+    project = await db.projects.find_one({"id": project_id})
+    trim_size = (project.get("book_format") or {}).get("trim_size", "8x8") if project else "8x8"
+
+    current_layout: dict = page.get("page_layout") or _build_layout_boxes(
+        "full_illustration_text_bottom", trim_size
+    )
+
+    # Apply overrides
+    if body.layout_type:
+        if body.layout_type not in LAYOUT_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown layout_type '{body.layout_type}'. Valid: {list(LAYOUT_TYPES.keys())}",
+            )
+        # Recompute boxes for the new layout type but allow further box overrides
+        current_layout = _build_layout_boxes(body.layout_type, trim_size)
+
+    if body.font_size is not None:
+        current_layout["font_size"] = body.font_size
+    if body.alignment is not None:
+        current_layout["alignment"] = body.alignment
+    if body.image_box is not None:
+        current_layout["image_box"] = body.image_box
+    if body.text_box is not None:
+        current_layout["text_box"] = body.text_box
+
+    await db.pages.update_one(
+        {"id": page_id},
+        {"$set": {"page_layout": current_layout, "updated_at": datetime.utcnow()}},
+    )
+    return {"page_id": page_id, "page_layout": current_layout}
+
+
 
 def _build_character_visual_brief(char: dict) -> str:
     """

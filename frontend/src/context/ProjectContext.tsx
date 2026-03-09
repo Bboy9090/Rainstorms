@@ -29,6 +29,16 @@ export interface Character {
   appearance_locked: boolean;
 }
 
+export interface PageLayoutData {
+  layout_type: string;
+  image_box: { x: number; y: number; width: number; height: number };
+  text_box: { x: number; y: number; width: number; height: number };
+  font_size: number;
+  alignment: string;
+  print_safe: boolean;
+  gutter_safe: boolean;
+}
+
 export interface Page {
   id: string;
   project_id: string;
@@ -38,6 +48,8 @@ export interface Page {
   illustration_prompt: string;
   illustration_url: string;
   emotional_beat: string;
+  // Page Layout Engine
+  page_layout: PageLayoutData | null;
 }
 
 export interface Project {
@@ -54,6 +66,8 @@ export interface Project {
   outline: string[];
   is_demo: boolean;
   illustration_style: string;
+  // Page Layout Engine
+  page_theme: string;
 }
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
