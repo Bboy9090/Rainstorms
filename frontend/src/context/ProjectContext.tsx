@@ -29,6 +29,16 @@ export interface Character {
   appearance_locked: boolean;
 }
 
+export interface CoverData {
+  cover_style: string;
+  concept: string;
+  front_cover_url: string;
+  back_blurb: string;
+  author_name: string;
+  tagline: string;
+  generated_at: string | null;
+}
+
 export interface PageLayoutData {
   layout_type: string;
   image_box: { x: number; y: number; width: number; height: number };
@@ -68,6 +78,8 @@ export interface Project {
   illustration_style: string;
   // Page Layout Engine
   page_theme: string;
+  // Smart Cover Generator
+  cover: CoverData | null;
 }
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';

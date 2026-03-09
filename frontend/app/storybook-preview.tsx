@@ -523,12 +523,20 @@ export default function StorybookPreviewScreen() {
           <Ionicons name="albums" size={24} color={colors.primary} />
           <Text style={styles.title}>Storybook Preview</Text>
         </View>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => router.push('/export')}
-        >
-          <Ionicons name="download-outline" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => router.push('/cover-generator')}
+          >
+            <Ionicons name="book-outline" size={20} color={colors.secondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => router.push('/export')}
+          >
+            <Ionicons name="download-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Book title + style/theme selectors ── */}
@@ -693,6 +701,13 @@ export default function StorybookPreviewScreen() {
                 {isBatchGenerating ? 'Illustrating...' : 'Illustrate All'}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.navActionBtn, styles.navActionBtnCover]}
+              onPress={() => router.push('/cover-generator')}
+            >
+              <Ionicons name="book" size={15} color={colors.white} />
+              <Text style={styles.navActionBtnText}>Cover</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -809,6 +824,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
     ...shadows.sm,
   },
+  headerActions: { flexDirection: 'row', gap: spacing.xs },
   headerTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
 
@@ -887,6 +903,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full, paddingHorizontal: spacing.md, paddingVertical: 7, ...shadows.sm,
   },
   navActionBtnLayout: { backgroundColor: colors.secondary },
+  navActionBtnCover: { backgroundColor: '#7C3AED' },  // purple for cover
   navActionBtnText: { fontSize: 12, color: colors.white, fontWeight: '700' },
   illustrateBookBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,

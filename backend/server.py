@@ -356,6 +356,68 @@ class PageLayoutOverride(BaseModel):
     text_box: Optional[dict] = None
 
 
+# ── Smart Cover Generator constants + models ───────────────────────────────────
+
+# Cover style presets with display metadata
+COVER_STYLES: dict = {
+    "cozy_bedtime": {
+        "label": "Cozy Bedtime",
+        "emoji": "🌙",
+        "description": "Soft lighting, warm palette, stars and moon. Perfect for gentle bedtime stories.",
+        "prompt_suffix": "soft warm bedtime lighting, stars and moonlight, cozy dreamlike colors, children's book cover art, central character glowing softly",
+    },
+    "adventure": {
+        "label": "Adventure",
+        "emoji": "⚡",
+        "description": "Bold colors, action pose, dynamic composition. Best for exciting tales.",
+        "prompt_suffix": "bold vivid colors, dynamic action composition, heroic pose, bright children's adventure book cover, strong contrast",
+    },
+    "character_closeup": {
+        "label": "Character Close-Up",
+        "emoji": "👤",
+        "description": "Main character portrait, expressive face, centered composition.",
+        "prompt_suffix": "close-up portrait of main character, expressive warm eyes, centered composition, children's picture book cover, painterly illustration",
+    },
+    "scene": {
+        "label": "Scene Cover",
+        "emoji": "🏡",
+        "description": "Important story moment, full scene, cinematic framing.",
+        "prompt_suffix": "cinematic full scene illustration, important story moment, detailed environment, storybook atmosphere, wide composition for book cover",
+    },
+}
+DEFAULT_COVER_STYLE = "cozy_bedtime"
+
+# Directory for generated cover images
+COVERS_DIR = ROOT_DIR / "static" / "covers"
+COVERS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class CoverData(BaseModel):
+    """Stored cover metadata for a project."""
+    cover_style: str = DEFAULT_COVER_STYLE
+    concept: str = ""                    # LLM-generated visual concept
+    front_cover_url: str = ""            # /static/covers/{project_id}/front_cover.png
+    back_blurb: str = ""                 # LLM-generated back-cover description
+    author_name: str = ""
+    tagline: str = ""
+    generated_at: Optional[str] = None  # ISO timestamp
+
+
+class CoverGenerateRequest(BaseModel):
+    """Optional overrides when triggering cover generation."""
+    cover_style: Optional[str] = None    # override default style
+    tagline: Optional[str] = None
+    author_name: Optional[str] = None
+
+
+class CoverUpdateRequest(BaseModel):
+    """Body for PUT /api/projects/{id}/cover — manual metadata update."""
+    cover_style: Optional[str] = None
+    author_name: Optional[str] = None
+    tagline: Optional[str] = None
+    back_blurb: Optional[str] = None
+
+
 class Project(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: Optional[str] = None
@@ -386,6 +448,8 @@ class Project(BaseModel):
     illustration_style: str = DEFAULT_STYLE_PRESET  # style preset key
     # Page Layout Engine fields
     page_theme: str = DEFAULT_PAGE_THEME  # cozy_bedtime | bright_storybook | watercolor_calm | comic_adventure
+    # Smart Cover Generator fields
+    cover: Optional[dict] = None  # CoverData dict
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -4890,6 +4954,270 @@ async def share_to_shared_lore_pool(
     for Rainstorms content we run the abstraction engine here.
     """
     return await _shared_lore_pool_share(request, user)
+
+
+# ==================== SMART COVER GENERATOR ====================
+
+async def _build_cover_concept(project: dict, characters: List[dict]) -> str:
+    """
+    Use the LLM to generate a vivid visual concept for the front cover illustration.
+    Returns a short descriptive paragraph suitable for feeding into a DALL-E prompt.
+    """
+    title = project.get("title", "Untitled")
+    theme = project.get("theme", "")
+    tone = project.get("tone", "")
+    summary = project.get("summary", "")
+    # Pick up to 2 main characters
+    char_lines = []
+    for ch in characters[:2]:
+        name = ch.get("name", "")
+        desc = ch.get("description", "")
+        appearance = ch.get("color_palette", "") or ch.get("clothing", "") or ch.get("unique_traits", "")
+        if name:
+            char_lines.append(f"- {name}: {desc[:80]}" + (f" ({appearance[:60]})" if appearance else ""))
+    char_block = "\n".join(char_lines) if char_lines else "(no named characters yet)"
+
+    prompt = (
+        f"You are an art director for a children's picture book.\n\n"
+        f"Book title: {title}\n"
+        f"Theme: {theme}\n"
+        f"Tone: {tone}\n"
+        f"Story summary: {summary[:300]}\n"
+        f"Main characters:\n{char_block}\n\n"
+        f"Write a single short paragraph (3-4 sentences) describing the COVER ILLUSTRATION scene. "
+        f"Be specific about:\n"
+        f"- who is shown on the cover\n"
+        f"- what they are doing\n"
+        f"- the setting and lighting\n"
+        f"- the emotional feel\n"
+        f"Do NOT include any title text in the description. Keep it visual and evocative."
+    )
+
+    try:
+        from agentq import AgentQ
+        agent = AgentQ(
+            api_key=EMERGENT_LLM_KEY,
+            base_url="https://api.cloud.emergentmind.com",
+        ).with_model("openai", "gpt-4.1")
+        response = await agent.complete(prompt, max_tokens=250)
+        return response.strip()
+    except Exception as exc:
+        logger.error("Cover concept generation failed: %s", exc)
+        # Fallback: craft a basic concept from available metadata
+        char_name = characters[0].get("name", "the hero") if characters else "the hero"
+        return (
+            f"{char_name} stands in the center of the scene, bathed in warm golden light. "
+            f"The background shows {theme or 'a magical storybook world'} with rich, inviting colors. "
+            f"The mood is {tone or 'cozy and adventurous'}, perfectly suited to a children's picture book cover."
+        )
+
+
+async def _build_back_cover_blurb(project: dict) -> str:
+    """
+    Generate a compelling back-cover blurb using the LLM.
+    """
+    title = project.get("title", "Untitled")
+    summary = project.get("summary", "")
+    tone = project.get("tone", "")
+    hook = project.get("hook", "")
+
+    prompt = (
+        f"Write a short, engaging back-cover blurb for a children's picture book.\n\n"
+        f"Title: {title}\n"
+        f"Hook: {hook}\n"
+        f"Summary: {summary[:400]}\n"
+        f"Tone: {tone}\n\n"
+        f"Rules:\n"
+        f"- 3-4 short sentences maximum\n"
+        f"- Use simple, evocative language for children and parents\n"
+        f"- End with a sense of wonder or excitement\n"
+        f"- Do NOT include the title in the blurb text itself\n"
+        f"Return only the blurb text, no labels or headers."
+    )
+
+    try:
+        from agentq import AgentQ
+        agent = AgentQ(
+            api_key=EMERGENT_LLM_KEY,
+            base_url="https://api.cloud.emergentmind.com",
+        ).with_model("openai", "gpt-4.1")
+        response = await agent.complete(prompt, max_tokens=150)
+        return response.strip()
+    except Exception as exc:
+        logger.error("Back blurb generation failed: %s", exc)
+        return summary[:300] if summary else "A magical story for young dreamers everywhere."
+
+
+async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> str:
+    """
+    Generate a cover image using DALL-E 3 and save to static/covers/{project_id}/.
+    Returns the relative URL path or empty string on failure.
+    """
+    if not OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY not set — skipping cover image generation")
+        return ""
+
+    try:
+        async with httpx.AsyncClient(timeout=90.0) as http_client:
+            response = await http_client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": prompt[:4096],
+                    "n": 1,
+                    "size": "1024x1024",
+                    "response_format": "b64_json",
+                    "quality": "hd",  # HD quality for the cover
+                },
+            )
+        response.raise_for_status()
+        data = response.json()
+        image_b64 = data["data"][0]["b64_json"]
+    except httpx.HTTPStatusError as exc:
+        logger.error("Cover image HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
+        return ""
+    except Exception as exc:
+        logger.error("Cover image generation failed: %s", exc)
+        return ""
+
+    cover_dir = COVERS_DIR / project_id
+    cover_dir.mkdir(parents=True, exist_ok=True)
+    image_path = cover_dir / filename
+
+    image_bytes = base64.b64decode(image_b64)
+    image_path.write_bytes(image_bytes)
+    logger.info("Cover image saved: %s (%d bytes)", image_path, len(image_bytes))
+    return f"/static/covers/{project_id}/{filename}"
+
+
+@api_router.get("/cover-styles")
+async def get_cover_styles():
+    """
+    GET /api/cover-styles
+    Return available cover style presets.
+    """
+    return {
+        "styles": [
+            {"key": k, **{field: v[field] for field in ("label", "emoji", "description")}}
+            for k, v in COVER_STYLES.items()
+        ],
+        "default": DEFAULT_COVER_STYLE,
+    }
+
+
+@api_router.post("/projects/{project_id}/cover/generate")
+async def generate_cover(
+    project_id: str,
+    body: CoverGenerateRequest = CoverGenerateRequest(),
+    user=Depends(get_current_user),
+):
+    """
+    POST /api/projects/{project_id}/cover/generate
+    Full cover generation pipeline:
+      1. Load project + characters
+      2. Generate cover concept via LLM
+      3. Generate front-cover illustration via DALL-E 3
+      4. Generate back-cover blurb via LLM
+      5. Persist cover data on project
+    """
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    characters = await db.characters.find({"project_id": project_id}).to_list(20)
+
+    cover_style_key = body.cover_style or project.get("cover", {}).get("cover_style", DEFAULT_COVER_STYLE)
+    if cover_style_key not in COVER_STYLES:
+        cover_style_key = DEFAULT_COVER_STYLE
+    style_info = COVER_STYLES[cover_style_key]
+
+    # Step 1 — concept
+    concept = await _build_cover_concept(project, characters)
+
+    # Step 2 — build DALL-E prompt
+    title = project.get("title", "Untitled")
+    dalle_prompt = (
+        f"Children's picture book FRONT COVER illustration. "
+        f"NO text, title, or words on the image — illustration only.\n\n"
+        f"Scene: {concept}\n\n"
+        f"{style_info['prompt_suffix']}. "
+        f"High quality, 300 DPI equivalent, storybook illustration, "
+        f"professional children's book cover art."
+    )
+
+    # Step 3 — generate front cover image
+    front_cover_url = await _generate_cover_image(dalle_prompt, project_id, "front_cover.png")
+
+    # Step 4 — back cover blurb
+    back_blurb = await _build_back_cover_blurb(project)
+
+    # Step 5 — determine author name
+    meta = project.get("publishing_metadata") or {}
+    author_name = (
+        body.author_name
+        or meta.get("author_name")
+        or meta.get("pen_name")
+        or ""
+    )
+
+    cover_data = CoverData(
+        cover_style=cover_style_key,
+        concept=concept,
+        front_cover_url=front_cover_url,
+        back_blurb=back_blurb,
+        author_name=author_name,
+        tagline=body.tagline or "",
+        generated_at=datetime.utcnow().isoformat(),
+    )
+
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"cover": cover_data.dict(), "updated_at": datetime.utcnow()}},
+    )
+    logger.info("Cover generated for project %s (style=%s)", project_id, cover_style_key)
+    return {"project_id": project_id, "cover": cover_data.dict()}
+
+
+@api_router.put("/projects/{project_id}/cover")
+async def update_cover(
+    project_id: str,
+    body: CoverUpdateRequest,
+    user=Depends(get_current_user),
+):
+    """
+    PUT /api/projects/{project_id}/cover
+    Manually update cover metadata (style, author, tagline, blurb) without re-generating.
+    """
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    current_cover: dict = project.get("cover") or CoverData().dict()
+
+    if body.cover_style is not None:
+        if body.cover_style not in COVER_STYLES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown cover_style '{body.cover_style}'. Valid: {list(COVER_STYLES.keys())}",
+            )
+        current_cover["cover_style"] = body.cover_style
+    if body.author_name is not None:
+        current_cover["author_name"] = body.author_name
+    if body.tagline is not None:
+        current_cover["tagline"] = body.tagline
+    if body.back_blurb is not None:
+        current_cover["back_blurb"] = body.back_blurb
+
+    await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {"cover": current_cover, "updated_at": datetime.utcnow()}},
+    )
+    return {"project_id": project_id, "cover": current_cover}
+
 
 # Include the router in the main app
 app.include_router(api_router)
