@@ -22,7 +22,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from ai_helper import llm_chat as _llm_chat
 from lore_engine import lore_router, meta_router, init_lore_engine
 
 ROOT_DIR = Path(__file__).parent
@@ -38,12 +38,8 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'rainstorms_secret_key_2024_v1')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 72
 
-# Emergent LLM Key
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
-
-# OpenAI API key for image generation (defaults to EMERGENT_LLM_KEY for environments
-# where the same key proxies both text and image generation endpoints)
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
+# OpenAI API key for image generation (DALL-E 3)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # Directory where generated illustration images are stored
 ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
@@ -56,8 +52,8 @@ CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
 # SagaArchitect / LoreEngine base URL for remote story-context fetch
 SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
 
-# Initialise LoreEngine with database and LLM key
-init_lore_engine(db, EMERGENT_LLM_KEY)
+# Initialise LoreEngine with database and LLM callable
+init_lore_engine(db, _llm_chat)
 
 # Create the main app
 app = FastAPI(title="Rainstorms API", version="1.0.0")
@@ -680,13 +676,9 @@ async def require_auth(authorization: Optional[str] = Header(None)):
 
 async def generate_story_paths(idea: str, tone: str, age_range: str) -> List[dict]:
     """Generate 3 different story path options"""
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"paths-{uuid.uuid4()}",
-        system_message="""You are a children's book story developer.
+    _system = """You are a children's book story developer.
 Create engaging, distinct story directions for young readers.
 Always respond with valid JSON only."""
-    ).with_model("openai", "gpt-4.1")
 
     prompt = f"""Given this story idea, create 3 different story directions the user can choose from:
 
@@ -725,7 +717,7 @@ Make each path genuinely different:
 
 Return ONLY the JSON array, no other text."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(_system, prompt)
     
     try:
         cleaned = response.strip()
@@ -741,13 +733,9 @@ Return ONLY the JSON array, no other text."""
 
 async def generate_storytime_script(page_text: str, characters: List[dict], page_number: int) -> dict:
     """Generate narrator script with voice directions for dramatic reading"""
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"storytime-{uuid.uuid4()}",
-        system_message="""You are a children's storytelling coach.
+    _system = """You are a children's storytelling coach.
 Create engaging narrator scripts with voice directions for parents reading to children.
 Always respond with valid JSON only."""
-    ).with_model("openai", "gpt-4.1")
 
     char_names = [c['name'] for c in characters]
     
@@ -774,7 +762,7 @@ Return JSON:
 Make it engaging for bedtime reading. If there's no dialogue, character_lines can be empty.
 Return ONLY the JSON, no other text."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(_system, prompt)
     
     try:
         cleaned = response.strip()
@@ -806,13 +794,9 @@ def _normalize_lore_context(data: dict) -> dict:
 
 async def generate_blueprint(idea: str, tone: str, age_range: str, page_count: int, lesson: str = None, legacy_character: dict = None, lore_context: dict = None) -> dict:
     """Generate story blueprint using AI"""
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"blueprint-{uuid.uuid4()}",
-        system_message="""You are a children's book author and story development expert. 
+    _system = """You are a children's book author and story development expert. 
 You create engaging, age-appropriate stories for picture books.
 Always respond with valid JSON only, no additional text."""
-    ).with_model("openai", "gpt-4.1")
 
     # Build additional context
     extra_context = ""
@@ -910,7 +894,7 @@ Rules:
 
 Return ONLY the JSON, no other text."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(_system, prompt)
     
     # Parse the JSON response
     try:
@@ -929,13 +913,9 @@ Return ONLY the JSON, no other text."""
 
 async def generate_characters(blueprint: dict) -> List[dict]:
     """Generate detailed character cards"""
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"characters-{uuid.uuid4()}",
-        system_message="""You are a children's book character designer.
+    _system = """You are a children's book character designer.
 Create vivid, memorable characters with distinct visual appearances.
 Always respond with valid JSON only."""
-    ).with_model("openai", "gpt-4.1")
 
     prompt = f"""Based on this story blueprint, create detailed character cards:
 
@@ -959,7 +939,7 @@ Expand each character with rich details. Return JSON array:
 Make appearances specific enough for consistent illustration across all pages.
 Return ONLY the JSON array, no other text."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(_system, prompt)
     
     try:
         cleaned = response.strip()
@@ -975,14 +955,10 @@ Return ONLY the JSON array, no other text."""
 
 async def generate_page_text(project: dict, characters: List[dict], page_number: int, outline_beat: str) -> dict:
     """Generate text for a specific page"""
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"page-{uuid.uuid4()}",
-        system_message="""You are a children's picture book author.
+    _system = """You are a children's picture book author.
 Write engaging, age-appropriate text for picture book pages.
 Keep text concise - typically 2-5 sentences per page.
 Always respond with valid JSON only."""
-    ).with_model("openai", "gpt-4.1")
 
     character_info = "\n".join([f"- {c['name']}: {c['appearance']}" for c in characters])
     
@@ -1013,7 +989,7 @@ Rules:
 
 Return ONLY the JSON, no other text."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(_system, prompt)
     
     try:
         cleaned = response.strip()
@@ -1036,14 +1012,10 @@ async def generate_illustration_prompt(project: dict, characters: List[dict], pa
     - Inject their full visual profiles into the prompt
     - Prefer locked appearance data to ensure consistency
     """
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"illustration-{uuid.uuid4()}",
-        system_message="""You are a children's book art director.
+    _system = """You are a children's book art director.
 Create detailed illustration prompts that capture the essence of each page.
 Focus on composition, mood, and character consistency.
 When character visual profiles are provided, include those exact visual details in the prompt."""
-    ).with_model("openai", "gpt-4.1")
 
     # Detect which characters appear in this page's text
     detected = _detect_characters_in_text(page_text, characters)
@@ -1080,7 +1052,7 @@ End with this style note:
 
 Return ONLY the illustration prompt text, nothing else."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(_system, prompt)
     return response.strip()
 
 # ==================== AUTH ENDPOINTS ====================
@@ -1355,12 +1327,6 @@ async def regenerate_title(project_id: str):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"title-{uuid.uuid4()}",
-        system_message="You are a creative children's book title generator."
-    ).with_model("openai", "gpt-4.1")
-    
     prompt = f"""Generate a new creative title for this children's book:
 STORY IDEA: {project['original_idea']}
 SUMMARY: {project.get('summary', '')}
@@ -1368,7 +1334,7 @@ TONE: {project['tone']}
 
 Return ONLY the title text, nothing else."""
     
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat("You are a creative children's book title generator.", prompt)
     new_title = response.strip().strip('"').strip("'")
     
     await db.projects.update_one({"id": project_id}, {"$set": {"title": new_title, "updated_at": datetime.utcnow()}})
@@ -1403,14 +1369,6 @@ async def improve_page(request: ImprovePageRequest):
     
     instruction = modifier_instructions.get(request.modifier, "Improve this text while maintaining the story's tone.")
     
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"improve-{uuid.uuid4()}",
-        system_message=f"""You are a children's picture book editor. You help writers refine their text.
-Keep text concise - picture books have brief text per page.
-{memory_context}"""
-    ).with_model("openai", "gpt-4.1")
-    
     prompt = f"""Improve this children's book page text:
 
 ORIGINAL TEXT:
@@ -1425,7 +1383,12 @@ INSTRUCTION: {instruction}
 
 Return ONLY the improved text, nothing else. Keep it brief (2-5 sentences) as this is for a picture book page."""
 
-    response = await chat.send_message(UserMessage(text=prompt))
+    response = await _llm_chat(
+        f"""You are a children's picture book editor. You help writers refine their text.
+Keep text concise - picture books have brief text per page.
+{memory_context}""",
+        prompt,
+    )
     improved_text = response.strip()
     
     # Update the page
@@ -4704,13 +4667,7 @@ Respond with JSON:
 }}
 """
 
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=f"lorepool-{uuid.uuid4()}",
-        system_message=system_msg,
-    ).with_model("openai", "gpt-4.1")
-
-    response = await chat.chat(UserMessage(text=prompt))
+    response = await _llm_chat(system_msg, prompt)
     try:
         cleaned = response.strip()
         if cleaned.startswith("```"):
@@ -4994,12 +4951,7 @@ async def _build_cover_concept(project: dict, characters: List[dict]) -> str:
     )
 
     try:
-        from agentq import AgentQ
-        agent = AgentQ(
-            api_key=EMERGENT_LLM_KEY,
-            base_url="https://api.cloud.emergentmind.com",
-        ).with_model("openai", "gpt-4.1")
-        response = await agent.complete(prompt, max_tokens=250)
+        response = await _llm_chat("You are an art director for a children's picture book.", prompt)
         return response.strip()
     except Exception as exc:
         logger.error("Cover concept generation failed: %s", exc)
@@ -5036,12 +4988,7 @@ async def _build_back_cover_blurb(project: dict) -> str:
     )
 
     try:
-        from agentq import AgentQ
-        agent = AgentQ(
-            api_key=EMERGENT_LLM_KEY,
-            base_url="https://api.cloud.emergentmind.com",
-        ).with_model("openai", "gpt-4.1")
-        response = await agent.complete(prompt, max_tokens=150)
+        response = await _llm_chat("You are a children's book copywriter.", prompt)
         return response.strip()
     except Exception as exc:
         logger.error("Back blurb generation failed: %s", exc)

@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 
 export const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
   process.env.EXPO_PUBLIC_BACKEND_URL ||
-  'https://rainstorms.preview.emergentagent.com';
+  'http://localhost:8001';
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api`,

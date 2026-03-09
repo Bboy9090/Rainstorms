@@ -48,7 +48,7 @@ AI-powered children's picture-book creation tool.
 \`\`\`bash
 git clone https://github.com/Bboy9090/Rainstorms.git
 cd Rainstorms
-cp backend/.env.example backend/.env  # fill in MONGO_URL + EMERGENT_LLM_KEY
+cp backend/.env.example backend/.env  # fill in MONGO_URL + OPENAI_API_KEY
 bash start.sh
 \`\`\`
 

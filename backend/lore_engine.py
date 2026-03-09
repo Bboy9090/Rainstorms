@@ -18,9 +18,6 @@ import json
 import logging
 import os
 
-import httpx
-from emergentintegrations.llm.chat import LlmChat, UserMessage
-
 logger = logging.getLogger(__name__)
 
 lore_router = APIRouter(prefix="/api/universes", tags=["LoreEngine"])
@@ -28,13 +25,13 @@ meta_router = APIRouter(prefix="/api/lore", tags=["LoreEngine"])
 
 # ── will be injected from server.py ───────────────────────────────────────────
 _db = None
-_llm_key = ""
+_llm_fn = None
 
 
-def init_lore_engine(db, llm_key: str):
-    global _db, _llm_key
+def init_lore_engine(db, llm_fn):
+    global _db, _llm_fn
     _db = db
-    _llm_key = llm_key
+    _llm_fn = llm_fn
 
 
 def _saga_architect_base_url() -> str:
@@ -446,15 +443,11 @@ async def generate_universe(universe_id: str, req: UniverseGenerateRequest):
     """
     db = _db_ref()
 
-    chat = LlmChat(
-        api_key=_llm_key,
-        session_id=f"universe-engine-{uuid.uuid4()}",
-        system_message=(
-            "You are an expert worldbuilder and story-bible creator. "
-            "You generate rich, internally consistent fictional universes. "
-            "Always respond with valid JSON only, no extra text."
-        ),
-    ).with_model("openai", "gpt-4.1")
+    _system = (
+        "You are an expert worldbuilder and story-bible creator. "
+        "You generate rich, internally consistent fictional universes. "
+        "Always respond with valid JSON only, no extra text."
+    )
 
     prompt = f"""Generate a complete fictional universe with the following parameters:
 
@@ -493,7 +486,7 @@ Make 3 factions, 4 locations, 3 characters, and 4-6 world rules.
 Ensure everything references the genre, tone, and concept.
 Return ONLY the JSON, no other text."""
 
-    raw = await chat.send_message(UserMessage(text=prompt))
+    raw = await _llm_fn(_system, prompt)
 
     try:
         data = json.loads(_clean_json(raw))
@@ -727,15 +720,11 @@ async def generate_character(universe_id: str, req: CharacterGenerateRequest):
     memory = await _build_canon_memory(universe_id)
     context = _memory_to_prompt_text(memory)
 
-    chat = LlmChat(
-        api_key=_llm_key,
-        session_id=f"char-gen-{uuid.uuid4()}",
-        system_message=(
-            "You are a story-bible character designer. "
-            "Generate characters that fit existing lore without contradictions. "
-            "Respond with valid JSON only."
-        ),
-    ).with_model("openai", "gpt-4.1")
+    _system = (
+        "You are a story-bible character designer. "
+        "Generate characters that fit existing lore without contradictions. "
+        "Respond with valid JSON only."
+    )
 
     prompt = f"""Generate a {req.role} character for this universe:
 
@@ -758,7 +747,7 @@ Return JSON:
 Ensure the character fits the universe tone and respects world rules.
 Return ONLY the JSON."""
 
-    raw = await chat.send_message(UserMessage(text=prompt))
+    raw = await _llm_fn(_system, prompt)
     try:
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError:
@@ -780,14 +769,10 @@ async def generate_faction(universe_id: str, req: FactionGenerateRequest):
     memory = await _build_canon_memory(universe_id)
     context = _memory_to_prompt_text(memory)
 
-    chat = LlmChat(
-        api_key=_llm_key,
-        session_id=f"faction-gen-{uuid.uuid4()}",
-        system_message=(
-            "You are a worldbuilder specialising in organisations and factions. "
-            "Respond with valid JSON only."
-        ),
-    ).with_model("openai", "gpt-4.1")
+    _system = (
+        "You are a worldbuilder specialising in organisations and factions. "
+        "Respond with valid JSON only."
+    )
 
     existing_factions = ", ".join(f["name"] for f in memory["factions"]) or "none yet"
 
@@ -815,7 +800,7 @@ Return JSON:
 Ensure the faction fits the universe and does not duplicate existing factions.
 Return ONLY the JSON."""
 
-    raw = await chat.send_message(UserMessage(text=prompt))
+    raw = await _llm_fn(_system, prompt)
     try:
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError:
@@ -847,14 +832,10 @@ async def generate_arc(universe_id: str, req: StoryArcGenerateRequest):
     memory = await _build_canon_memory(universe_id)
     context = _memory_to_prompt_text(memory)
 
-    chat = LlmChat(
-        api_key=_llm_key,
-        session_id=f"arc-gen-{uuid.uuid4()}",
-        system_message=(
-            "You are a narrative designer specialising in story arcs for fictional universes. "
-            "Respond with valid JSON only."
-        ),
-    ).with_model("openai", "gpt-4.1")
+    _system = (
+        "You are a narrative designer specialising in story arcs for fictional universes. "
+        "Respond with valid JSON only."
+    )
 
     char_list = ", ".join(c["name"] for c in memory["characters"]) or "none defined"
     faction_list = ", ".join(f["name"] for f in memory["factions"]) or "none defined"
@@ -882,7 +863,7 @@ Return JSON:
 Connect to existing timeline events and factions.
 Return ONLY the JSON."""
 
-    raw = await chat.send_message(UserMessage(text=prompt))
+    raw = await _llm_fn(_system, prompt)
     try:
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError:
