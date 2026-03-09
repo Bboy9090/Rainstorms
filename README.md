@@ -56,7 +56,8 @@ Rainstorms is an AI-powered children's book creation tool. Give it an idea — *
 | Navigation | Expo Router (file-based) |
 | Backend | FastAPI (Python 3.10+) |
 | Database | MongoDB (motor async driver) |
-| AI | OpenAI GPT-4.1 via Emergent Integrations |
+| AI (text) | OpenAI GPT-4.1 **or** Google Gemini 2.0 Flash (your own API key) |
+| AI (images) | OpenAI DALL-E 3 (your own OpenAI API key) |
 | PDF | ReportLab |
 | Auth | JWT (72-hour tokens) + bcrypt |
 
@@ -69,7 +70,8 @@ Rainstorms is an AI-powered children's book creation tool. Give it an idea — *
 - **Python 3.10+** and **pip**
 - **Node 18+** and **npm**
 - **MongoDB** — local instance (`mongod`) **or** a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster
-- An **Emergent LLM API key** (for AI generation) — get one at [emergentintegrations.com](https://emergentintegrations.com)
+- An **OpenAI API key** (for AI text + image generation) — get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+  - *Alternatively*, a **Google Gemini API key** can be used for text generation — get one at [aistudio.google.com](https://aistudio.google.com/app/apikey)
 
 ### 1 — Clone and configure
 
@@ -79,7 +81,7 @@ cd Rainstorms
 
 # Backend config
 cp backend/.env.example backend/.env
-# Edit backend/.env — set MONGO_URL and EMERGENT_LLM_KEY
+# Edit backend/.env — set MONGO_URL and OPENAI_API_KEY (and optionally GEMINI_API_KEY)
 
 # Frontend config (defaults to localhost:8001 — no changes needed for local dev)
 cp frontend/.env.example frontend/.env
@@ -115,7 +117,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env               # fill in MONGO_URL and EMERGENT_LLM_KEY
+cp .env.example .env               # fill in MONGO_URL and OPENAI_API_KEY
 uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 ```
 
@@ -221,7 +223,7 @@ Rainstorms/
 
 - **No image generation** — illustration *prompts* are created but actual images are not generated; bring your own image tool (Midjourney, DALL·E, etc.)
 - **Guest sessions are not persisted** — work as a guest is stored only in browser memory; closing the tab loses your project unless you're signed in
-- **Single-user LLM key** — the `EMERGENT_LLM_KEY` is shared server-side; production deployments should implement per-user key management or rate limiting
+- **API key costs** — `OPENAI_API_KEY` is used server-side for all AI generation; production deployments should implement per-user key management or rate limiting to control costs
 - **No real-time collaboration** — one user edits a project at a time
 - **PDF formatting** — the story PDF uses a basic ReportLab layout; custom fonts and illustrations require additional work
 - **Mobile app stores** — not published to App Store or Google Play in this release; run via Expo Go or the web build
