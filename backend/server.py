@@ -33,7 +33,10 @@ load_dotenv(ROOT_DIR / '.env')
 # error is surfaced at request-time (via MongoDB connection failure) rather
 # than crashing the module at import/startup.
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(
+    mongo_url,
+    serverSelectionTimeoutMS=15000,  # Fail in 15s instead of hanging
+)
 db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
 
 # JWT Configuration
@@ -3834,6 +3837,30 @@ async def root():
 @api_router.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+@api_router.get("/ready")
+async def ready_check():
+    """Check if the API can reach MongoDB. Use this to debug 'stories not loading'."""
+    try:
+        await client.admin.command("ping")
+        return {
+            "status": "ready",
+            "mongo": "connected",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error("MongoDB ready check failed: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "not_ready",
+                "mongo": "disconnected",
+                "hint": "Set MONGO_URL in Railway Variables and allow 0.0.0.0/0 in MongoDB Atlas Network Access.",
+                "error": str(e),
+            },
+        )
+
 
 # ==================== LORE POOL ====================
 

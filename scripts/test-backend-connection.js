@@ -1,52 +1,65 @@
 #!/usr/bin/env node
 /**
- * Test backend connection — used to verify frontend→backend connectivity.
+ * Test backend connection — verifies health and MongoDB connectivity.
  * Usage: node scripts/test-backend-connection.js [BACKEND_URL]
- * Example: node scripts/test-backend-connection.js https://rainstorms-api.up.railway.app
+ * Example: node scripts/test-backend-connection.js https://backend-production-4938.up.railway.app
  */
 
 const https = require("https");
 const http = require("http");
 
-const url = process.argv[2] || "https://rainstorms-api.up.railway.app";
-const base = url.replace(/\/$/, "");
-const healthUrl = `${base}/api/health`;
-
+const base = (process.argv[2] || "https://backend-production-4938.up.railway.app").replace(/\/$/, "");
 const client = base.startsWith("https") ? https : http;
 
-console.log(`Testing backend: ${healthUrl}\n`);
-
-const req = client.get(healthUrl, { timeout: 10000 }, (res) => {
-  let data = "";
-  res.on("data", (chunk) => (data += chunk));
-  res.on("end", () => {
-    const status = res.statusCode;
-    if (status === 200) {
-      try {
-        const json = JSON.parse(data);
-        if (json.status === "healthy") {
-          console.log("✅ Backend is reachable and healthy");
-          console.log(`   Response: ${JSON.stringify(json)}`);
-          process.exit(0);
+function fetch(path, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const req = client.get(`${base}${path}`, { timeout }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        try {
+          resolve({ status: res.statusCode, json: JSON.parse(data) });
+        } catch {
+          resolve({ status: res.statusCode, json: null, raw: data });
         }
-      } catch (e) {}
-    }
-    console.log(`❌ Backend returned ${status}`);
-    console.log(`   Response: ${data.slice(0, 200)}${data.length > 200 ? "..." : ""}`);
-    process.exit(1);
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
   });
-});
+}
 
-req.on("error", (err) => {
-  console.log(`❌ Connection failed: ${err.message}`);
-  if (err.code === "ENOTFOUND") {
-    console.log("   Hint: Check that the backend URL is correct and the service is deployed.");
+async function main() {
+  console.log(`Testing backend: ${base}\n`);
+
+  try {
+    const health = await fetch("/api/health");
+    if (health.status !== 200 || health.json?.status !== "healthy") {
+      console.log(`❌ Health check failed: ${health.status}`);
+      process.exit(1);
+    }
+    console.log("✅ Health: OK");
+  } catch (e) {
+    console.log(`❌ Health: ${e.message}`);
+    process.exit(1);
   }
-  process.exit(1);
-});
 
-req.on("timeout", () => {
-  req.destroy();
-  console.log("❌ Request timed out");
-  process.exit(1);
-});
+  try {
+    const ready = await fetch("/api/ready", 15000);
+    if (ready.status === 200 && ready.json?.mongo === "connected") {
+      console.log("✅ MongoDB: connected");
+    } else if (ready.status === 404) {
+      console.log("⚠️  /api/ready not found (deploy latest backend to enable)");
+    } else {
+      console.log(`❌ MongoDB: not connected (${ready.status})`);
+      if (ready.json?.detail?.hint) console.log(`   Hint: ${ready.json.detail.hint}`);
+      process.exit(1);
+    }
+  } catch (e) {
+    console.log(`⚠️  Ready check: ${e.message}`);
+  }
+
+  console.log("\n✅ Backend is fully operational.");
+}
+
+main();

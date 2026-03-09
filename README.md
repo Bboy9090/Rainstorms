@@ -251,7 +251,7 @@ What's **out** (planned for future versions):
 
 ## Deploying to Production
 
-See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full production deployment guide, including:
+See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full production deployment guide, and **[docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md)** for a focused Railway + Vercel checklist (use this if stories aren't loading).
 
 - Recommended app type and hosting stack (Vercel + Railway + MongoDB Atlas)
 - Step-by-step backend and frontend deployment
