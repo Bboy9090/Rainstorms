@@ -2605,6 +2605,10 @@ def _build_character_visual_brief(char: dict) -> str:
     illustration prompts.
 
     Only includes fields that are non-empty, prioritising locked visual profile data.
+
+    The `clothing` field may use semicolons to separate multiple states
+    (e.g. "pajamas; as Captain Blanket: quilt cape") — this is intentional and
+    provides the LLM with context-aware wardrobe information in a single string.
     """
     parts: list[str] = []
 
@@ -2689,6 +2693,11 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
                     "response_format": "b64_json",
                     "quality": "standard",
                 },
+            )
+        if len(prompt) > 4096:
+            logger.warning(
+                "Reference sheet prompt truncated from %d to 4096 chars for character %s",
+                len(prompt), char.get("name", char_id),
             )
         response.raise_for_status()
         data = response.json()
