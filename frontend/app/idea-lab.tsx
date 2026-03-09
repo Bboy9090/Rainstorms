@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,6 +61,32 @@ export default function IdeaLabScreen() {
   const [pageCount, setPageCount] = useState('10');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Universe / LoreEngine mode
+  const [universeMode, setUniverseMode] = useState(false);
+  const [universes, setUniverses] = useState<{ id: string; name: string; genre: string; tone: string }[]>([]);
+  const [loadingUniverses, setLoadingUniverses] = useState(false);
+  const [selectedUniverseId, setSelectedUniverseId] = useState<string | null>(null);
+
+  const handleToggleUniverseMode = async () => {
+    const next = !universeMode;
+    setUniverseMode(next);
+    if (next && universes.length === 0) {
+      setLoadingUniverses(true);
+      try {
+        const res = await api.get('/universes');
+        setUniverses(res.data || []);
+      } catch {
+        setUniverses([]);
+        setError('Could not load universes. Check your connection and try again.');
+      } finally {
+        setLoadingUniverses(false);
+      }
+    }
+    if (!next) {
+      setSelectedUniverseId(null);
+    }
+  };
+
   const handleGenerateBlueprint = async () => {
     if (!idea.trim()) {
       setError('Please enter a story idea');
@@ -70,12 +97,13 @@ export default function IdeaLabScreen() {
     setError(null);
 
     try {
-      // Generate blueprint
+      // Generate blueprint (with optional lore context)
       const blueprintRes = await api.post('/generate/blueprint', {
         original_idea: idea,
         tone,
         age_range: ageRange,
         page_count: parseInt(pageCount),
+        ...(selectedUniverseId ? { lore_universe_id: selectedUniverseId } : {}),
       });
 
       const blueprint = blueprintRes.data;
@@ -87,6 +115,7 @@ export default function IdeaLabScreen() {
         tone,
         age_range: ageRange,
         page_count: parseInt(pageCount),
+        ...(selectedUniverseId ? { lore_universe_id: selectedUniverseId } : {}),
       });
 
       // Update project with blueprint data
@@ -164,6 +193,72 @@ export default function IdeaLabScreen() {
         <Text style={styles.subtitle}>
           Start with your story idea. We'll help you build the rest.
         </Text>
+
+        {/* Universe Mode Toggle */}
+        <TouchableOpacity
+          style={[styles.universeModeToggle, universeMode && styles.universeModeToggleActive]}
+          onPress={handleToggleUniverseMode}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={universeMode ? 'planet' : 'planet-outline'}
+            size={20}
+            color={universeMode ? colors.white : colors.primary}
+          />
+          <Text style={[styles.universeModeToggleText, universeMode && styles.universeModeToggleTextActive]}>
+            {universeMode ? 'Creating from Universe ✓' : 'Create from Universe (LoreEngine)'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Universe Picker */}
+        {universeMode && (
+          <Card style={styles.universeCard} variant="outlined">
+            <Text style={styles.universeCardTitle}>Select a Universe</Text>
+            {loadingUniverses ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
+            ) : universes.length === 0 ? (
+              <Text style={styles.universeEmpty}>
+                No universes found. Sync a universe from SagaArchitect/MythLoreBuilder first.
+              </Text>
+            ) : (
+              universes.map((u) => (
+                <TouchableOpacity
+                  key={u.id}
+                  style={[
+                    styles.universeItem,
+                    selectedUniverseId === u.id && styles.universeItemSelected,
+                  ]}
+                  onPress={() => setSelectedUniverseId(selectedUniverseId === u.id ? null : u.id)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.universeItemInner}>
+                    <Ionicons
+                      name={selectedUniverseId === u.id ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={selectedUniverseId === u.id ? colors.primary : colors.textSecondary}
+                    />
+                    <View style={styles.universeItemText}>
+                      <Text style={[
+                        styles.universeName,
+                        selectedUniverseId === u.id && styles.universeNameSelected,
+                      ]}>
+                        {u.name}
+                      </Text>
+                      {(u.genre || u.tone) ? (
+                        <Text style={styles.universeMeta}>{[u.genre, u.tone].filter(Boolean).join(' · ')}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+            {selectedUniverseId && (
+              <Text style={styles.universeSelectedNote}>
+                ✨ Story will be generated consistent with this universe's canon, characters, factions, and world rules.
+              </Text>
+            )}
+          </Card>
+        )}
 
         {/* Main Form */}
         <Card style={styles.formCard} variant="elevated">
@@ -358,5 +453,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  universeModeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginBottom: spacing.md,
+  },
+  universeModeToggleActive: {
+    backgroundColor: colors.primary,
+  },
+  universeModeToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  universeModeToggleTextActive: {
+    color: colors.white,
+  },
+  universeCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  universeCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  universeEmpty: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+  },
+  universeItem: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  universeItemSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.bgEnd,
+  },
+  universeItemInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  universeItemText: {
+    flex: 1,
+  },
+  universeName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  universeNameSelected: {
+    color: colors.primary,
+  },
+  universeMeta: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  universeSelectedNote: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

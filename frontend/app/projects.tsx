@@ -24,9 +24,16 @@ interface ProjectSummary {
   tone: string;
   age_range: string;
   page_count: number;
+  visibility?: string;
   created_at: string;
   updated_at: string;
 }
+
+const VISIBILITY_OPTIONS = [
+  { value: 'private', label: '🔒 Keep Private', description: 'Only you can see this' },
+  { value: 'shared_archetype', label: '🔮 Share as Archetype', description: 'Abstract pattern only — no exact names or details' },
+  { value: 'public_template', label: '📖 Share as Template', description: 'Intentional reusable template' },
+] as const;
 
 export default function ProjectsScreen() {
   const router = useRouter();
@@ -36,6 +43,7 @@ export default function ProjectsScreen() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sharingId, setSharingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -83,6 +91,45 @@ export default function ProjectsScreen() {
           },
         },
       ]
+    );
+  };
+
+  const handleSetVisibility = async (project: ProjectSummary, visibility: string) => {
+    if (visibility === project.visibility) return;
+    setSharingId(project.id);
+    try {
+      await api.put(`/projects/${project.id}/visibility`, { visibility });
+      // If sharing to pool, also create/update the pool entry
+      if (visibility === 'shared_archetype' || visibility === 'public_template') {
+        await api.post('/lore-pool/share', {
+          source_type: 'book_concept',
+          source_id: project.id,
+          visibility,
+        });
+        Alert.alert(
+          'Shared to Lore Pool ✨',
+          `This project has been abstracted and added to the Lore Pool as an archetype. No exact names or story details were shared.`
+        );
+      }
+      setProjects((prev) =>
+        prev.map((p) => (p.id === project.id ? { ...p, visibility } : p))
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.detail || 'Failed to update visibility.');
+    } finally {
+      setSharingId(null);
+    }
+  };
+
+  const handleVisibilityPicker = (project: ProjectSummary) => {
+    Alert.alert(
+      'Content Visibility',
+      'Choose how this project is shared. Private content is never used in the Lore Pool.',
+      VISIBILITY_OPTIONS.map((opt) => ({
+        text: opt.label,
+        onPress: () => handleSetVisibility(project, opt.value),
+        style: opt.value === 'private' ? 'destructive' : 'default',
+      })).concat([{ text: 'Cancel', style: 'cancel', onPress: () => {} }])
     );
   };
 
@@ -199,6 +246,48 @@ export default function ProjectsScreen() {
                   Updated {formatDate(project.updated_at)}
                 </Text>
               </TouchableOpacity>
+
+              {/* Visibility / Lore Pool sharing control */}
+              <TouchableOpacity
+                style={[
+                  styles.visibilityRow,
+                  (project.visibility === 'shared_archetype' || project.visibility === 'public_template')
+                    && styles.visibilityRowShared,
+                ]}
+                onPress={() => handleVisibilityPicker(project)}
+                disabled={sharingId === project.id}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={
+                    project.visibility === 'shared_archetype'
+                      ? 'planet'
+                      : project.visibility === 'public_template'
+                      ? 'globe'
+                      : 'lock-closed-outline'
+                  }
+                  size={14}
+                  color={
+                    project.visibility === 'shared_archetype' || project.visibility === 'public_template'
+                      ? colors.primary
+                      : colors.textMuted
+                  }
+                />
+                <Text style={[
+                  styles.visibilityLabel,
+                  (project.visibility === 'shared_archetype' || project.visibility === 'public_template')
+                    && styles.visibilityLabelShared,
+                ]}>
+                  {sharingId === project.id
+                    ? 'Updating…'
+                    : project.visibility === 'shared_archetype'
+                    ? 'Shared as Archetype'
+                    : project.visibility === 'public_template'
+                    ? 'Shared as Template'
+                    : 'Private — tap to share to Lore Pool'}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
             </Card>
           ))}
         </View>
@@ -298,6 +387,30 @@ const styles = StyleSheet.create({
   projectDate: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  visibilityRowShared: {
+    borderTopColor: colors.primary + '33',
+    backgroundColor: colors.bgEnd,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  visibilityLabel: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  visibilityLabelShared: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,

@@ -44,6 +44,8 @@ export const colors = {
   gray700: '#334155',
   gray800: '#1E293B',
   gray900: '#0F172A',
+  // Extended accents
+  purple: '#7C3AED',
 };
 
 export const spacing = {

@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
+  Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +19,7 @@ import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject } from '../src/context/ProjectContext';
-import { api } from '../src/utils/api';
+import { api, BASE_URL, buildImageUrl } from '../src/utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +46,7 @@ export default function PageBuilderScreen() {
   const [activePage, setActivePage] = useState(0);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [isGeneratingIllustration, setIsGeneratingIllustration] = useState(false);
   const [isImproving, setIsImproving] = useState<string | null>(null);
   const [showImprovePanel, setShowImprovePanel] = useState(false);
 
@@ -90,6 +94,26 @@ export default function PageBuilderScreen() {
       setError('Failed to generate illustration prompt');
     } finally {
       setIsGeneratingPrompt(false);
+    }
+  };
+
+  const handleGenerateIllustration = async () => {
+    if (!currentPageData) return;
+    if (!currentPageData.illustration_prompt) {
+      Alert.alert('No Prompt', 'Generate an illustration prompt first.');
+      return;
+    }
+    setIsGeneratingIllustration(true);
+    try {
+      const response = await api.post(
+        `/projects/${currentProject.id}/pages/${currentPageData.id}/illustrations/generate`
+      );
+      updatePage(currentPageData.id, { illustration_url: response.data.illustration_url });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Failed to generate illustration.';
+      Alert.alert('Generation Failed', msg);
+    } finally {
+      setIsGeneratingIllustration(false);
     }
   };
 
@@ -184,9 +208,9 @@ export default function PageBuilderScreen() {
             {(page.page_text || page.illustration_prompt) && (
               <View style={styles.pageIndicator}>
                 <Ionicons
-                  name={page.page_text && page.illustration_prompt ? 'checkmark-circle' : 'ellipse'}
+                  name={page.illustration_url ? 'image' : page.page_text && page.illustration_prompt ? 'checkmark-circle' : 'ellipse'}
                   size={12}
-                  color={page.page_text && page.illustration_prompt ? colors.success : colors.warning}
+                  color={page.illustration_url ? colors.primary : page.page_text && page.illustration_prompt ? colors.success : colors.warning}
                 />
               </View>
             )}
@@ -318,6 +342,45 @@ export default function PageBuilderScreen() {
                 </Text>
               )}
             </Card>
+
+            {/* Illustration Preview */}
+            {currentPageData.illustration_prompt && (
+              <Card style={styles.illustrationCard} variant="elevated">
+                <View style={styles.cardHeaderRow}>
+                  <View style={styles.cardHeader}>
+                    <Ionicons name="image" size={18} color={colors.primary} />
+                    <Text style={styles.cardLabel}>Illustration</Text>
+                  </View>
+                  <Button
+                    title={isGeneratingIllustration ? 'Generating…' : currentPageData.illustration_url ? 'Regenerate' : 'Generate Image'}
+                    onPress={handleGenerateIllustration}
+                    variant={currentPageData.illustration_url ? 'outline' : 'primary'}
+                    size="sm"
+                    loading={isGeneratingIllustration}
+                    icon={<Ionicons name="sparkles" size={14} color={currentPageData.illustration_url ? colors.primary : colors.white} />}
+                  />
+                </View>
+                {isGeneratingIllustration ? (
+                  <View style={styles.illustrationGenerating}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.generatingText}>Generating illustration…</Text>
+                  </View>
+                ) : currentPageData.illustration_url ? (
+                  <Image
+                    source={{ uri: buildImageUrl(currentPageData.illustration_url) }}
+                    style={styles.illustrationPreviewImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.illustrationEmptyState}>
+                    <Ionicons name="images-outline" size={32} color={colors.gray300} />
+                    <Text style={styles.illustrationEmptyText}>
+                      Tap "Generate Image" to create the illustration
+                    </Text>
+                  </View>
+                )}
+              </Card>
+            )}
           </>
         )}
       </ScrollView>
@@ -578,6 +641,40 @@ const styles = StyleSheet.create({
   promptPlaceholder: {
     fontSize: 14,
     color: colors.gray400,
+    fontStyle: 'italic',
+  },
+  // Illustration card styles
+  illustrationCard: {
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  illustrationGenerating: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  generatingText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  illustrationPreviewImage: {
+    width: '100%',
+    height: 240,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+  },
+  illustrationEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  illustrationEmptyText: {
+    fontSize: 13,
+    color: colors.gray400,
+    textAlign: 'center',
     fontStyle: 'italic',
   },
   bottomBar: {

@@ -21,6 +21,32 @@ export interface Character {
   appearance: string;
   special_trait: string;
   notes: string;
+  // Visual profile fields (Character Consistency Engine)
+  color_palette: string;
+  clothing: string;
+  unique_traits: string;
+  reference_sheet_url: string;
+  appearance_locked: boolean;
+}
+
+export interface CoverData {
+  cover_style: string;
+  concept: string;
+  front_cover_url: string;
+  back_blurb: string;
+  author_name: string;
+  tagline: string;
+  generated_at: string | null;
+}
+
+export interface PageLayoutData {
+  layout_type: string;
+  image_box: { x: number; y: number; width: number; height: number };
+  text_box: { x: number; y: number; width: number; height: number };
+  font_size: number;
+  alignment: string;
+  print_safe: boolean;
+  gutter_safe: boolean;
 }
 
 export interface Page {
@@ -30,7 +56,10 @@ export interface Page {
   outline_beat: string;
   page_text: string;
   illustration_prompt: string;
+  illustration_url: string;
   emotional_beat: string;
+  // Page Layout Engine
+  page_layout: PageLayoutData | null;
 }
 
 export interface Project {
@@ -46,6 +75,11 @@ export interface Project {
   summary: string;
   outline: string[];
   is_demo: boolean;
+  illustration_style: string;
+  // Page Layout Engine
+  page_theme: string;
+  // Smart Cover Generator
+  cover: CoverData | null;
 }
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
