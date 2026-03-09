@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full, paddingHorizontal: spacing.md, paddingVertical: 7, ...shadows.sm,
   },
   navActionBtnLayout: { backgroundColor: colors.secondary },
-  navActionBtnCover: { backgroundColor: '#7C3AED' },  // purple for cover
+  navActionBtnCover: { backgroundColor: colors.purple },  // purple for cover
   navActionBtnText: { fontSize: 12, color: colors.white, fontWeight: '700' },
   illustrateBookBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,

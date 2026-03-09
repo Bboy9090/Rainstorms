@@ -5196,7 +5196,7 @@ async def update_cover(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    current_cover: dict = project.get("cover") or CoverData().dict()
+    current_cover: dict = dict(project.get("cover") or {})
 
     if body.cover_style is not None:
         if body.cover_style not in COVER_STYLES:
