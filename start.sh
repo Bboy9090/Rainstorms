@@ -25,7 +25,7 @@ command -v npm     >/dev/null 2>&1 || die "npm not found."
 if [[ ! -f "$BACKEND_DIR/.env" ]]; then
   warn "backend/.env not found — copying from backend/.env.example"
   cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"
-  warn "Edit backend/.env and set MONGO_URL and EMERGENT_LLM_KEY, then re-run."
+  warn "Edit backend/.env and set MONGO_URL and OPENAI_API_KEY (and optionally GEMINI_API_KEY), then re-run."
   exit 1
 fi
 

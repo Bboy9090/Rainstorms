@@ -48,7 +48,7 @@ User's Browser
      │  REST
      ▼
 ┌─────────────────────────────┐
-│  Emergent / OpenAI API      │  ← AI generation & image creation
+│  OpenAI / Gemini API        │  ← AI generation & image creation
 └─────────────────────────────┘
 ```
 
@@ -75,8 +75,9 @@ Work through every item in this list before directing real users to the app.
 | `MONGO_URL` | MongoDB Atlas SRV string (`mongodb+srv://...`) |
 | `DB_NAME` | `rainstorms_prod` (keep separate from dev) |
 | `JWT_SECRET` | 64+ random characters — run `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `EMERGENT_LLM_KEY` | Your Emergent Integrations production key |
-| `OPENAI_API_KEY` | Your OpenAI production key (for DALL·E 3 illustrations) |
+| `OPENAI_API_KEY` | Your OpenAI production key — used for GPT-4.1 text (default) and DALL·E 3 images |
+| `GEMINI_API_KEY` | Your Google Gemini key — required only when `LLM_PROVIDER=gemini` |
+| `LLM_PROVIDER` | `openai` (default) or `gemini` |
 | `SAGA_ARCHITECT_BASE_URL` | Leave blank unless you are using SagaArchitect integration |
 
 **Frontend (set in Vercel / Netlify dashboard — do NOT commit)**
@@ -273,7 +274,7 @@ Update `frontend/app.json` with your real app name, bundle ID, and version befor
 | Vercel (frontend) | 100 GB bandwidth, unlimited deploys | $20/mo (Pro) |
 | Railway (backend) | $5 credit/month | ~$5–20/mo (Hobby) |
 | MongoDB Atlas | M0: 512 MB shared | $57/mo (M10 dedicated) |
-| Emergent / OpenAI | Pay-per-token | ~$10–50/mo depending on usage |
+| OpenAI / Gemini | Pay-per-token | ~$10–50/mo depending on usage |
 | Domain | — | ~$12/year |
 | **Total (starter)** | **~$0–5/mo** | **~$40–100/mo at scale** |
 

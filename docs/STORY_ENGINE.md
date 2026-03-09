@@ -120,4 +120,4 @@ POST /api/projects/{id}/story-memory/generate
 
 ---
 
-*The Story Engine is powered by OpenAI's GPT-4.1 via Emergent Integrations.*
+*The Story Engine is powered by OpenAI GPT-4.1 (default) or Google Gemini 2.0 Flash — configured via `LLM_PROVIDER` in `backend/.env`.*
