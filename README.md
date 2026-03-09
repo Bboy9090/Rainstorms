@@ -15,6 +15,14 @@
 
 ---
 
+## 🚀 New to Rainstorms?
+
+**→ Start here: [GETTING_STARTED.md](GETTING_STARTED.md)** — Complete step-by-step guide to get the app running locally in ~10 minutes.
+
+**→ Verify your setup: `bash verify-setup.sh`** — Check that all dependencies and configuration are correct.
+
+---
+
 ## What is Rainstorms?
 
 Rainstorms is an AI-powered children's book creation tool. Give it an idea — *"a brave little robot discovers emotions"* — and it generates a full story blueprint, named characters with personalities and visual descriptions, page-by-page text, and illustration prompts ready for an artist or image-generation tool. Export everything as a polished PDF in under 30 minutes.
