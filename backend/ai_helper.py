@@ -1,12 +1,12 @@
 """Shared LLM text-generation helper for Rainstorms.
 
-Routes all LLM chat calls to either OpenAI (gpt-4.1) or Google Gemini
-(gemini-2.0-flash) based on the LLM_PROVIDER environment variable.
+Routes all LLM chat calls to OpenAI, Google Gemini, or Groq based on LLM_PROVIDER.
 
 Environment variables:
-  LLM_PROVIDER   – "openai" (default) or "gemini"
+  LLM_PROVIDER   – "openai" (default), "gemini", or "groq"
   OPENAI_API_KEY – required when LLM_PROVIDER=openai
   GEMINI_API_KEY – required when LLM_PROVIDER=gemini
+  GROQ_API_KEY   – required when LLM_PROVIDER=groq (free tier: console.groq.com)
 """
 
 import os
@@ -14,12 +14,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-LLM_PROVIDER: str = os.environ.get("LLM_PROVIDER", "openai").lower()
+LLM_PROVIDER: str = os.environ.get("LLM_PROVIDER", "openai").lower().strip()
 OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
 GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
+GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
 
 _openai_client = None
 _gemini_client = None
+_groq_client = None
 
 
 def _get_openai():
@@ -42,10 +44,22 @@ def _get_gemini():
     return _gemini_client
 
 
+def _get_groq():
+    global _groq_client
+    if _groq_client is None:
+        if not GROQ_API_KEY:
+            raise RuntimeError("GROQ_API_KEY is not configured. Get a free key at https://console.groq.com")
+        from groq import AsyncGroq
+        _groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+    return _groq_client
+
+
 async def llm_chat(system_message: str, user_message: str) -> str:
     """Send a chat prompt to the configured LLM provider and return the response text."""
     if LLM_PROVIDER == "gemini":
         return await _gemini_chat(system_message, user_message)
+    if LLM_PROVIDER == "groq":
+        return await _groq_chat(system_message, user_message)
     return await _openai_chat(system_message, user_message)
 
 
@@ -70,3 +84,15 @@ async def _gemini_chat(system_message: str, user_message: str) -> str:
         config=types.GenerateContentConfig(system_instruction=system_message),
     )
     return response.text or ""
+
+
+async def _groq_chat(system_message: str, user_message: str) -> str:
+    client = _get_groq()
+    response = await client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message},
+        ],
+    )
+    return response.choices[0].message.content or ""

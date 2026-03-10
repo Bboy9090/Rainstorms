@@ -2,12 +2,18 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env before ai_helper (which reads LLM_PROVIDER)
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')  # Edit .env? Restart server to pick up changes.
+
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+import certifi
 import os
 import base64
 import logging
-from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
@@ -25,17 +31,22 @@ from reportlab.lib.colors import HexColor
 from ai_helper import llm_chat as _llm_chat
 from lore_engine import lore_router, meta_router, init_lore_engine
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
 # MongoDB connection
 # Use .get() so the process starts even without the env var set; a clear
 # error is surfaced at request-time (via MongoDB connection failure) rather
 # than crashing the module at import/startup.
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+# Atlas SRV: use certifi CA bundle to avoid TLSV1_ALERT_INTERNAL_ERROR.
+# If still failing on macOS (Python LibreSSL), set MONGO_TLS_SKIP_VERIFY=1 for local dev only.
+_tls_kwargs = {}
+if mongo_url.startswith('mongodb+srv://'):
+    _tls_kwargs['tlsCAFile'] = certifi.where()
+    if os.environ.get('MONGO_TLS_SKIP_VERIFY', '').lower() in ('1', 'true', 'yes'):
+        _tls_kwargs['tlsAllowInvalidCertificates'] = True  # Local dev workaround only
 client = AsyncIOMotorClient(
     mongo_url,
     serverSelectionTimeoutMS=15000,  # Fail in 15s instead of hanging
+    **_tls_kwargs,
 )
 db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
 
@@ -5216,10 +5227,13 @@ app.include_router(api_router)
 app.include_router(lore_router)
 app.include_router(meta_router)
 
+# CORS: "*" for dev; set CORS_ORIGINS (comma-separated) in production to restrict
+_cors_origins = os.environ.get("CORS_ORIGINS", "").strip()
+CORS_ORIGINS_LIST = [o.strip() for o in _cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS_LIST if CORS_ORIGINS_LIST else ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

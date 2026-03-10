@@ -17,7 +17,23 @@ warn()  { echo -e "${yellow}[rainstorms]${reset} $*"; }
 die()   { echo -e "${red}[rainstorms] ERROR:${reset} $*" >&2; exit 1; }
 
 # ── Pre-flight checks ───────────────────────────────────────────────────────
-command -v python3 >/dev/null 2>&1 || die "python3 not found. Install Python 3.10+."
+# Prefer Homebrew Python (links to OpenSSL) for Atlas TLS; then 3.12/3.11
+# (3.14 has grpcio/protobuf conflicts; system python.org uses LibreSSL → TLS fails)
+PYTHON=""
+for p in /opt/homebrew/opt/python@3.12/bin/python3.12 \
+         /opt/homebrew/opt/python@3.12/libexec/bin/python3.12 \
+         /opt/homebrew/opt/python@3.11/bin/python3.11 \
+         /opt/homebrew/opt/python@3.11/libexec/bin/python3.11 \
+         /usr/local/opt/python@3.12/bin/python3.12 \
+         /usr/local/opt/python@3.11/bin/python3.11 \
+         python3.12 python3.11 python3; do
+  if [[ "$p" == /* ]]; then
+    [[ -x "$p" ]] && PYTHON="$p" && break
+  else
+    command -v "$p" >/dev/null 2>&1 && PYTHON="$p" && break
+  fi
+done
+[[ -z "$PYTHON" ]] && die "python3 not found. Install Python 3.11 or 3.12 (brew install python@3.12)."
 command -v node    >/dev/null 2>&1 || die "node not found. Install Node 18+."
 command -v npm     >/dev/null 2>&1 || die "npm not found."
 
@@ -39,7 +55,7 @@ fi
 info "Installing Python dependencies…"
 cd "$BACKEND_DIR"
 if [[ ! -d ".venv" ]]; then
-  python3 -m venv .venv
+  "$PYTHON" -m venv .venv
 fi
 source .venv/bin/activate
 pip install --quiet -r requirements.txt
