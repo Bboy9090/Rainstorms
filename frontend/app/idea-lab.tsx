@@ -17,7 +17,7 @@ import { Card } from '../src/components/Card';
 import { Input } from '../src/components/Input';
 import { Select } from '../src/components/Select';
 import { useProject } from '../src/context/ProjectContext';
-import { api } from '../src/utils/api';
+import { api, formatApiError } from '../src/utils/api';
 
 const TONES = [
   { label: 'Cozy', value: 'cozy' },
@@ -108,6 +108,10 @@ export default function IdeaLabScreen() {
       });
 
       const blueprint = blueprintRes.data;
+      if (!blueprint?.outline || !Array.isArray(blueprint.outline)) {
+        setError('Invalid blueprint response. Please try again.');
+        return;
+      }
 
       // Create project
       const projectRes = await api.post('/projects', {
@@ -152,7 +156,7 @@ export default function IdeaLabScreen() {
 
       router.push('/blueprint');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to generate blueprint. Please try again.');
+      setError(formatApiError(err, 'Failed to generate blueprint. Please try again.'));
     } finally {
       setIsGenerating(false);
     }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { api } from '../utils/api';
+import { api, formatApiError } from '../utils/api';
 import {
   debounce,
   saveStateToStorage,
@@ -307,7 +307,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setCharactersState(charsRes.data);
       setPagesState(pagesRes.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load project');
+      setError(formatApiError(err, 'Failed to load project'));
     } finally {
       setIsLoading(false);
     }
@@ -322,7 +322,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setCharactersState(response.data.characters);
       setPagesState(response.data.pages);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load demo project');
+      setError(formatApiError(err, 'Failed to load demo project'));
     } finally {
       setIsLoading(false);
     }

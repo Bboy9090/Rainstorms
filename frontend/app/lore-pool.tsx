@@ -16,7 +16,7 @@ import { Card } from '../src/components/Card';
 import { Select } from '../src/components/Select';
 import { useProject } from '../src/context/ProjectContext';
 import { useAuth } from '../src/context/AuthContext';
-import { api } from '../src/utils/api';
+import { api, formatApiError } from '../src/utils/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,7 +142,7 @@ export default function LorePoolScreen() {
       const res = await api.get('/shared-lore-pool', { params });
       setEntries(res.data || []);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load the Lore Pool. Please try again.');
+      setError(formatApiError(err, 'Failed to load the Lore Pool. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -181,10 +181,7 @@ export default function LorePoolScreen() {
       });
       setGeneratedResult(res.data);
     } catch (err: any) {
-      setError(
-        err.response?.data?.detail ||
-          'Could not generate from the Lore Pool. Try a different filter or add more archetypes.'
-      );
+      setError(formatApiError(err, 'Could not generate from the Lore Pool. Try a different filter or add more archetypes.'));
     } finally {
       setGenerating(false);
     }
@@ -247,7 +244,7 @@ export default function LorePoolScreen() {
 
       router.push('/blueprint');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create project from blueprint.');
+      setError(formatApiError(err, 'Failed to create project from blueprint.'));
     } finally {
       setGenerating(false);
     }

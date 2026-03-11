@@ -15,7 +15,7 @@ import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { useAuth } from '../src/context/AuthContext';
 import { useProject } from '../src/context/ProjectContext';
-import { api } from '../src/utils/api';
+import { api, formatApiError } from '../src/utils/api';
 
 interface ProjectSummary {
   id: string;
@@ -115,7 +115,7 @@ export default function ProjectsScreen() {
         prev.map((p) => (p.id === project.id ? { ...p, visibility } : p))
       );
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.detail || 'Failed to update visibility.');
+      Alert.alert('Error', formatApiError(err, 'Failed to update visibility.'));
     } finally {
       setSharingId(null);
     }

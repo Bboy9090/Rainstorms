@@ -15,6 +15,7 @@ import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Input } from '../src/components/Input';
 import { useAuth } from '../src/context/AuthContext';
+import { formatApiError } from '../src/utils/api';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function AuthScreen() {
       }
       router.replace('/');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed. Please try again.');
+      setError(formatApiError(err, 'Authentication failed. Please try again.'));
     } finally {
       setIsLoading(false);
     }

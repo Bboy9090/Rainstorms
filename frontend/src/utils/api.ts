@@ -12,6 +12,14 @@ export const api = axios.create({
   },
 });
 
+/** Convert API error to a safe string for UI (handles object detail from 503 etc). */
+export function formatApiError(err: any, fallback: string): string {
+  const d = err?.response?.data?.detail;
+  if (typeof d === 'string') return d;
+  if (d && typeof d === 'object') return (d.hint || d.error || d.original) ?? fallback;
+  return err?.message || fallback;
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
