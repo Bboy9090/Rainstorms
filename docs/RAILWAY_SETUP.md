@@ -4,6 +4,28 @@
 
 ---
 
+## Docker deployment (recommended)
+
+The backend uses a **Dockerfile** so Railway builds with a standard Python 3.12 image. This can fix Groq "Connection error" issues that sometimes occur with Nixpacks.
+
+### Deploy
+
+```bash
+./scripts/deploy-ultimate.sh          # Validate + git push → Railway builds Dockerfile
+./scripts/deploy-ultimate.sh --local  # Run backend + MongoDB locally via docker compose
+./scripts/deploy-ultimate.sh --build  # Build Docker image only (test)
+```
+
+### Local full stack (Docker)
+
+```bash
+# Ensure backend/.env has GROQ_API_KEY
+docker compose up --build
+# Backend: http://localhost:8001
+```
+
+---
+
 ## 1. Backend on Railway
 
 ### 1a. Environment Variables (Railway → Backend Service → Variables)

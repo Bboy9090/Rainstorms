@@ -1,0 +1,36 @@
+# Rainstorms — full stack for local dev & production-like testing
+# Usage:  docker compose up --build
+# Backend: http://localhost:8001  |  Frontend: build separately, point to backend
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8001:8000"
+    environment:
+      - PORT=8000
+      - MONGO_URL=mongodb://mongo:27017
+      - DB_NAME=rainstorms_db
+      - JWT_SECRET=${JWT_SECRET:-dev_secret_change_in_production}
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo_data: {}
