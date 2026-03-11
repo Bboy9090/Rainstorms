@@ -30,9 +30,12 @@ USE_CLI=false
 
 # ── 0. Railway env reminder ──────────────────────────────────────────────────
 echo -e "\n${bold}Railway Variables (Production)${reset}"
-echo "  Ensure these are set in Railway → Backend → Variables:"
-echo "  MONGO_URL, JWT_SECRET, LLM_PROVIDER=groq, GROQ_API_KEY"
-echo "  Atlas Network Access: add 0.0.0.0/0"
+echo "  Railway → Backend Service → Variables tab:"
+echo "  • MONGO_URL     = mongodb+srv://USER:PASS@cluster0.xxxx.mongodb.net/?appName=Cluster0"
+echo "  • LLM_PROVIDER  = groq"
+echo "  • GROQ_API_KEY  = your key from https://console.groq.com"
+echo "  • JWT_SECRET    = random string (python3 -c \"import secrets; print(secrets.token_hex(32))\")"
+echo "  Atlas → Network Access: add 0.0.0.0/0"
 echo ""
 
 # ── 1. Pre-flight checks ─────────────────────────────────────────────────────

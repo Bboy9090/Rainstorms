@@ -10,11 +10,14 @@
 
 | Variable      | Value | Required |
 |---------------|-------|----------|
-| `MONGO_URL`   | `mongodb+srv://USER:PASSWORD@cluster0.pylrowo.mongodb.net/?appName=Cluster0` | ✅ Yes |
+| `MONGO_URL`   | `mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/?appName=Cluster0` | ✅ Yes |
 | `DB_NAME`     | `rainstorms_db` | Optional (default) |
 | `JWT_SECRET`  | Long random string — run: `python3 -c "import secrets; print(secrets.token_hex(32))"` | ✅ Yes |
-| `OPENAI_API_KEY` | Your OpenAI key | ✅ For AI generation |
+| `LLM_PROVIDER` | `groq` (free tier) or `openai` / `gemini` | ✅ Yes |
+| `GROQ_API_KEY` | Your Groq key from [console.groq.com](https://console.groq.com) | ✅ For Groq |
+| `OPENAI_API_KEY` | Your OpenAI key | Only when LLM_PROVIDER=openai |
 
+**Use Groq (free):** Set `LLM_PROVIDER=groq` and `GROQ_API_KEY`. No credit card needed.  
 **MONGO_URL:** Replace `USER` and `PASSWORD` with your MongoDB Atlas credentials.  
 If your password has `@`, `#`, or `%`, [URL-encode](https://www.w3schools.com/tags/ref_urlencode.asp) it.
 
@@ -32,14 +35,18 @@ Railway's IPs change; allowing `0.0.0.0/0` lets Railway connect. Lock down later
 After setting variables and redeploying:
 
 ```bash
-# Health (no DB)
+# Health (minimal)
 curl https://backend-production-4938.up.railway.app/api/health
 
-# Ready (checks MongoDB)
+# Ready (MongoDB + LLM config)
 curl https://backend-production-4938.up.railway.app/api/ready
+
+# LLM config (if story generation fails)
+curl https://backend-production-4938.up.railway.app/api/llm-check
 ```
 
-- **Health OK, Ready 503** → MongoDB not connected. Recheck `MONGO_URL` and Atlas Network Access.
+- **Health OK, Ready 503** → MongoDB or LLM not configured. Recheck variables.
+- **llm-check shows `"configured": false`** → Add `LLM_PROVIDER=groq` and `GROQ_API_KEY` in Railway.
 - **Both OK** → Backend is good.
 
 ---

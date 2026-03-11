@@ -1252,16 +1252,38 @@ async def generate_story_blueprint(request: BlueprintRequest, lesson: str = None
                 detail=f"Could not reach SagaArchitect ({SAGA_ARCHITECT_BASE_URL}). Check SAGA_ARCHITECT_BASE_URL and ensure the service is running."
             )
 
-    blueprint = await generate_blueprint(
-        request.original_idea,
-        request.tone,
-        request.age_range,
-        request.page_count,
-        lesson=lesson,
-        legacy_character=legacy_char,
-        lore_context=lore_context,
-    )
-    return BlueprintResponse(**blueprint)
+    try:
+        blueprint = await generate_blueprint(
+            request.original_idea,
+            request.tone,
+            request.age_range,
+            request.page_count,
+            lesson=lesson,
+            legacy_character=legacy_char,
+            lore_context=lore_context,
+        )
+        return BlueprintResponse(**blueprint)
+    except RuntimeError as e:
+        if "API_KEY" in str(e) or "not configured" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "LLM not configured",
+                    "hint": "Set LLM_PROVIDER=groq and GROQ_API_KEY in Railway Variables. Get a free key at https://console.groq.com",
+                    "original": str(e),
+                },
+            )
+        raise
+    except Exception as e:
+        logger.exception("Blueprint generation failed")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "AI generation failed",
+                "hint": "Check GROQ_API_KEY is valid and LLM_PROVIDER=groq in Railway Variables.",
+                "original": str(e),
+            },
+        )
 
 @api_router.post("/generate/characters")
 async def generate_story_characters(project_id: str):
@@ -3850,27 +3872,62 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
 
+def _llm_status() -> dict:
+    """Return LLM provider and whether key is configured (no key value)."""
+    from ai_helper import LLM_PROVIDER, OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY
+    key_set = False
+    if LLM_PROVIDER == "groq":
+        key_set = bool(GROQ_API_KEY)
+    elif LLM_PROVIDER == "gemini":
+        key_set = bool(GEMINI_API_KEY)
+    else:
+        key_set = bool(OPENAI_API_KEY)
+    return {"provider": LLM_PROVIDER, "configured": key_set}
+
+
 @api_router.get("/ready")
 async def ready_check():
-    """Check if the API can reach MongoDB. Use this to debug 'stories not loading'."""
+    """Check if the API can reach MongoDB and LLM is configured."""
+    mongo_ok = False
+    mongo_err = None
     try:
         await client.admin.command("ping")
-        return {
-            "status": "ready",
-            "mongo": "connected",
-            "timestamp": datetime.utcnow().isoformat(),
-        }
+        mongo_ok = True
     except Exception as e:
+        mongo_err = str(e)
         logger.error("MongoDB ready check failed: %s", e)
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "status": "not_ready",
-                "mongo": "disconnected",
-                "hint": "Set MONGO_URL in Railway Variables and allow 0.0.0.0/0 in MongoDB Atlas Network Access.",
-                "error": str(e),
-            },
+
+    llm = _llm_status()
+    ready = mongo_ok and llm["configured"]
+    out = {
+        "status": "ready" if ready else "not_ready",
+        "mongo": "connected" if mongo_ok else "disconnected",
+        "llm": llm,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    if mongo_err:
+        out["mongo_error"] = mongo_err
+    if not llm["configured"]:
+        out["hint"] = (
+            f"Set {llm['provider'].upper()}_API_KEY in Railway Variables. "
+            "For Groq (free): LLM_PROVIDER=groq, GROQ_API_KEY=your_key"
         )
+    elif not mongo_ok:
+        out["hint"] = "Set MONGO_URL in Railway Variables and allow 0.0.0.0/0 in Atlas Network Access."
+
+    if not ready:
+        raise HTTPException(status_code=503, detail=out)
+    return out
+
+
+@api_router.get("/llm-check")
+async def llm_check():
+    """Quick LLM config check for debugging deployment."""
+    s = _llm_status()
+    hint = None
+    if not s["configured"]:
+        hint = f"Set {s['provider'].upper()}_API_KEY in Railway Variables. For Groq: LLM_PROVIDER=groq, GROQ_API_KEY=..."
+    return {"llm": s, "hint": hint}
 
 
 # ==================== LORE POOL ====================
