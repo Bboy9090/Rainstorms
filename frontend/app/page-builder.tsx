@@ -19,7 +19,7 @@ import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject } from '../src/context/ProjectContext';
-import { api, BASE_URL, buildImageUrl } from '../src/utils/api';
+import { api, BASE_URL, buildImageUrl, formatApiError } from '../src/utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -71,7 +71,7 @@ export default function PageBuilderScreen() {
         emotional_beat: response.data.emotional_beat,
       });
     } catch (err: any) {
-      setError('Failed to generate page text');
+      setError(formatApiError(err, 'Failed to generate page text'));
     } finally {
       setIsGeneratingText(false);
     }
@@ -91,7 +91,7 @@ export default function PageBuilderScreen() {
         illustration_prompt: response.data.illustration_prompt,
       });
     } catch (err: any) {
-      setError('Failed to generate illustration prompt');
+      setError(formatApiError(err, 'Failed to generate illustration prompt'));
     } finally {
       setIsGeneratingPrompt(false);
     }
@@ -110,8 +110,7 @@ export default function PageBuilderScreen() {
       );
       updatePage(currentPageData.id, { illustration_url: response.data.illustration_url });
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || 'Failed to generate illustration.';
-      Alert.alert('Generation Failed', msg);
+      Alert.alert('Generation Failed', formatApiError(err, 'Failed to generate illustration.'));
     } finally {
       setIsGeneratingIllustration(false);
     }
@@ -133,7 +132,7 @@ export default function PageBuilderScreen() {
       });
       setShowImprovePanel(false);
     } catch (err: any) {
-      setError('Failed to improve page text');
+      setError(formatApiError(err, 'Failed to improve page text'));
     } finally {
       setIsImproving(null);
     }

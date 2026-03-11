@@ -15,7 +15,7 @@ import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject } from '../src/context/ProjectContext';
-import { api } from '../src/utils/api';
+import { api, formatApiError } from '../src/utils/api';
 
 interface StoryMemoryData {
   characters: Array<{ name: string; key_traits: string; visual_key: string }>;
@@ -66,7 +66,7 @@ export default function StoryMemoryScreen() {
       setEditedToneNotes(response.data.tone_notes || '');
       setEditedStyleGuide(response.data.style_guide || '');
     } catch (err) {
-      setError('Failed to generate story memory');
+      setError(formatApiError(err, 'Failed to generate story memory'));
     } finally {
       setIsGenerating(false);
     }
@@ -81,7 +81,7 @@ export default function StoryMemoryScreen() {
         style_guide: editedStyleGuide,
       });
     } catch (err) {
-      setError('Failed to save story memory');
+      setError(formatApiError(err, 'Failed to save story memory'));
     } finally {
       setIsSaving(false);
     }

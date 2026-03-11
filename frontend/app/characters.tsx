@@ -20,7 +20,7 @@ import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject, Character } from '../src/context/ProjectContext';
-import { api, buildImageUrl } from '../src/utils/api';
+import { api, buildImageUrl, formatApiError } from '../src/utils/api';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -80,8 +80,8 @@ export default function CharactersScreen() {
     try {
       const response = await api.post(`/generate/characters?project_id=${currentProject.id}`);
       setCharacters(response.data);
-    } catch {
-      setError('Failed to generate characters');
+    } catch (err: any) {
+      setError(formatApiError(err, 'Failed to generate characters'));
     } finally {
       setIsGenerating(false);
     }
@@ -142,8 +142,7 @@ export default function CharactersScreen() {
       const res = await api.post(`/characters/${char.id}/reference-sheet`);
       updateCharacter(char.id, { reference_sheet_url: res.data.reference_sheet_url });
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || 'Failed to generate reference sheet.';
-      Alert.alert('Generation Failed', msg);
+      Alert.alert('Generation Failed', formatApiError(err, 'Failed to generate reference sheet.'));
     } finally {
       setGeneratingRefSheet(null);
     }

@@ -14,11 +14,11 @@ import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { useProject } from '../src/context/ProjectContext';
-import { api } from '../src/utils/api';
+import { api, formatApiError } from '../src/utils/api';
 
 export default function BlueprintScreen() {
   const router = useRouter();
-  const { currentProject, setCurrentProject, pages, setPages, isLoading, setIsLoading, setError } = useProject();
+  const { currentProject, setCurrentProject, pages, setPages, isLoading, setIsLoading, setError, error } = useProject();
   
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
   const [isRegeneratingOutline, setIsRegeneratingOutline] = useState(false);
@@ -35,7 +35,7 @@ export default function BlueprintScreen() {
       const response = await api.post(`/generate/title?project_id=${currentProject.id}`);
       setCurrentProject({ ...currentProject, title: response.data.title });
     } catch (err: any) {
-      setError('Failed to regenerate title');
+      setError(formatApiError(err, 'Failed to regenerate title'));
     } finally {
       setIsRegeneratingTitle(false);
     }
@@ -74,7 +74,7 @@ export default function BlueprintScreen() {
       setPages(pagesRes.data);
       setCurrentProject({ ...currentProject, outline: blueprint.outline });
     } catch (err: any) {
-      setError('Failed to regenerate outline');
+      setError(formatApiError(err, 'Failed to regenerate outline'));
     } finally {
       setIsRegeneratingOutline(false);
     }
@@ -110,6 +110,15 @@ export default function BlueprintScreen() {
         </View>
         <View style={{ width: 40 }} />
       </View>
+
+      {error && (
+        <Card style={styles.errorCard} variant="outlined">
+          <View style={styles.errorRow}>
+            <Ionicons name="warning" size={18} color={colors.error} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        </Card>
+      )}
 
       {/* Title Section */}
       <Card style={styles.titleCard} variant="elevated">
@@ -430,5 +439,21 @@ const styles = StyleSheet.create({
   acceptButton: {
     width: '100%',
     maxWidth: 320,
+  },
+  errorCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderColor: colors.error,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.error,
+    lineHeight: 20,
   },
 });

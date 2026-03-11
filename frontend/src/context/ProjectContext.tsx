@@ -321,6 +321,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setCurrentProjectState(response.data.project);
       setCharactersState(response.data.characters);
       setPagesState(response.data.pages);
+      setError(null); // Clear any prior error on success
     } catch (err: any) {
       setError(formatApiError(err, 'Failed to load demo project'));
     } finally {
