@@ -16,7 +16,17 @@ export const api = axios.create({
 export function formatApiError(err: any, fallback: string): string {
   const d = err?.response?.data?.detail;
   if (typeof d === 'string') return d;
-  if (d && typeof d === 'object') return (d.hint || d.error || d.original) ?? fallback;
+  if (d && typeof d === 'object') {
+    // Prefer hint (user-friendly); avoid showing raw API messages
+    const msg = d.hint || d.error;
+    if (msg && typeof msg === 'string') return msg;
+    if (d.original && typeof d.original === 'string') {
+      if (d.original.toLowerCase().includes('quota') || d.original.includes('429'))
+        return 'AI quota exceeded. Try again later or use a new API key at console.groq.com.';
+      return d.original.slice(0, 120);
+    }
+    return fallback;
+  }
   return err?.message || fallback;
 }
 

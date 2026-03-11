@@ -1,10 +1,6 @@
 /**
- * Expo app config — ensures EXPO_PUBLIC_BACKEND_URL flows into the bundle at build time.
- *
- * Required for Vercel deployment: set EXPO_PUBLIC_BACKEND_URL in Vercel → Project →
- * Settings → Environment Variables (e.g. https://your-backend.railway.app).
- *
- * Local dev: use frontend/.env with EXPO_PUBLIC_BACKEND_URL=http://localhost:8001
+ * Expo app config — production-ready.
+ * EXPO_PUBLIC_BACKEND_URL: set in Vercel env or frontend/.env for local.
  */
 const appJson = require("./app.json");
 

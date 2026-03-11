@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
-    "version": "1.0.0",
+    "name": "Rainstorms",
+    "slug": "rainstorms",
+    "version": "1.1.0",
+    "description": "Create beautiful children's picture books with AI-powered story generation.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "rainstorms",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

@@ -1276,12 +1276,19 @@ async def generate_story_blueprint(request: BlueprintRequest, lesson: str = None
         raise
     except Exception as e:
         logger.exception("Blueprint generation failed")
+        err_str = str(e).lower()
+        if "429" in err_str or "quota" in err_str or "exceeded" in err_str:
+            hint = "Groq free tier quota exceeded. Try again later or add a new API key at console.groq.com."
+        elif "connection" in err_str or "connect" in err_str:
+            hint = "Cannot reach AI provider. Check GROQ_API_KEY and LLM_PROVIDER=groq in Railway Variables."
+        else:
+            hint = "Check GROQ_API_KEY is valid and LLM_PROVIDER=groq in Railway Variables."
         raise HTTPException(
             status_code=503,
             detail={
                 "error": "AI generation failed",
-                "hint": "Check GROQ_API_KEY is valid and LLM_PROVIDER=groq in Railway Variables.",
-                "original": str(e),
+                "hint": hint,
+                "original": str(e)[:200],
             },
         )
 
