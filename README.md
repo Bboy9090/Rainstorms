@@ -188,6 +188,24 @@ All 22 tests should pass (health, auth, demo project, CRUD, AI generation, expor
 
 ---
 
+## Examples & Demo Media
+
+Explore real outputs from Rainstorms to see what the platform can create:
+
+📂 **[/examples](examples/)** — Sample book exports, illustration examples, and demo media
+
+| Resource | Description |
+|----------|-------------|
+| 📚 **Sample PDFs** | Complete storybook exports: *Robot Emotions* and *Captain Blanket* |
+| 🎨 **Illustration Samples** | Character reference sheets and page spreads ([examples/images](examples/images/)) |
+| 🎬 **Demo GIF** | Animated walkthrough of the full creation flow ([demo-script.md](examples/demo-script.md)) |
+
+These examples demonstrate Rainstorms' capabilities from concept to finished book, using the same AI-assisted pipeline available to all users.
+
+> **Note:** Placeholder files indicate where final assets will be placed. See [examples/README.md](examples/README.md) for details on generating these samples.
+
+---
+
 ## Project Structure
 
 ```
@@ -257,16 +275,36 @@ What's **out** (planned for future versions):
 
 ---
 
-## Deploying to Production
+## Production Deployment
 
-See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full production deployment guide, and **[docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md)** for a focused Railway + Vercel checklist (use this if stories aren't loading).
+Ready to deploy Rainstorms to production? Follow the comprehensive deployment guide:
 
-- Recommended app type and hosting stack (Vercel + Railway + MongoDB Atlas)
-- Step-by-step backend and frontend deployment
-- Environment variable reference
-- CORS hardening and rate limiting
-- Mobile app store publishing via Expo EAS Build
-- Estimated monthly costs
+📖 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — Complete production deployment guide
+
+### Quick Overview
+
+**Recommended Stack:**
+- **Frontend:** Vercel (static web hosting)
+- **Backend:** Railway (FastAPI + Python)
+- **Database:** MongoDB Atlas M0 (free tier)
+- **AI:** OpenAI GPT-4.1 + DALL·E 3 (or Google Gemini for text)
+
+**Estimated Cost:** ~$0–5/month (starter) to ~$40–100/month (at scale)
+
+### Key Deployment Steps
+
+1. Create MongoDB Atlas cluster and copy connection string
+2. Generate strong `JWT_SECRET`
+3. Deploy backend to Railway with environment variables
+4. Build and deploy frontend to Vercel
+5. Configure custom domains (optional but recommended)
+6. Harden CORS and add rate limiting for production
+
+**Mobile Apps (Optional):** After web launch, publish to iOS/Android using Expo EAS Build — no code rewrite needed.
+
+### Troubleshooting Deployments
+
+**Stories not loading?** See **[docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md)** for Railway + Vercel-specific troubleshooting.
 
 ---
 
