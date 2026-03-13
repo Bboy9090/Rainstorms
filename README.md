@@ -226,6 +226,11 @@ Rainstorms/
 │   ├── captain_blanket_demo.json    # Full structured export (matches API schema)
 │   ├── captain_blanket_outline.md  # Story outline and character profiles
 │   └── captain_blanket_pages.md    # All 10 pages with illustration prompts
+├── examples/
+│   ├── README.md              # Sample exports overview
+│   ├── demo-script.md         # Demo GIF capture guide
+│   ├── *.pdf.README.md        # PDF placeholders (robot-emotions, captain-blanket)
+│   └── images/                # Illustration samples and character reference sheets
 ├── docs/
 │   ├── APP_VISION.md      # Product philosophy
 │   ├── DEMO_FLOW.md       # Captain Blanket walkthrough of the full pipeline
