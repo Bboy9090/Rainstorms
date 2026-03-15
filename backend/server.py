@@ -1410,7 +1410,7 @@ async def improve_page(request: ImprovePageRequest):
         raise HTTPException(status_code=404, detail="Project not found")
     
     # Get story memory for consistency
-    story_memory = project.get('story_memory', {})
+    story_memory = project.get('story_memory') or {}
     memory_context = ""
     if story_memory:
         if story_memory.get('characters'):
@@ -1468,14 +1468,14 @@ async def get_story_memory(project_id: str):
     project = await db.projects.find_one({"id": project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project.get('story_memory', {
+    return project.get('story_memory') or {
         "characters": [],
         "relationships": [],
         "settings": [],
         "events": [],
         "tone_notes": "",
         "style_guide": ""
-    })
+    }
 
 @api_router.put("/projects/{project_id}/story-memory")
 async def update_story_memory(project_id: str, memory: StoryMemoryUpdate):
@@ -1484,7 +1484,7 @@ async def update_story_memory(project_id: str, memory: StoryMemoryUpdate):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    current_memory = project.get('story_memory', {})
+    current_memory = project.get('story_memory') or {}
     updates = memory.dict(exclude_none=True)
     current_memory.update(updates)
     
