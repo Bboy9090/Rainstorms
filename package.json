@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "@vercel/toolbar": "^0.2.2"
+    "@vercel/toolbar": "^0.1.32"
   }
 }
