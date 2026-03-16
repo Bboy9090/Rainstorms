@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TextStyle,
   TextInputProps,
 } from 'react-native';
-import { colors, borderRadius, spacing } from '../utils/theme';
+import { colors, borderRadius, spacing, shadows } from '../utils/theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -28,21 +28,26 @@ export function Input({
   numberOfLines = 1,
   ...props
 }: InputProps) {
+  const [isFocused, setIsFocused] = useState(false);
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, isFocused && styles.labelFocused]}>{label}</Text>}
       <TextInput
         style={[
           styles.input,
           multiline && styles.multiline,
           multiline && { minHeight: numberOfLines * 24 + 24 },
+          isFocused && styles.inputFocused,
           error && styles.inputError,
           inputStyle,
         ]}
-        placeholderTextColor={colors.gray400}
+        placeholderTextColor={colors.textMuted}
         multiline={multiline}
         numberOfLines={numberOfLines}
         textAlignVertical={multiline ? 'top' : 'center'}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         {...props}
       />
       {error && <Text style={styles.error}>{error}</Text>}
@@ -57,18 +62,28 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     marginBottom: spacing.xs,
+    marginLeft: 4,
+  },
+  labelFocused: {
+    color: colors.primary,
   },
   input: {
     backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.gray200,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
     fontSize: 16,
     color: colors.textPrimary,
+    ...shadows.inner,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+    ...shadows.sm,
   },
   multiline: {
     paddingTop: spacing.sm + 4,
@@ -80,5 +95,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.error,
     marginTop: spacing.xs,
+    marginLeft: 4,
   },
 });

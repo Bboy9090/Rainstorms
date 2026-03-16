@@ -132,6 +132,7 @@ class Character(BaseModel):
     name: str
     role: str
     personality: str
+    voice: str = ""              # [NEW] character voice description
     appearance: str
     special_trait: str
     notes: str = ""
@@ -153,6 +154,7 @@ class CharacterCreate(BaseModel):
     name: str
     role: str
     personality: str
+    voice: str = ""              # [NEW] character voice description
     appearance: str
     special_trait: str
     notes: str = ""
@@ -883,46 +885,46 @@ WORLD OVERVIEW: {lore_context.get('world_overview', '')}"""
             lore_block += f"\nTIMELINE: {timeline}"
         extra_context += lore_block
 
-    prompt = f"""Create a children's book blueprint for this story idea:
+    prompt = f"""Create a legendary children's book blueprint for this story idea:
 
 IDEA: {idea}
-TONE: {tone}
+TONE: {tone} (Dreamy, cinematic, and soulful)
 AGE RANGE: {age_range} years
 PAGE COUNT: {page_count} pages
 {extra_context}
 
-Generate a complete blueprint in this exact JSON format:
+Generate a complete, high-quality blueprint in this exact JSON format:
 {{
-    "title": "Creative, engaging title",
-    "hook": "One compelling sentence that captures the heart of the story",
-    "summary": "2-3 sentences describing the full story arc",
-    "theme": "The core message or lesson of the story",
+    "title": "Creative, cinematic, and evocative title",
+    "hook": "One compelling, poetic sentence that captures the soul of the story",
+    "summary": "3-4 sentences describing the full story arc, focusing on growth and wonder",
+    "theme": "The core heart or universal message of the story",
     "characters": [
         {{
             "name": "Character name",
             "role": "main/supporting/minor",
-            "personality": "2-3 key personality traits",
-            "appearance": "Visual description for illustration",
-            "special_trait": "Unique characteristic that makes them memorable"
+            "personality": "Unique personality traits, mannerisms, and 'voice'",
+            "appearance": "Cinematic visual description (lighting, texture, iconic features)",
+            "special_trait": "Iconic characteristic that makes them feel legendary"
         }}
     ],
     "outline": [
-        "Page 1: Opening scene description and story beat",
-        "Page 2: Next story beat",
+        "Page 1: Opening scene; describe the mood, lighting, and initial spark",
+        "Page 2: Introduction of the world/characters with sensory detail",
         ...continue for all {page_count} pages
     ]
 }}
 
-Rules:
-- Make the title catchy and memorable
-- Keep language appropriate for {age_range} year olds
-- Each outline beat should be 1-2 sentences describing what happens on that page
-- Include 2-4 characters depending on the story
-- Ensure the story has a clear beginning, middle, and satisfying ending
-- Match the {tone} tone throughout
-{f'- Naturally incorporate the lesson about {lesson}' if lesson else ''}
-{f'- The main character must be {legacy_character.get("name", "")} with their established traits' if legacy_character else ''}
-{f'- The story must respect the UNIVERSE LORE CONTEXT above — use real faction/character/location names where fitting, and do not contradict any world rules' if lore_context else ''}
+Legendary Guidelines:
+- Title should feel like a classic in the making
+- Language must be rhythmic, poetic, yet accessible for {age_range} year olds
+- Each outline beat should be vivid, suggesting both action and atmosphere
+- Characters should have clear motivations and 'voice'
+- Ensure a profound emotional arc: wonder -> challenge -> growth -> satisfying resolution
+- Infuse the {tone} tone into every page beat
+{f'- Masterfully weave in the lesson about {lesson}' if lesson else ''}
+{f'- Main character {legacy_character.get("name", "")} must lead with their established traits' if legacy_character else ''}
+{f'- Strictly follow the UNIVERSE LORE CONTEXT; make this entry feel like a canonical piece of {lore_context.get("universe_name", "the world")}' if lore_context else ''}
 
 Return ONLY the JSON, no other text."""
 
@@ -949,27 +951,30 @@ async def generate_characters(blueprint: dict) -> List[dict]:
 Create vivid, memorable characters with distinct visual appearances.
 Always respond with valid JSON only."""
 
-    prompt = f"""Based on this story blueprint, create detailed character cards:
+    prompt = f"""Based on this legendary story blueprint, create detailed character cards:
 
 TITLE: {blueprint.get('title', '')}
 SUMMARY: {blueprint.get('summary', '')}
 THEME: {blueprint.get('theme', '')}
 EXISTING CHARACTERS: {json.dumps(blueprint.get('characters', []))}
 
-Expand each character with rich details. Return JSON array:
+Expand each character with iconic details. Return JSON array:
 [
     {{
         "name": "Character name",
         "role": "main/supporting/minor",
-        "personality": "Detailed personality description (3-4 sentences)",
-        "appearance": "Detailed visual description for illustrator (colors, clothing, features, expressions)",
-        "special_trait": "What makes this character unique and memorable",
-        "notes": "Additional notes for consistency in illustrations"
+        "personality": "Multi-dimensional personality, including quirky mannerisms and emotional core",
+        "voice": "Description of how they talk (e.g., 'breathy and slow', 'chirpy and fast')",
+        "appearance": "Legendary visual profile: textures (fluffy, metallic), iconic props, expressive eyes, cinematic lighting suggestions",
+        "special_trait": "A unique visual or narrative 'hook'",
+        "notes": "Direct instructions for an artist to maintain consistency across 30+ pages"
     }}
 ]
 
-Make appearances specific enough for consistent illustration across all pages.
-Return ONLY the JSON array, no other text."""
+Instructions:
+- Make appearances extremely vivid and 'photogenic' for AI generation.
+- Each character needs a distinct silhouette or color signature.
+- Return ONLY the JSON array, no other text."""
 
     response = await _llm_chat(_system, prompt)
     
@@ -994,30 +999,30 @@ Always respond with valid JSON only."""
 
     character_info = "\n".join([f"- {c['name']}: {c['appearance']}" for c in characters])
     
-    prompt = f"""Write the text for page {page_number} of this children's book:
+    prompt = f"""Write the text for page {page_number} of this legendary children's book:
 
 TITLE: {project.get('title', '')}
 SUMMARY: {project.get('summary', '')}
-TONE: {project.get('tone', '')}
+TONE: {project.get('tone', '')} (Dreamy, cinematic, evocative)
 AGE RANGE: {project.get('age_range', '')}
 
-CHARACTERS:
+CHARACTERS & VISUAL PROFILES:
 {character_info}
 
 PAGE {page_number} OUTLINE BEAT: {outline_beat}
 
-Write the actual picture book text for this page. Return JSON:
+Write the picture book text for this page. Return JSON:
 {{
-    "page_text": "The actual text that would appear on this page of the book (2-5 sentences, vivid and age-appropriate)",
-    "emotional_beat": "The emotional tone/feeling of this page (e.g., 'wonder', 'excitement', 'cozy comfort')"
+    "page_text": "Soulful, rhythmic book text (2-5 sentences). Use sensory details and evocative verbs.",
+    "emotional_beat": "The precise emotional vibration of this page (e.g., 'quiet anticipation', 'exploding joy', 'gentle safety')"
 }}
 
-Rules:
-- Keep sentences short and rhythmic
-- Use vivid, sensory language children can understand
-- Match the {project.get('tone', 'cozy')} tone
-- Appropriate for {project.get('age_range', '3-8')} year olds
-- Text should work well with an illustration
+Legendary Writing Rules:
+- Focus on 'Show, Don't Just Tell' through poetic language
+- Ensure the text sounds beautiful when read aloud (alliteration, rhythm)
+- Match the {project.get('tone', 'cozy')} tone flawlessly
+- Tailored for {project.get('age_range', '3-8')} year olds
+- Leave space for the illustration to tell its own part of the story
 
 Return ONLY the JSON, no other text."""
 
@@ -1063,24 +1068,24 @@ When character visual profiles are provided, include those exact visual details 
             character_info_lines.append(f"- {brief}{locked_note}")
     character_info = "\n".join(character_info_lines) if character_info_lines else "(no specific characters)"
 
-    prompt = f"""Create an illustration prompt for page {page_number}:
+    prompt = f"""Create a legendary illustration prompt for page {page_number}:
 
 TITLE: {project.get('title', '')}
 TONE: {project.get('tone', '')}
 PAGE TEXT: {page_text}
 
-CHARACTERS WITH VISUAL PROFILES (inject these exact descriptions):
+CHARACTERS WITH VISUAL PROFILES (strictly adhere to these):
 {character_info}
 
-Create a detailed illustration prompt. Include:
-1. Scene description and setting
-2. Characters present — use their exact visual descriptions above
-3. Key visual elements and props
-4. Mood and lighting
-5. Composition suggestions
+Create a world-class illustration prompt. Include:
+1. Cinematic setting with atmospheric perspective
+2. Specific character actions and expressions — use their EXACT visual descriptions above
+3. Dreamy lighting (golden hour, soft moonlight, glowing embers)
+4. Textures and materials (velvety fur, shimmering water, glowing dust)
+5. Artistic composition (low angle, wide shot, rule of thirds)
 
-End with this style note:
-"Style: soft watercolor children's book illustration, warm cinematic lighting, expressive characters, bedtime-friendly palette"
+End with this premium style signature:
+"Style: Award-winning children's book illustration, soft watercolor and digital paint, warm cinematic lighting, high detail, expressive whimsical characters, dreamy storybook atmosphere, 8k resolution"
 
 Return ONLY the illustration prompt text, nothing else."""
 
@@ -1322,6 +1327,7 @@ async def generate_story_characters(project_id: str):
             name=char_data["name"],
             role=char_data["role"],
             personality=char_data["personality"],
+            voice=char_data.get("voice", ""),
             appearance=char_data["appearance"],
             special_trait=char_data["special_trait"],
             notes=char_data.get("notes", "")
@@ -1339,8 +1345,11 @@ async def generate_page_text_endpoint(request: PageTextRequest):
         raise HTTPException(status_code=404, detail="Project not found")
 
     characters = await db.characters.find({"project_id": request.project_id}).to_list(20)
-    # Provide name + appearance for text generation (consistent with prior behaviour)
-    char_list = [{"name": c["name"], "appearance": c.get("appearance", "")} for c in characters]
+    # Provide name + appearance + voice for legendary text generation
+    char_list = [
+        {"name": c["name"], "appearance": c.get("appearance", ""), "voice": c.get("voice", "")} 
+        for c in characters
+    ]
 
     result = await generate_page_text(project, char_list, request.page_number, request.outline_beat)
 

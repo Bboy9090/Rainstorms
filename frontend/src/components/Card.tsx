@@ -5,7 +5,7 @@ import { colors, borderRadius, shadows, spacing } from '../utils/theme';
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
-  variant?: 'default' | 'elevated' | 'outlined';
+  variant?: 'default' | 'elevated' | 'outlined' | 'glass';
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
@@ -15,27 +15,6 @@ export function Card({
   variant = 'default',
   padding = 'md',
 }: CardProps) {
-  const getVariantStyle = (): ViewStyle => {
-    switch (variant) {
-      case 'elevated':
-        return {
-          ...shadows.lg,
-          backgroundColor: colors.cardBg,
-        };
-      case 'outlined':
-        return {
-          borderWidth: 1,
-          borderColor: colors.cardBorder,
-          backgroundColor: colors.cardBg,
-        };
-      default:
-        return {
-          ...shadows.md,
-          backgroundColor: colors.cardBg,
-        };
-    }
-  };
-
   const getPaddingStyle = (): ViewStyle => {
     switch (padding) {
       case 'none':
@@ -49,8 +28,29 @@ export function Card({
     }
   };
 
+  const getVariantStyles = (): ViewStyle[] => {
+    const baseStyles: ViewStyle[] = [styles.card, getPaddingStyle()];
+
+    switch (variant) {
+      case 'elevated':
+        baseStyles.push(styles.elevated);
+        break;
+      case 'outlined':
+        baseStyles.push(styles.outlined);
+        break;
+      case 'glass':
+        baseStyles.push(styles.glass);
+        break;
+      default:
+        baseStyles.push(styles.default);
+        break;
+    }
+
+    return baseStyles;
+  };
+
   return (
-    <View style={[styles.card, getVariantStyle(), getPaddingStyle(), style]}>
+    <View style={[...getVariantStyles(), style]}>
       {children}
     </View>
   );
@@ -58,6 +58,25 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
+  },
+  default: {
+    backgroundColor: colors.cardBg,
+    ...shadows.md,
+  },
+  elevated: {
+    backgroundColor: colors.cardBg,
+    ...shadows.lg,
+  },
+  outlined: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  glass: {
+    backgroundColor: colors.glassBg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    ...shadows.sm,
   },
 });

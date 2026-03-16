@@ -6,8 +6,15 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { colors, borderRadius, shadows } from '../utils/theme';
+import { springConfigs } from '../utils/animations';
 
 interface ButtonProps {
   title: string;
@@ -21,6 +28,8 @@ interface ButtonProps {
   icon?: React.ReactNode;
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export function Button({
   title,
   onPress,
@@ -32,6 +41,20 @@ export function Button({
   textStyle,
   icon,
 }: ButtonProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.96, springConfigs.snappy);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, springConfigs.snappy);
+  };
+
   const getButtonStyle = (): ViewStyle[] => {
     const base: ViewStyle[] = [styles.button, styles[`size_${size}`]];
     
@@ -81,11 +104,12 @@ export function Button({
   };
 
   return (
-    <TouchableOpacity
-      style={[...getButtonStyle(), style]}
+    <AnimatedPressable
+      style={[...getButtonStyle(), animatedStyle, style]}
       onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={disabled || loading}
-      activeOpacity={0.8}
     >
       {loading ? (
         <ActivityIndicator
@@ -98,7 +122,7 @@ export function Button({
           <Text style={[...getTextStyle(), textStyle]}>{title}</Text>
         </>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -163,6 +187,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   textDisabled: {
-    color: colors.gray400,
+    color: colors.textMuted,
   },
 });
