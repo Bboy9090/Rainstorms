@@ -76,3 +76,7 @@ android-sdk/
 
 # ── Deployment ────────────────────────────────────────────────────────────────
 .vercel
+-e 
+# Environment files
+*.env
+*.env.*
