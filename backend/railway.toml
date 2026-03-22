@@ -1,6 +1,9 @@
 # Railway — Backend service config
 # When Dockerfile exists in service root, Railway uses it instead of Nixpacks.
 # Docker build fixes Groq/network connectivity issues vs Nixpacks.
+[build]
+builder = "docker"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/api/health"
