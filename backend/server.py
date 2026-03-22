@@ -3269,11 +3269,7 @@ async def generate_character_reference_sheet(
     if not char:
         raise HTTPException(status_code=404, detail="Character not found")
 
-    if not OPENAI_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail="Image generation is not available. Set OPENAI_API_KEY in the backend .env file.",
-        )
+
 
     reference_sheet_url = await _generate_reference_sheet_image(character_id, char)
     if not reference_sheet_url:
@@ -3379,38 +3375,43 @@ async def _generate_illustration_image(
         Relative URL path to the saved image (e.g. "/static/illustrations/...").
         Returns empty string if image generation is not configured or fails.
     """
-    if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY not set — skipping image generation")
-        return ""
-
     # Append the style suffix to the prompt
     style = STYLE_PRESETS.get(style_preset, STYLE_PRESETS[DEFAULT_STYLE_PRESET])
     full_prompt = f"{prompt}\n\n{style['suffix']}"
 
+    image_bytes = None
     try:
-        async with httpx.AsyncClient(timeout=60.0) as http_client:
-            response = await http_client.post(
-                "https://api.openai.com/v1/images/generations",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "dall-e-3",
-                    "prompt": full_prompt[:4096],  # DALL-E 3 max prompt length
-                    "n": 1,
-                    "size": "1024x1024",
-                    "response_format": "b64_json",
-                    "quality": "standard",
-                },
-            )
-        response.raise_for_status()
-        data = response.json()
-        image_b64 = data["data"][0]["b64_json"]
+        import urllib.parse
+        if OPENAI_API_KEY:
+            async with httpx.AsyncClient(timeout=60.0) as http_client:
+                response = await http_client.post(
+                    "https://api.openai.com/v1/images/generations",
+                    headers={
+                        "Authorization": f"Bearer {OPENAI_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "dall-e-3",
+                        "prompt": full_prompt[:4096],  # DALL-E 3 max prompt length
+                        "n": 1,
+                        "size": "1024x1024",
+                        "response_format": "b64_json",
+                        "quality": "standard",
+                    },
+                )
+            response.raise_for_status()
+            data = response.json()
+            image_b64 = data["data"][0]["b64_json"]
+            image_bytes = base64.b64decode(image_b64)
+        else:
+            logger.info("Using free Pollinations API for illustration generation")
+            encoded_prompt = urllib.parse.quote(full_prompt[:1000])
+            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+            async with httpx.AsyncClient(timeout=60.0) as http_client:
+                response = await http_client.get(url)
+            response.raise_for_status()
+            image_bytes = response.content
 
-    except httpx.HTTPStatusError as exc:
-        logger.error("Image generation HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
-        return ""
     except Exception as exc:
         logger.error("Image generation failed: %s", exc)
         return ""
@@ -3419,8 +3420,6 @@ async def _generate_illustration_image(
     proj_dir = ILLUSTRATIONS_DIR / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
     image_path = proj_dir / f"{page_id}.png"
-
-    image_bytes = base64.b64decode(image_b64)
     image_path.write_bytes(image_bytes)
 
     logger.info("Illustration saved: %s (%d bytes)", image_path, len(image_bytes))
@@ -3508,8 +3507,7 @@ async def generate_page_illustration(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Image generation is not available. "
-                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
+                "Image generation failed. Try again."
             )
         )
 
@@ -3539,14 +3537,7 @@ async def batch_generate_illustrations(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not OPENAI_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Image generation is not available. "
-                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
-            )
-        )
+
 
     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(100)
     style_preset = project.get("illustration_style", DEFAULT_STYLE_PRESET)
