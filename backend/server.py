@@ -1,7 +1,12 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from config import settings
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env before ai_helper (which reads LLM_PROVIDER)
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')  # Edit .env? Restart server to pick up changes.
 
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -26,184 +31,67 @@ from reportlab.lib.colors import HexColor
 from ai_helper import llm_chat as _llm_chat
 from lore_engine import lore_router, meta_router, init_lore_engine
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 # MongoDB connection
-mongo_url = settings.MONGO_URL
+# Use .get() so the process starts even without the env var set; a clear
+# error is surfaced at request-time (via MongoDB connection failure) rather
+# than crashing the module at import/startup.
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+# Atlas SRV: use certifi CA bundle to avoid TLSV1_ALERT_INTERNAL_ERROR.
+# If still failing on macOS (Python LibreSSL), set MONGO_TLS_SKIP_VERIFY=1 for local dev only.
 _tls_kwargs = {}
 if mongo_url.startswith('mongodb+srv://'):
     _tls_kwargs['tlsCAFile'] = certifi.where()
-    if settings.MONGO_TLS_SKIP_VERIFY:
-        _tls_kwargs['tlsAllowInvalidCertificates'] = True
-
+    if os.environ.get('MONGO_TLS_SKIP_VERIFY', '').lower() in ('1', 'true', 'yes'):
+        _tls_kwargs['tlsAllowInvalidCertificates'] = True  # Local dev workaround only
 client = AsyncIOMotorClient(
     mongo_url,
-    serverSelectionTimeoutMS=settings.MONGO_TIMEOUT_MS,
+    serverSelectionTimeoutMS=15000,  # Fail in 15s instead of hanging
     **_tls_kwargs,
 )
-db = client[settings.DB_NAME]
+db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
 
 # JWT Configuration
-JWT_SECRET = settings.JWT_SECRET
-JWT_ALGORITHM = settings.JWT_ALGORITHM
-JWT_EXPIRATION_HOURS = settings.JWT_EXPIRATION_HOURS
+JWT_SECRET = os.environ.get('JWT_SECRET', 'rainstorms_secret_key_2024_v1')
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 72
 
 # OpenAI API key for image generation (DALL-E 3)
-OPENAI_API_KEY = settings.OPENAI_API_KEY
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
-# Directory constants
-ILLUSTRATIONS_DIR = settings.ILLUSTRATIONS_DIR
-CHARACTERS_DIR = settings.CHARACTERS_DIR
-ROOT_DIR = settings.ROOT_DIR
+# Directory where generated illustration images are stored
+ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
+try:
+    ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as _e:
+    logging.warning("Could not create illustrations directory %s: %s. Illustration storage unavailable.", ILLUSTRATIONS_DIR, _e)
 
-# Ensure directories exist
-for d in [settings.STATIC_DIR, ILLUSTRATIONS_DIR, CHARACTERS_DIR]:
-    try:
-        d.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        logger.warning(f"Could not create directory {d}: {e}")
+# Directory where generated character reference sheets are stored
+CHARACTERS_DIR = ROOT_DIR / 'static' / 'characters'
+try:
+    CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError as _e:
+    logging.warning("Could not create characters directory %s: %s. Character sheet storage unavailable.", CHARACTERS_DIR, _e)
 
-# SagaArchitect / LoreEngine base URL
-SAGA_ARCHITECT_BASE_URL = settings.SAGA_ARCHITECT_BASE_URL
+# SagaArchitect / LoreEngine base URL for remote story-context fetch
+SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
 
-# Initialise LoreEngine
+# Initialise LoreEngine with database and LLM callable
 init_lore_engine(db, _llm_chat)
 
 # Create the main app
-app = FastAPI(
-    title=settings.APP_TITLE,
-    version=settings.APP_VERSION,
-    debug=settings.DEBUG
-)
+app = FastAPI(title="Rainstorms API", version="1.0.0")
 
-# Serve generated illustrations as static files
-if settings.STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")
-
-# Enterprise Middleware: Latency & Request Logging
-@app.middleware("http")
-async def add_process_time_header(request, call_next):
-    import time
-    start_time = time.perf_counter()
-    response = await call_next(request)
-    process_time = time.perf_counter() - start_time
-    response.headers["X-Process-Time"] = str(process_time)
-    logger.info(f"{request.method} {request.url.path} - {response.status_code} ({process_time:.4f}s)")
-    return response
-
-# Standard Security: CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Serve generated illustrations as static files (skipped in serverless environments
+# where the static directory cannot be created on the read-only filesystem)
+_static_dir = ROOT_DIR / "static"
+try:
+    _static_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+except OSError as _e:
+    logging.warning("Could not mount /static directory %s: %s. Static file serving unavailable.", _static_dir, _e)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
-
-@app.get("/")
-@app.head("/")
-async def root_health():
-    return {
-        "status": "ok", 
-        "app": settings.APP_TITLE,
-        "version": settings.APP_VERSION
-    }
-
-@app.get("/api/health")
-async def api_health():
-    return {"status": "ok"}
-
-@app.get("/api/ready")
-async def api_ready():
-    """
-    Enterprise readiness check. 
-    Verifies database connectivity and AI provider configuration.
-    """
-    health_status = {
-        "status": "ready",
-        "database": "disconnected",
-        "llm_provider": settings.LLM_PROVIDER,
-        "ai_configured": False
-    }
-    
-    # Check Database
-    try:
-        await client.admin.command('ping')
-        health_status["database"] = "connected"
-    except Exception as e:
-        health_status["status"] = "not_ready"
-        health_status["database"] = f"error: {str(e)}"
-
-    # Check AI Configuration
-    provider = settings.LLM_PROVIDER
-    if provider == "groq" and settings.GROQ_API_KEY:
-        health_status["ai_configured"] = True
-    elif provider == "openai" and settings.OPENAI_API_KEY:
-        health_status["ai_configured"] = True
-    elif provider == "gemini" and settings.GEMINI_API_KEY:
-        health_status["ai_configured"] = True
-    
-    if not health_status["ai_configured"]:
-        health_status["status"] = "degraded"
-        
-    if health_status["status"] == "not_ready":
-        raise HTTPException(status_code=503, detail=health_status)
-        
-    return health_status
-# Global Exception Handlers for Enterprise Response Standardization
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
-@app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(request, exc):
-    logger.error(f"HTTP Error: {exc.status_code} - {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.detail,
-            "code": f"HTTP_{exc.status_code}"
-        }
-    )
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    logger.warning(f"Validation Error: {exc.errors()}")
-    return JSONResponse(
-        status_code=422,
-        content={
-            "success": False,
-            "error": "Input validation failed",
-            "details": exc.errors(),
-            "code": "VALIDATION_ERROR"
-        }
-    )
-
-@app.exception_handler(Exception)
-async def universal_exception_handler(request, exc):
-    logger.exception(f"Unhandled Internal Error: {str(exc)}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "error": "An unexpected internal error occurred",
-            "code": "INTERNAL_SERVER_ERROR"
-        }
-    )
-
-@app.get("/health")
-@app.head("/health")
-async def absolute_health():
-    return {"status": "ok", "message": "Rainstorms API"}
 
 # Configure logging
 logging.basicConfig(
@@ -3381,7 +3269,11 @@ async def generate_character_reference_sheet(
     if not char:
         raise HTTPException(status_code=404, detail="Character not found")
 
-
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Image generation is not available. Set OPENAI_API_KEY in the backend .env file.",
+        )
 
     reference_sheet_url = await _generate_reference_sheet_image(character_id, char)
     if not reference_sheet_url:
@@ -3487,43 +3379,38 @@ async def _generate_illustration_image(
         Relative URL path to the saved image (e.g. "/static/illustrations/...").
         Returns empty string if image generation is not configured or fails.
     """
+    if not OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY not set — skipping image generation")
+        return ""
+
     # Append the style suffix to the prompt
     style = STYLE_PRESETS.get(style_preset, STYLE_PRESETS[DEFAULT_STYLE_PRESET])
     full_prompt = f"{prompt}\n\n{style['suffix']}"
 
-    image_bytes = None
     try:
-        import urllib.parse
-        if OPENAI_API_KEY:
-            async with httpx.AsyncClient(timeout=60.0) as http_client:
-                response = await http_client.post(
-                    "https://api.openai.com/v1/images/generations",
-                    headers={
-                        "Authorization": f"Bearer {OPENAI_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "dall-e-3",
-                        "prompt": full_prompt[:4096],  # DALL-E 3 max prompt length
-                        "n": 1,
-                        "size": "1024x1024",
-                        "response_format": "b64_json",
-                        "quality": "standard",
-                    },
-                )
-            response.raise_for_status()
-            data = response.json()
-            image_b64 = data["data"][0]["b64_json"]
-            image_bytes = base64.b64decode(image_b64)
-        else:
-            logger.info("Using free Pollinations API for illustration generation")
-            encoded_prompt = urllib.parse.quote(full_prompt[:1000])
-            url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
-            async with httpx.AsyncClient(timeout=60.0) as http_client:
-                response = await http_client.get(url)
-            response.raise_for_status()
-            image_bytes = response.content
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            response = await http_client.post(
+                "https://api.openai.com/v1/images/generations",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "dall-e-3",
+                    "prompt": full_prompt[:4096],  # DALL-E 3 max prompt length
+                    "n": 1,
+                    "size": "1024x1024",
+                    "response_format": "b64_json",
+                    "quality": "standard",
+                },
+            )
+        response.raise_for_status()
+        data = response.json()
+        image_b64 = data["data"][0]["b64_json"]
 
+    except httpx.HTTPStatusError as exc:
+        logger.error("Image generation HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
+        return ""
     except Exception as exc:
         logger.error("Image generation failed: %s", exc)
         return ""
@@ -3532,6 +3419,8 @@ async def _generate_illustration_image(
     proj_dir = ILLUSTRATIONS_DIR / project_id
     proj_dir.mkdir(parents=True, exist_ok=True)
     image_path = proj_dir / f"{page_id}.png"
+
+    image_bytes = base64.b64decode(image_b64)
     image_path.write_bytes(image_bytes)
 
     logger.info("Illustration saved: %s (%d bytes)", image_path, len(image_bytes))
@@ -3619,7 +3508,8 @@ async def generate_page_illustration(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Image generation failed. Try again."
+                "Image generation is not available. "
+                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
             )
         )
 
@@ -3649,7 +3539,14 @@ async def batch_generate_illustrations(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Image generation is not available. "
+                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
+            )
+        )
 
     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(100)
     style_preset = project.get("illustration_style", DEFAULT_STYLE_PRESET)
