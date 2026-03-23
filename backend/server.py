@@ -93,6 +93,16 @@ except OSError as _e:
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+@app.get("/")
+@app.head("/")
+async def root_health():
+    return {"status": "ok", "message": "Rainstorms API"}
+
+@app.get("/health")
+@app.head("/health")
+async def absolute_health():
+    return {"status": "ok", "message": "Rainstorms API"}
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
