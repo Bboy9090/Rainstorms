@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -41,7 +42,11 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.logoContainer}>
-            <Ionicons name="rainy" size={32} color={colors.primary} />
+            <Image
+              source={require('../assets/images/rainstorms-logo.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.logo}>Rainstorms</Text>
         </View>
@@ -63,8 +68,12 @@ export default function HomeScreen() {
 
       {/* Hero Section */}
       <View style={styles.hero}>
-        <View style={styles.heroCloud}>
-          <Ionicons name="rainy" size={80} color={colors.primaryLight} />
+        <View style={styles.heroLogo}>
+          <Image
+            source={require('../assets/images/rainstorms-logo.png')}
+            style={styles.heroLogoImage}
+            resizeMode="contain"
+          />
         </View>
         <Text style={styles.heroTitle}>Where Stories Pour Down</Text>
         <Text style={styles.heroSubtitle}>
@@ -213,10 +222,15 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.white,
+    backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     ...shadows.md,
+  },
+  headerLogo: {
+    width: 40,
+    height: 40,
   },
   logo: {
     fontSize: 24,
@@ -244,9 +258,20 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
   },
-  heroCloud: {
+  heroLogo: {
+    width: 180,
+    height: 180,
     marginBottom: spacing.md,
-    opacity: 0.8,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#000',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.lg,
+  },
+  heroLogoImage: {
+    width: 160,
+    height: 160,
   },
   heroTitle: {
     fontSize: 36,
