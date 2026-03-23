@@ -1,12 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
-from pathlib import Path
-
-# Load .env before ai_helper (which reads LLM_PROVIDER)
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')  # Edit .env? Restart server to pick up changes.
+from config import settings
 
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -31,64 +26,84 @@ from reportlab.lib.colors import HexColor
 from ai_helper import llm_chat as _llm_chat
 from lore_engine import lore_router, meta_router, init_lore_engine
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # MongoDB connection
-# Use .get() so the process starts even without the env var set; a clear
-# error is surfaced at request-time (via MongoDB connection failure) rather
-# than crashing the module at import/startup.
-mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
-# Atlas SRV: use certifi CA bundle to avoid TLSV1_ALERT_INTERNAL_ERROR.
-# If still failing on macOS (Python LibreSSL), set MONGO_TLS_SKIP_VERIFY=1 for local dev only.
+mongo_url = settings.MONGO_URL
 _tls_kwargs = {}
 if mongo_url.startswith('mongodb+srv://'):
     _tls_kwargs['tlsCAFile'] = certifi.where()
-    if os.environ.get('MONGO_TLS_SKIP_VERIFY', '').lower() in ('1', 'true', 'yes'):
-        _tls_kwargs['tlsAllowInvalidCertificates'] = True  # Local dev workaround only
+    if settings.MONGO_TLS_SKIP_VERIFY:
+        _tls_kwargs['tlsAllowInvalidCertificates'] = True
+
 client = AsyncIOMotorClient(
     mongo_url,
-    serverSelectionTimeoutMS=15000,  # Fail in 15s instead of hanging
+    serverSelectionTimeoutMS=settings.MONGO_TIMEOUT_MS,
     **_tls_kwargs,
 )
-db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
+db = client[settings.DB_NAME]
 
 # JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', 'rainstorms_secret_key_2024_v1')
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 72
+JWT_SECRET = settings.JWT_SECRET
+JWT_ALGORITHM = settings.JWT_ALGORITHM
+JWT_EXPIRATION_HOURS = settings.JWT_EXPIRATION_HOURS
 
 # OpenAI API key for image generation (DALL-E 3)
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_API_KEY = settings.OPENAI_API_KEY
 
-# Directory where generated illustration images are stored
-ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
-try:
-    ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
-except OSError as _e:
-    logging.warning("Could not create illustrations directory %s: %s. Illustration storage unavailable.", ILLUSTRATIONS_DIR, _e)
+# Directory constants
+ILLUSTRATIONS_DIR = settings.ILLUSTRATIONS_DIR
+CHARACTERS_DIR = settings.CHARACTERS_DIR
+ROOT_DIR = settings.ROOT_DIR
 
-# Directory where generated character reference sheets are stored
-CHARACTERS_DIR = ROOT_DIR / 'static' / 'characters'
-try:
-    CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
-except OSError as _e:
-    logging.warning("Could not create characters directory %s: %s. Character sheet storage unavailable.", CHARACTERS_DIR, _e)
+# Ensure directories exist
+for d in [settings.STATIC_DIR, ILLUSTRATIONS_DIR, CHARACTERS_DIR]:
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        logger.warning(f"Could not create directory {d}: {e}")
 
-# SagaArchitect / LoreEngine base URL for remote story-context fetch
-SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
+# SagaArchitect / LoreEngine base URL
+SAGA_ARCHITECT_BASE_URL = settings.SAGA_ARCHITECT_BASE_URL
 
-# Initialise LoreEngine with database and LLM callable
+# Initialise LoreEngine
 init_lore_engine(db, _llm_chat)
 
 # Create the main app
-app = FastAPI(title="Rainstorms API", version="1.0.0")
+app = FastAPI(
+    title=settings.APP_TITLE,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG
+)
 
-# Serve generated illustrations as static files (skipped in serverless environments
-# where the static directory cannot be created on the read-only filesystem)
-_static_dir = ROOT_DIR / "static"
-try:
-    _static_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
-except OSError as _e:
-    logging.warning("Could not mount /static directory %s: %s. Static file serving unavailable.", _static_dir, _e)
+# Serve generated illustrations as static files
+if settings.STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")
+
+# Enterprise Middleware: Latency & Request Logging
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    import time
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    logger.info(f"{request.method} {request.url.path} - {response.status_code} ({process_time:.4f}s)")
+    return response
+
+# Standard Security: CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -96,7 +111,94 @@ api_router = APIRouter(prefix="/api")
 @app.get("/")
 @app.head("/")
 async def root_health():
-    return {"status": "ok", "message": "Rainstorms API"}
+    return {
+        "status": "ok", 
+        "app": settings.APP_TITLE,
+        "version": settings.APP_VERSION
+    }
+
+@app.get("/api/health")
+async def api_health():
+    return {"status": "ok"}
+
+@app.get("/api/ready")
+async def api_ready():
+    """
+    Enterprise readiness check. 
+    Verifies database connectivity and AI provider configuration.
+    """
+    health_status = {
+        "status": "ready",
+        "database": "disconnected",
+        "llm_provider": settings.LLM_PROVIDER,
+        "ai_configured": False
+    }
+    
+    # Check Database
+    try:
+        await client.admin.command('ping')
+        health_status["database"] = "connected"
+    except Exception as e:
+        health_status["status"] = "not_ready"
+        health_status["database"] = f"error: {str(e)}"
+
+    # Check AI Configuration
+    provider = settings.LLM_PROVIDER
+    if provider == "groq" and settings.GROQ_API_KEY:
+        health_status["ai_configured"] = True
+    elif provider == "openai" and settings.OPENAI_API_KEY:
+        health_status["ai_configured"] = True
+    elif provider == "gemini" and settings.GEMINI_API_KEY:
+        health_status["ai_configured"] = True
+    
+    if not health_status["ai_configured"]:
+        health_status["status"] = "degraded"
+        
+    if health_status["status"] == "not_ready":
+        raise HTTPException(status_code=503, detail=health_status)
+        
+    return health_status
+# Global Exception Handlers for Enterprise Response Standardization
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request, exc):
+    logger.error(f"HTTP Error: {exc.status_code} - {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": exc.detail,
+            "code": f"HTTP_{exc.status_code}"
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    logger.warning(f"Validation Error: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error": "Input validation failed",
+            "details": exc.errors(),
+            "code": "VALIDATION_ERROR"
+        }
+    )
+
+@app.exception_handler(Exception)
+async def universal_exception_handler(request, exc):
+    logger.exception(f"Unhandled Internal Error: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "An unexpected internal error occurred",
+            "code": "INTERNAL_SERVER_ERROR"
+        }
+    )
 
 @app.get("/health")
 @app.head("/health")

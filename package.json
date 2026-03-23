@@ -1,5 +1,29 @@
 {
-  "dependencies": {
-    "@vercel/toolbar": "^0.1.32"
+  "name": "rainstorms-enterprise",
+  "version": "1.1.0",
+  "private": true,
+  "description": "World-class monorepo for Rainstorms.",
+  "scripts": {
+    "lint:js": "prettier --write \"frontend/**/*.{js,jsx,ts,tsx}\"",
+    "lint:py": "cd backend && black . && flake8 .",
+    "test": "cd backend && pytest",
+    "deploy": "make deploy-prod",
+    "prepare": "husky"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5"
+  },
+  "lint-staged": {
+    "frontend/**/*.{js,jsx,ts,tsx}": [
+      "prettier --write"
+    ],
+    "backend/**/*.py": [
+      "black"
+    ]
   }
 }
