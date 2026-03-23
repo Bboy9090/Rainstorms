@@ -18,5 +18,5 @@ RUN mkdir -p static/illustrations static/characters
 ENV PORT=8000
 EXPOSE 8000
 
-# Run uvicorn (JSON array form correctly handling sh string evaluation)
-CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Run uvicorn (shell form so $PORT expands)
+CMD sh -c "uvicorn server:app --host 0.0.0.0 --port ${PORT}"

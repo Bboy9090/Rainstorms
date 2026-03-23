@@ -9,15 +9,15 @@ Environment variables:
   GROQ_API_KEY   – required when LLM_PROVIDER=groq (free tier: console.groq.com)
 """
 
+import os
 import logging
-from config import settings
 
 logger = logging.getLogger(__name__)
 
-LLM_PROVIDER: str = settings.LLM_PROVIDER.lower().strip()
-OPENAI_API_KEY: str = settings.OPENAI_API_KEY
-GEMINI_API_KEY: str = settings.GEMINI_API_KEY
-GROQ_API_KEY: str = settings.GROQ_API_KEY
+LLM_PROVIDER: str = os.environ.get("LLM_PROVIDER", "openai").lower().strip()
+OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
+GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
+GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
 
 _openai_client = None
 _gemini_client = None
