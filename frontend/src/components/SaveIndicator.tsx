@@ -39,21 +39,21 @@ export function SaveIndicator({ status, lastSaved }: SaveIndicatorProps) {
           icon: 'sync' as const,
           text: 'Saving...',
           color: colors.primary,
-          bgColor: '#EEF2FF',
+          bgColor: colors.tintPrimary,
         };
       case 'saved':
         return {
           icon: 'checkmark-circle' as const,
           text: 'Saved',
           color: colors.success,
-          bgColor: '#ECFDF5',
+          bgColor: colors.tintSuccess,
         };
       case 'error':
         return {
           icon: 'alert-circle' as const,
           text: 'Save failed',
           color: colors.error,
-          bgColor: '#FEF2F2',
+          bgColor: colors.tintError,
         };
       default:
         return {

@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     width: 40, height: 40, borderRadius: borderRadius.full,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.cardBg, alignItems: 'center', justifyContent: 'center',
     ...shadows.sm,
   },
   headerTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   // Cover preview
   coverPreviewContainer: { alignItems: 'center', marginBottom: spacing.lg },
   coverPreviewPlaceholder: {
-    backgroundColor: '#EEF2FF', borderRadius: borderRadius.lg,
+    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.lg,
     alignItems: 'center', justifyContent: 'center',
     ...shadows.md, padding: spacing.xl,
   },
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   downloadBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: spacing.md, paddingVertical: 10,
-    backgroundColor: colors.white, borderRadius: borderRadius.full,
+    backgroundColor: colors.cardBg, borderRadius: borderRadius.full,
     borderWidth: 1, borderColor: colors.primary, ...shadows.sm,
   },
   downloadBtnText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   // Style selector
   styleSelector: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    backgroundColor: colors.white, borderRadius: borderRadius.md,
+    backgroundColor: colors.cardBg, borderRadius: borderRadius.md,
     padding: spacing.md, ...shadows.sm,
     borderWidth: 1, borderColor: colors.gray200,
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   fieldGroup: { marginBottom: spacing.md },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 },
   fieldInput: {
-    backgroundColor: colors.white, borderRadius: borderRadius.md,
+    backgroundColor: colors.cardBg, borderRadius: borderRadius.md,
     borderWidth: 1, borderColor: colors.gray200,
     paddingHorizontal: spacing.md, paddingVertical: 10,
     fontSize: 15, color: colors.textPrimary, ...shadows.sm,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
 
   // Concept + blurb
   conceptBox: {
-    backgroundColor: '#EEF2FF', borderRadius: borderRadius.md,
+    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.md,
     padding: spacing.md, borderLeftWidth: 3, borderLeftColor: colors.primary,
   },
   conceptText: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, fontStyle: 'italic' },
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   // Style picker modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: {
-    backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: colors.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.sm,
   },
   modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs },
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     padding: spacing.md, borderRadius: borderRadius.md,
     borderWidth: 1, borderColor: colors.gray200,
   },
-  styleOptionActive: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
+  styleOptionActive: { borderColor: colors.primary, backgroundColor: colors.tintPrimary },
   styleOptionEmoji: { fontSize: 24 },
   styleOptionText: { flex: 1 },
   styleOptionLabel: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },

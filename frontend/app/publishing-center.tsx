@@ -126,7 +126,7 @@ const PLATFORMS = [
     label: 'All Platforms',
     icon: 'download' as const,
     color: colors.primary,
-    bgColor: '#EEF2FF',
+    bgColor: colors.tintPrimary,
     description: 'Download a complete package for all platforms',
   },
 ];
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     ...shadows.sm,
   },
   backButton: {
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   // Tab bar
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
     borderRadius: borderRadius.lg,
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingVertical: spacing.sm, borderRadius: borderRadius.md, gap: 2,
   },
-  tabItemActive: { backgroundColor: '#EEF2FF' },
+  tabItemActive: { backgroundColor: colors.tintPrimary },
   tabLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
   tabLabelActive: { color: colors.primary, fontWeight: '700' },
 
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full, backgroundColor: colors.gray100,
     borderWidth: 1, borderColor: colors.gray200,
   },
-  chipActive: { backgroundColor: '#EEF2FF', borderColor: colors.primary },
+  chipActive: { backgroundColor: colors.tintPrimary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
   chipTextActive: { color: colors.primary, fontWeight: '700' },
 
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
   fieldWrapper: { marginBottom: spacing.md },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
   fieldInput: {
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.gray200,
+    backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.gray200,
     borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     fontSize: 15, color: colors.textPrimary, ...shadows.sm,
   },
@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
   issueCard: {
     padding: spacing.md, marginBottom: spacing.sm,
     borderLeftWidth: 4, borderRadius: borderRadius.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
   },
   issueRow: { flexDirection: 'row', gap: spacing.sm },
   issueText: { flex: 1 },

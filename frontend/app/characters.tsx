@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     width: 40, height: 40, borderRadius: borderRadius.full,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.cardBg, alignItems: 'center', justifyContent: 'center',
     ...shadows.sm,
   },
   headerCenter: { flex: 1, alignItems: 'center', gap: spacing.xs },
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   refSheetGenerating: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     justifyContent: 'center', paddingVertical: spacing.md,
-    backgroundColor: '#EEF2FF', borderRadius: borderRadius.md,
+    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
   refSheetGeneratingText: { fontSize: 13, color: colors.primary, fontWeight: '500' },
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: spacing.md, paddingVertical: 6,
     borderRadius: borderRadius.full, borderWidth: 1, borderColor: colors.primary,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
   },
   actionBtnLocked: { backgroundColor: colors.primary, borderColor: colors.primary },
   actionBtnDisabled: { opacity: 0.5 },
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', padding: spacing.lg,
   },
   modalContent: {
-    backgroundColor: colors.white, borderRadius: borderRadius.lg,
+    backgroundColor: colors.cardBg, borderRadius: borderRadius.lg,
     width: '100%', maxWidth: 500, maxHeight: '90%', ...shadows.lg,
   },
   modalHeader: {
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     fontSize: 12, fontWeight: '700', color: colors.primary,
     textTransform: 'uppercase', letterSpacing: 0.5,
     marginTop: spacing.md, marginBottom: spacing.sm,
-    paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#EEF2FF',
+    paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: colors.gray200,
   },
   inputGroup: { marginBottom: spacing.md },
   inputLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.xs },

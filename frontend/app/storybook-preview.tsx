@@ -259,7 +259,7 @@ const spreadStyles = StyleSheet.create({
   spotImageArea: { flex: 2, overflow: 'hidden', borderRadius: borderRadius.md, margin: spacing.md },
 
   // Split (default)
-  splitImageHalf: { flex: 1, backgroundColor: '#EEF2FF', overflow: 'hidden' },
+  splitImageHalf: { flex: 1, backgroundColor: colors.tintPrimary, overflow: 'hidden' },
 
   // Shared
   imageFull: { flex: 1, overflow: 'hidden' },
@@ -283,7 +283,7 @@ const spreadStyles = StyleSheet.create({
   emptyText: { fontSize: 14, color: colors.gray400 },
   beatTag: {
     flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.sm,
-    paddingVertical: 3, paddingHorizontal: 8, backgroundColor: '#FDF4FF',
+    paddingVertical: 3, paddingHorizontal: 8, backgroundColor: colors.tintSecondary,
     borderRadius: borderRadius.full, alignSelf: 'flex-start',
   },
   beatText: { fontSize: 10, color: colors.secondary, fontStyle: 'italic' },
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     width: 40, height: 40, borderRadius: borderRadius.full,
-    backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.cardBg, alignItems: 'center', justifyContent: 'center',
     ...shadows.sm,
   },
   headerActions: { flexDirection: 'row', gap: spacing.xs },
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
   headerButtons: { flexDirection: 'row', gap: spacing.xs },
   styleButton: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#EEF2FF', borderRadius: borderRadius.full,
+    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.full,
     paddingHorizontal: 10, paddingVertical: 4,
   },
   styleButtonEmoji: { fontSize: 14 },
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
   // Layout badge
   layoutBadgeRow: { alignItems: 'center', paddingVertical: 4 },
   layoutBadge: {
-    backgroundColor: '#EEF2FF', borderRadius: borderRadius.full,
+    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.full,
     paddingHorizontal: 12, paddingVertical: 4,
   },
   layoutBadgeText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
   pageControlBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: spacing.md, paddingVertical: 6,
-    backgroundColor: colors.white, borderRadius: borderRadius.full,
+    backgroundColor: colors.cardBg, borderRadius: borderRadius.full,
     borderWidth: 1, borderColor: colors.gray200, ...shadows.sm,
   },
   pageControlBtnDisabled: { opacity: 0.5 },
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
   // Style/Theme picker modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: {
-    backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: colors.cardBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: spacing.xl, paddingBottom: spacing.xxl,
   },
   modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs },
@@ -930,7 +930,7 @@ const styles = StyleSheet.create({
     padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.sm,
     borderWidth: 1, borderColor: colors.gray200,
   },
-  styleOptionActive: { borderColor: colors.primary, backgroundColor: '#EEF2FF' },
+  styleOptionActive: { borderColor: colors.primary, backgroundColor: colors.tintPrimary },
   styleOptionEmoji: { fontSize: 24 },
   styleOptionLabel: { flex: 1, fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
   styleOptionLabelActive: { color: colors.primary, fontWeight: '700' },

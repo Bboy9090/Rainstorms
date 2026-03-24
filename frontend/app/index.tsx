@@ -32,7 +32,7 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <LinearGradient
-        colors={['#EEF2FF', '#F8FAFC', '#FDF4FF']}
+        colors={['#0B1220', '#111A2E', '#1A1428']}
         style={styles.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -150,28 +150,28 @@ export default function HomeScreen() {
         <Text style={styles.featuresTitle}>How it works</Text>
         <View style={styles.featureGrid}>
           <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: '#EEF2FF' }]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.tintPrimary }]}>
               <Ionicons name="bulb-outline" size={28} color={colors.primary} />
             </View>
             <Text style={styles.featureLabel}>Start with an idea</Text>
             <Text style={styles.featureText}>Enter your story concept and preferences</Text>
           </View>
           <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: '#FDF4FF' }]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.tintSecondary }]}>
               <Ionicons name="document-text-outline" size={28} color={colors.secondary} />
             </View>
             <Text style={styles.featureLabel}>Generate Blueprint</Text>
             <Text style={styles.featureText}>AI creates title, outline & characters</Text>
           </View>
           <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.tintAccent }]}>
               <Ionicons name="create-outline" size={28} color={colors.accent} />
             </View>
             <Text style={styles.featureLabel}>Build Pages</Text>
             <Text style={styles.featureText}>Generate text & illustration prompts</Text>
           </View>
           <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: '#ECFDF5' }]}>
+            <View style={[styles.featureIcon, { backgroundColor: colors.tintSuccess }]}>
               <Ionicons name="download-outline" size={28} color={colors.success} />
             </View>
             <Text style={styles.featureLabel}>Export</Text>
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderRadius: borderRadius.full,
     ...shadows.sm,
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   demoTag: {
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.gray200,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.full,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   featureItem: {
     width: width > 600 ? '45%' : '100%',
     maxWidth: 280,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     alignItems: 'center',

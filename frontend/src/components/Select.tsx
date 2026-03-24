@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   select: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderWidth: 1,
     borderColor: colors.gray200,
     borderRadius: borderRadius.md,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   modal: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     borderRadius: borderRadius.lg,
     width: '100%',
     maxWidth: 400,

@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.sm,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.md,
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   tabActive: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     ...shadows.sm,
   },
   tabText: {

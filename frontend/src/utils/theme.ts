@@ -1,45 +1,63 @@
+/**
+ * Rainstorms — dark “storm” theme aligned with the emblem logo:
+ * cyan primary, deep navy surfaces, gold accents.
+ */
 export const colors = {
-  // Primary palette - Dreamy Indigo/Violet HSL
-  primary: 'hsl(239, 84%, 67%)',      // #6366F1
-  primaryLight: 'hsl(235, 89%, 74%)', // #818CF8
-  primaryDark: 'hsl(243, 75%, 59%)',  // #4F46E5
-  
-  // Secondary palette - Vibrant Pink/Rose HSL
-  secondary: 'hsl(330, 81%, 70%)',    // #F472B6
-  secondaryLight: 'hsl(330, 86%, 81%)', // #F9A8D4
-  
-  // Accent - Warm Gold HSL
-  accent: 'hsl(45, 93%, 58%)',        // #FBBF24
-  accentLight: 'hsl(45, 96%, 65%)',   // #FCD34D
-  
-  // Legendary Gradients
-  bgStart: 'hsl(210, 40%, 98%)',      // #F8FAFC
-  bgEnd: 'hsl(226, 70%, 96%)',        // #EEF2FF
-  
-  // Glassmorphism System
-  glassBg: 'rgba(255, 255, 255, 0.7)',
-  glassBorder: 'rgba(255, 255, 255, 0.4)',
-  glassText: '#1E293B',
-  
-  // Neutral - Slate HSL
-  textPrimary: 'hsl(222, 47%, 11%)',  // #0F172A
-  textSecondary: 'hsl(215, 25%, 30%)', // #334155
-  textMuted: 'hsl(215, 16%, 47%)',    // #64748B
-  textLight: '#FFFFFF',
-  
-  cardBg: '#FFFFFF',
-  cardBorder: 'hsl(214, 32%, 91%)',   // #E2E8F0
-  
-  success: 'hsl(161, 84%, 39%)',      // #10B981
-  error: 'hsl(0, 84%, 60%)',          // #EF4444
-  warning: 'hsl(38, 92%, 50%)',       // #F59E0B
-  info: 'hsl(221, 83%, 60%)',         // #3B82F6
-  
+  primary: 'hsl(192, 85%, 55%)', // ~#38B8E8 — logo cyan
+  primaryLight: 'hsl(192, 90%, 68%)',
+  primaryDark: 'hsl(198, 78%, 42%)',
+
+  secondary: 'hsl(330, 75%, 68%)',
+  secondaryLight: 'hsl(330, 86%, 81%)',
+
+  accent: 'hsl(45, 93%, 58%)',
+  accentLight: 'hsl(45, 96%, 65%)',
+
+  /** Page / screen backgrounds */
+  bgStart: 'hsl(222, 47%, 8%)',
+  bgEnd: 'hsl(218, 32%, 14%)',
+  /** Mid tone for subtle gradients */
+  bgMid: 'hsl(215, 28%, 11%)',
+
+  /** Glass panels */
+  glassBg: 'rgba(255, 255, 255, 0.06)',
+  glassBorder: 'rgba(255, 255, 255, 0.12)',
+  glassText: '#F1F5F9',
+
+  textPrimary: '#F8FAFC',
+  textSecondary: '#CBD5E1',
+  textMuted: '#94A3B8',
+
+  cardBg: '#1E293B',
+  cardBorder: '#334155',
+
+  /** Inputs & elevated surfaces */
+  inputBg: '#1A2332',
+  inputBorder: '#334155',
+
+  /** Chip / selection tints (replaces light #EEF2FF-style fills) */
+  tintPrimary: 'rgba(56, 189, 248, 0.16)',
+  tintSecondary: 'rgba(244, 114, 182, 0.14)',
+  tintAccent: 'rgba(251, 191, 36, 0.14)',
+  tintSuccess: 'rgba(16, 185, 129, 0.14)',
+  tintError: 'rgba(239, 68, 68, 0.18)',
+
+  success: 'hsl(161, 72%, 45%)',
+  error: 'hsl(0, 84%, 62%)',
+  warning: 'hsl(38, 92%, 55%)',
+  info: 'hsl(192, 85%, 55%)',
+
   white: '#FFFFFF',
   black: '#000000',
-  
-  // Depth Shadows (Dreamy)
-  shadowColor: 'hsl(239, 84%, 10%)',
+  textLight: '#FFFFFF',
+
+  gray100: '#1E293B',
+  gray200: '#334155',
+  gray300: '#475569',
+  gray400: '#64748B',
+  gray500: '#94A3B8',
+
+  shadowColor: '#000000',
 };
 
 export const spacing = {
@@ -53,7 +71,7 @@ export const spacing = {
 
 export const borderRadius = {
   sm: 8,
-  md: 16,             // Increased for softer feel
+  md: 16,
   lg: 24,
   xl: 32,
   full: 9999,
@@ -63,30 +81,29 @@ export const shadows = {
   sm: {
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 3,
   },
   md: {
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 6,
   },
   lg: {
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.5,
     shadowRadius: 24,
-    elevation: 10,
+    elevation: 12,
   },
-  // New legendary shadow
   inner: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 1,
-  }
+  },
 };

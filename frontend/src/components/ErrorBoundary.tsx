@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../utils/theme';
 
 interface Props {
   children: ReactNode;
@@ -32,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
       return (
         <View style={styles.container}>
-          <Ionicons name="rainy-outline" size={48} color="#94A3B8" />
+          <Ionicons name="rainy-outline" size={48} color={colors.textMuted} />
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.message}>Please try again or refresh the page.</Text>
           <TouchableOpacity style={styles.button} onPress={this.handleRetry}>
@@ -51,17 +52,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.bgStart,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1E293B',
+    color: colors.textPrimary,
     marginTop: 16,
   },
   message: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textMuted,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -69,11 +70,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.primary,
     borderRadius: 8,
   },
   buttonText: {
-    color: '#FFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },

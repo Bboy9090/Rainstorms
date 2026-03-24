@@ -153,7 +153,7 @@ export default function ExportScreen() {
       {/* Story PDF */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: '#EEF2FF' }]}>
+          <View style={[styles.exportIcon, { backgroundColor: colors.tintPrimary }]}>
             <Ionicons name="document" size={24} color={colors.primary} />
           </View>
           <View style={styles.exportInfo}>
@@ -175,7 +175,7 @@ export default function ExportScreen() {
       {/* Prompts PDF */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: '#FEF3C7' }]}>
+          <View style={[styles.exportIcon, { backgroundColor: colors.tintAccent }]}>
             <Ionicons name="brush" size={24} color={colors.accent} />
           </View>
           <View style={styles.exportInfo}>
@@ -199,7 +199,7 @@ export default function ExportScreen() {
       {/* Copy Text */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: '#ECFDF5' }]}>
+          <View style={[styles.exportIcon, { backgroundColor: colors.tintSuccess }]}>
             <Ionicons name="copy" size={24} color={colors.success} />
           </View>
           <View style={styles.exportInfo}>
@@ -243,7 +243,7 @@ export default function ExportScreen() {
       {/* Publishing Center CTA */}
       <Card style={[styles.exportCard, { borderWidth: 2, borderColor: colors.primary }]}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: '#EEF2FF' }]}>
+          <View style={[styles.exportIcon, { backgroundColor: colors.tintPrimary }]}>
             <Ionicons name="library" size={24} color={colors.primary} />
           </View>
           <View style={styles.exportInfo}>
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.sm,

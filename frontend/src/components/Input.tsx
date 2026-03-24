@@ -70,9 +70,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   input: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.inputBg,
     borderWidth: 2,
-    borderColor: colors.cardBorder,
+    borderColor: colors.inputBorder,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: colors.primary,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cardBg,
     ...shadows.sm,
   },
   multiline: {
