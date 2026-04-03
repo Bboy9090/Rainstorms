@@ -1,51 +1,63 @@
 /**
- * Rainstorms — dark “storm” theme aligned with the emblem logo:
- * cyan primary, deep navy surfaces, gold accents.
+ * Rainstorms — Magical Dreamy Storybook Theme
+ * Matches the rich new logo with rainbows, deep space blues, and glowing accents.
  */
 export const colors = {
-  primary: 'hsl(192, 85%, 55%)', // ~#38B8E8 — logo cyan
-  primaryLight: 'hsl(192, 90%, 68%)',
-  primaryDark: 'hsl(198, 78%, 42%)',
+  // Primary - Cyan/Blue from the logo
+  primary: 'hsl(195, 90%, 65%)', 
+  primaryLight: 'hsl(195, 95%, 75%)',
+  primaryDark: 'hsl(200, 80%, 45%)',
 
-  secondary: 'hsl(330, 75%, 68%)',
-  secondaryLight: 'hsl(330, 86%, 81%)',
+  // Secondary - Pink/Purple
+  secondary: 'hsl(315, 80%, 70%)',
+  secondaryLight: 'hsl(315, 90%, 80%)',
 
-  accent: 'hsl(45, 93%, 58%)',
-  accentLight: 'hsl(45, 96%, 65%)',
+  // Accent - Gold/Yellow from the book glow
+  accent: 'hsl(45, 100%, 65%)',
+  accentLight: 'hsl(45, 100%, 75%)',
 
-  /** Page / screen backgrounds */
-  bgStart: 'hsl(222, 47%, 8%)',
-  bgEnd: 'hsl(218, 32%, 14%)',
-  /** Mid tone for subtle gradients */
-  bgMid: 'hsl(215, 28%, 11%)',
+  // Rainbow Palette for various accents
+  rainbow: [
+    '#FF6B6B', // Red-ish
+    '#FFD93D', // Yellow-ish
+    '#6BCB77', // Green-ish
+    '#4D96FF', // Blue-ish
+    '#9B59B6', // Purple-ish
+  ],
 
-  /** Glass panels */
-  glassBg: 'rgba(255, 255, 255, 0.06)',
-  glassBorder: 'rgba(255, 255, 255, 0.12)',
-  glassText: '#F1F5F9',
+  /** Page / screen backgrounds - Deep Dreamy Space */
+  bgStart: '#05070A',
+  bgMid: '#101525',
+  bgEnd: '#1A1B2E',
 
-  textPrimary: '#F8FAFC',
-  textSecondary: '#CBD5E1',
+  /** Glass panels - Premium feeling */
+  glassBg: 'rgba(255, 255, 255, 0.08)',
+  glassBorder: 'rgba(255, 255, 255, 0.15)',
+  glassText: '#F8FAFC',
+  glassReflection: 'rgba(255, 255, 255, 0.05)',
+
+  textPrimary: '#FFFFFF',
+  textSecondary: '#E2E8F0',
   textMuted: '#94A3B8',
 
-  cardBg: '#1E293B',
-  cardBorder: '#334155',
+  cardBg: 'rgba(20, 24, 40, 0.85)',
+  cardBorder: 'rgba(51, 65, 85, 0.5)',
 
   /** Inputs & elevated surfaces */
-  inputBg: '#1A2332',
+  inputBg: '#0F172A',
   inputBorder: '#334155',
 
-  /** Chip / selection tints (replaces light #EEF2FF-style fills) */
-  tintPrimary: 'rgba(56, 189, 248, 0.16)',
-  tintSecondary: 'rgba(244, 114, 182, 0.14)',
-  tintAccent: 'rgba(251, 191, 36, 0.14)',
-  tintSuccess: 'rgba(16, 185, 129, 0.14)',
-  tintError: 'rgba(239, 68, 68, 0.18)',
+  /** Chip / selection tints */
+  tintPrimary: 'rgba(56, 189, 248, 0.2)',
+  tintSecondary: 'rgba(232, 121, 249, 0.15)',
+  tintAccent: 'rgba(251, 191, 36, 0.15)',
+  tintSuccess: 'rgba(52, 211, 153, 0.15)',
+  tintError: 'rgba(248, 113, 113, 0.2)',
 
-  success: 'hsl(161, 72%, 45%)',
-  error: 'hsl(0, 84%, 62%)',
-  warning: 'hsl(38, 92%, 55%)',
-  info: 'hsl(192, 85%, 55%)',
+  success: '#10B981',
+  error: '#EF4444',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 
   white: '#FFFFFF',
   black: '#000000',
@@ -58,6 +70,8 @@ export const colors = {
   gray500: '#94A3B8',
 
   shadowColor: '#000000',
+  glowPrimary: 'rgba(56, 189, 248, 0.35)',
+  glowSecondary: 'rgba(232, 121, 249, 0.3)',
 };
 
 export const spacing = {
@@ -70,10 +84,10 @@ export const spacing = {
 };
 
 export const borderRadius = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  sm: 10,
+  md: 20,
+  lg: 30,
+  xl: 40,
   full: 9999,
 };
 
@@ -81,29 +95,30 @@ export const shadows = {
   sm: {
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   md: {
     shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
   },
   lg: {
     shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 16 },
+    shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowRadius: 35,
+    elevation: 15,
   },
-  inner: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 1,
+  primaryGlow: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    elevation: 10,
   },
 };
+
