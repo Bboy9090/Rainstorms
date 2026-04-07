@@ -11,7 +11,7 @@ module.exports = {
     extra: {
       ...appJson.expo?.extra,
       EXPO_PUBLIC_BACKEND_URL:
-        process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8001",
+        process.env.EXPO_PUBLIC_BACKEND_URL ?? "",
     },
   },
 };
