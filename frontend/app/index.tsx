@@ -77,8 +77,23 @@ export default function HomeScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Decorative Rainbow Blur */}
-      <View style={styles.rainbowBlur} />
+      {/* Logo as full-bleed atmospheric background — top layer */}
+      <Animated.View style={[styles.logoBgTop, animatedLogoStyle]}>
+        <Image
+          source={require('../assets/images/rainstorms-logo.png')}
+          style={styles.logoBgImage}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      {/* Logo echo — lower, softer, rotated for depth */}
+      <Animated.View style={[styles.logoBgBottom, animatedGlowStyle]}>
+        <Image
+          source={require('../assets/images/rainstorms-logo.png')}
+          style={styles.logoBgImageBottom}
+          resizeMode="contain"
+        />
+      </Animated.View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
@@ -103,23 +118,6 @@ export default function HomeScreen() {
 
         {/* Hero Section */}
         <View style={styles.hero}>
-          <Animated.View style={[styles.glowContainer, animatedGlowStyle]}>
-            <LinearGradient
-              colors={[colors.primary, colors.secondary]}
-              style={styles.logoGlow}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-          </Animated.View>
-          
-          <Animated.View style={[styles.heroLogo, animatedLogoStyle]}>
-            <Image
-              source={require('../assets/images/rainstorms-logo.png')}
-              style={styles.heroLogoImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
-          
           <Text style={styles.heroTitle}>Where Stories Pour Down</Text>
           <Text style={styles.heroSubtitle}>
             Unleash magical children&apos;s books with the power of AI. 
@@ -242,16 +240,34 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xxl,
   },
-  rainbowBlur: {
+  logoBgTop: {
     position: 'absolute',
-    top: -100,
-    right: -100,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: colors.primary,
-    opacity: 0.15,
-    transform: [{ scale: 1.5 }],
+    top: -60,
+    left: -40,
+    right: -40,
+    alignItems: 'center',
+    mixBlendMode: 'screen' as any,
+    opacity: 0.38,
+    pointerEvents: 'none' as any,
+  },
+  logoBgImage: {
+    width: 520,
+    height: 520,
+  },
+  logoBgBottom: {
+    position: 'absolute',
+    top: 480,
+    left: -80,
+    right: -80,
+    alignItems: 'center',
+    mixBlendMode: 'screen' as any,
+    opacity: 0.13,
+    transform: [{ rotate: '180deg' }, { scale: 1.1 }],
+    pointerEvents: 'none' as any,
+  },
+  logoBgImageBottom: {
+    width: 560,
+    height: 560,
   },
   header: {
     flexDirection: 'row',
@@ -290,37 +306,8 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
+    paddingTop: 260,
     paddingBottom: spacing.xl,
-  },
-  glowContainer: {
-    position: 'absolute',
-    top: spacing.xl - 20,
-    width: 220,
-    height: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoGlow: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    opacity: 0.3,
-    filter: 'blur(30px)', // Note: web only, for native we rely on opacity/radius
-  },
-  heroLogo: {
-    width: 200,
-    height: 200,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 100,
-    overflow: 'hidden',
-    mixBlendMode: 'screen' as any,
-  },
-  heroLogoImage: {
-    width: 200,
-    height: 200,
   },
   heroTitle: {
     fontSize: 32,
