@@ -1,9 +1,30 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 
-export const BASE_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
-  process.env.EXPO_PUBLIC_BACKEND_URL ||
-  '';
+function resolveBaseUrl(): string {
+  const configured =
+    Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
+    process.env.EXPO_PUBLIC_BACKEND_URL ||
+    '';
+
+  if (!configured) return '';
+
+  if (typeof window !== 'undefined') {
+    try {
+      const configuredHostname = new URL(configured).hostname;
+      const currentHostname = window.location.hostname;
+      if (configuredHostname !== currentHostname) {
+        return '';
+      }
+    } catch {
+      return '';
+    }
+  }
+
+  return configured;
+}
+
+export const BASE_URL = resolveBaseUrl();
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api`,
@@ -17,7 +38,6 @@ export function formatApiError(err: any, fallback: string): string {
   const d = err?.response?.data?.detail;
   if (typeof d === 'string') return d;
   if (d && typeof d === 'object') {
-    // Prefer hint (user-friendly); avoid showing raw API messages
     const msg = d.hint || d.error;
     if (msg && typeof msg === 'string') return msg;
     if (d.original && typeof d.original === 'string') {
