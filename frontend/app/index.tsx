@@ -314,7 +314,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
+    borderRadius: 100,
+    overflow: 'hidden',
+    mixBlendMode: 'screen' as any,
   },
   heroLogoImage: {
     width: 200,
