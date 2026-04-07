@@ -5311,6 +5311,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve the pre-built Expo web frontend (production only)
+# The build is in frontend/dist/ relative to the project root.
+_frontend_dist = ROOT_DIR.parent / "frontend" / "dist"
+
+if _frontend_dist.is_dir():
+    # Serve all static assets from the dist directory
+    app.mount("/_expo", StaticFiles(directory=str(_frontend_dist / "_expo")), name="frontend-expo")
+
+    _assets_dir = _frontend_dist / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="frontend-assets")
+
+    from fastapi.responses import FileResponse as _FileResponse
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend_spa(full_path: str):
+        """Serve the Expo web SPA for all non-API routes."""
+        candidate = _frontend_dist / full_path
+        if candidate.is_file():
+            return _FileResponse(str(candidate))
+        # Try .html variant for Expo static export routes
+        html_candidate = _frontend_dist / f"{full_path}.html"
+        if html_candidate.is_file():
+            return _FileResponse(str(html_candidate))
+        # SPA fallback — always return index.html
+        return _FileResponse(str(_frontend_dist / "index.html"))
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
