@@ -4,7 +4,6 @@ import { colors } from '../src/utils/theme';
 import { AuthProvider } from '../src/context/AuthContext';
 import { ProjectProvider } from '../src/context/ProjectContext';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
-import { Analytics } from '@vercel/analytics/react';
 
 export default function RootLayout() {
   return (
@@ -19,7 +18,6 @@ export default function RootLayout() {
               animation: 'fade',
             }}
           />
-          <Analytics />
         </ProjectProvider>
       </AuthProvider>
     </ErrorBoundary>
