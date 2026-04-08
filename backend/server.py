@@ -11,6 +11,7 @@ load_dotenv(ROOT_DIR / '.env')  # Edit .env? Restart server to pick up changes.
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import certifi
+from mongo_pg import create_pg_db
 import os
 import base64
 import logging
@@ -31,24 +32,29 @@ from reportlab.lib.colors import HexColor
 from ai_helper import llm_chat as _llm_chat
 from lore_engine import lore_router, meta_router, init_lore_engine
 
-# MongoDB connection
-# Use .get() so the process starts even without the env var set; a clear
-# error is surfaced at request-time (via MongoDB connection failure) rather
-# than crashing the module at import/startup.
-mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
-# Atlas SRV: use certifi CA bundle to avoid TLSV1_ALERT_INTERNAL_ERROR.
-# If still failing on macOS (Python LibreSSL), set MONGO_TLS_SKIP_VERIFY=1 for local dev only.
-_tls_kwargs = {}
-if mongo_url.startswith('mongodb+srv://'):
-    _tls_kwargs['tlsCAFile'] = certifi.where()
-    if os.environ.get('MONGO_TLS_SKIP_VERIFY', '').lower() in ('1', 'true', 'yes'):
-        _tls_kwargs['tlsAllowInvalidCertificates'] = True  # Local dev workaround only
-client = AsyncIOMotorClient(
-    mongo_url,
-    serverSelectionTimeoutMS=15000,  # Fail in 15s instead of hanging
-    **_tls_kwargs,
+# Database — prefer MongoDB Atlas when MONGO_URL is a real Atlas SRV URL;
+# otherwise fall back to Replit's built-in PostgreSQL (zero config needed).
+_mongo_url = os.environ.get('MONGO_URL', '')
+_use_mongo = _mongo_url.startswith('mongodb+srv://') or (
+    _mongo_url.startswith('mongodb://') and 'localhost' not in _mongo_url
 )
-db = client[os.environ.get('DB_NAME', 'rainstorms_db')]
+
+if _use_mongo:
+    _tls_kwargs = {}
+    if _mongo_url.startswith('mongodb+srv://'):
+        _tls_kwargs['tlsCAFile'] = certifi.where()
+        if os.environ.get('MONGO_TLS_SKIP_VERIFY', '').lower() in ('1', 'true', 'yes'):
+            _tls_kwargs['tlsAllowInvalidCertificates'] = True
+    _motor_client = AsyncIOMotorClient(
+        _mongo_url,
+        serverSelectionTimeoutMS=15000,
+        **_tls_kwargs,
+    )
+    db = _motor_client[os.environ.get('DB_NAME', 'rainstorms_db')]
+    logging.info("Database: MongoDB Atlas")
+else:
+    _motor_client = None
+    db = None  # will be replaced in startup event
 
 # JWT Configuration
 JWT_SECRET = os.environ.get('JWT_SECRET', 'rainstorms_secret_key_2024_v1')
@@ -3907,11 +3913,15 @@ async def ready_check():
     mongo_ok = False
     mongo_err = None
     try:
-        await client.admin.command("ping")
+        if _motor_client is not None:
+            await _motor_client.admin.command("ping")
+        else:
+            # PostgreSQL adapter — do a lightweight query
+            await db.list_collection_names()
         mongo_ok = True
     except Exception as e:
         mongo_err = str(e)
-        logger.error("MongoDB ready check failed: %s", e)
+        logger.error("DB ready check failed: %s", e)
 
     llm = _llm_status()
     ready = mongo_ok and llm["configured"]
@@ -5339,6 +5349,21 @@ if _frontend_dist.is_dir():
         return _FileResponse(str(_frontend_dist / "index.html"))
 
 
+@app.on_event("startup")
+async def startup_db():
+    global db
+    if db is not None:
+        return  # Already using MongoDB Atlas
+    try:
+        pg_db = await create_pg_db()
+        db = pg_db
+        logging.info("Database: Replit PostgreSQL (MongoDB-compatible adapter)")
+    except Exception as exc:
+        logging.error("Failed to connect to PostgreSQL fallback: %s", exc)
+        raise
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if _motor_client is not None:
+        _motor_client.close()
