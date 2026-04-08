@@ -198,29 +198,6 @@ export default function HomeScreen() {
           </View>
         </Card>
 
-        {/* Cosmic Reading Card */}
-        <TouchableOpacity
-          style={styles.cosmicCard}
-          onPress={() => router.push('/natal-chart')}
-        >
-          <LinearGradient
-            colors={['rgba(99,102,241,0.18)', 'rgba(56,189,248,0.10)']}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
-          <View style={styles.cosmicLeft}>
-            <View style={styles.cosmicIcon}>
-              <Ionicons name="planet" size={28} color="#A78BFA" />
-            </View>
-            <View>
-              <Text style={styles.cosmicTitle}>Cosmic Reading</Text>
-              <Text style={styles.cosmicDesc}>Natal chart + Human Design PDF</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" />
-        </TouchableOpacity>
-
         {/* How it Works Icons */}
         <View style={styles.steps}>
           <Text style={styles.sectionTitle}>The Magic Process</Text>
@@ -508,43 +485,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     fontWeight: '600',
-  },
-  cosmicCard: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.2)',
-  },
-  cosmicLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-  },
-  cosmicIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(167,139,250,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cosmicTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  cosmicDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    opacity: 0.7,
-    marginTop: 2,
   },
   footer: {
     alignItems: 'center',
