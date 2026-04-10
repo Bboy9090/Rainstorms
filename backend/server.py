@@ -2023,22 +2023,30 @@ async def export_project_json(project_id: str):
     characters = await db.characters.find({"project_id": project_id}).to_list(20)
     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
     
+    def _dt_str(val):
+        """Safely convert a datetime or string timestamp to ISO string."""
+        if val is None:
+            return None
+        if isinstance(val, datetime):
+            return val.isoformat()
+        return str(val)  # already a string from PostgreSQL adapter
+
     # Remove MongoDB _id field and convert datetime objects to strings
     if '_id' in project:
         del project['_id']
-    project['created_at'] = project['created_at'].isoformat() if project.get('created_at') else None
-    project['updated_at'] = project['updated_at'].isoformat() if project.get('updated_at') else None
-    
+    project['created_at'] = _dt_str(project.get('created_at'))
+    project['updated_at'] = _dt_str(project.get('updated_at'))
+
     for char in characters:
         if '_id' in char:
             del char['_id']
-        char['created_at'] = char['created_at'].isoformat() if char.get('created_at') else None
-    
+        char['created_at'] = _dt_str(char.get('created_at'))
+
     for page in pages:
         if '_id' in page:
             del page['_id']
-        page['created_at'] = page['created_at'].isoformat() if page.get('created_at') else None
-        page['updated_at'] = page['updated_at'].isoformat() if page.get('updated_at') else None
+        page['created_at'] = _dt_str(page.get('created_at'))
+        page['updated_at'] = _dt_str(page.get('updated_at'))
     
     return {
         "project": project,

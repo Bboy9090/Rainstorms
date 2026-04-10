@@ -18,6 +18,7 @@ import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { useProject } from '../src/context/ProjectContext';
+import { useAuth } from '../src/context/AuthContext';
 import { api } from '../src/utils/api';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -138,6 +139,7 @@ type Tab = 'metadata' | 'format' | 'validate' | 'export';
 export default function PublishingCenterScreen() {
   const router = useRouter();
   const { currentProject, pages, isLoading: projectLoading } = useProject();
+  const { token, isLoading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<Tab>('metadata');
   const [metadata, setMetadata] = useState<BookMetadata>(DEFAULT_METADATA);
@@ -149,13 +151,13 @@ export default function PublishingCenterScreen() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [exportingPlatform, setExportingPlatform] = useState<string | null>(null);
 
-  // Load publishing metadata
+  // Load publishing metadata — wait for auth to be ready before fetching
   useEffect(() => {
-    if (currentProject) {
+    if (currentProject && !authLoading && token) {
       loadMetadata();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProject?.id]);
+  }, [currentProject?.id, authLoading, token]);
 
   const loadMetadata = useCallback(async () => {
     if (!currentProject) return;
