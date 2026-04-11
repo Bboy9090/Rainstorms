@@ -61,8 +61,37 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'rainstorms_secret_key_2024_v1')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 72
 
-# OpenAI API key for image generation (DALL-E 3)
+# Image generation: Gemini Imagen 3 (primary). OPENAI_API_KEY kept for compatibility.
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+
+async def _gemini_generate_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
+    """Generate an image using Google Imagen 3 via the Gemini REST API.
+
+    Returns raw PNG bytes on success, raises on failure.
+    Reads GEMINI_API_KEY fresh from env each call so restarts aren't needed.
+    """
+    _key = os.environ.get('GEMINI_API_KEY', '')
+    if not _key:
+        raise RuntimeError("GEMINI_API_KEY is not configured")
+
+    async with httpx.AsyncClient(timeout=90.0) as _http:
+        _resp = await _http.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict",
+            params={"key": _key},
+            headers={"Content-Type": "application/json"},
+            json={
+                "instances": [{"prompt": prompt[:4096]}],
+                "parameters": {
+                    "sampleCount": 1,
+                    "aspectRatio": aspect_ratio,
+                    "outputMimeType": "image/png",
+                },
+            },
+        )
+    _resp.raise_for_status()
+    _data = _resp.json()
+    return base64.b64decode(_data["predictions"][0]["bytesBase64Encoded"])
 
 # Directory where generated illustration images are stored
 ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
@@ -3204,14 +3233,13 @@ def _detect_characters_in_text(page_text: str, characters: List[dict]) -> List[d
 
 
 async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
-    """
-    Generate a character reference sheet image using DALL-E and save it.
+    """Generate a character reference sheet image using Gemini Imagen 3.
 
     Returns:
         Relative URL to the saved image, or empty string on failure.
     """
-    if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY not set — skipping reference sheet generation")
+    if not os.environ.get('GEMINI_API_KEY', ''):
+        logger.warning("GEMINI_API_KEY not set — skipping reference sheet generation")
         return ""
 
     name = char.get("name", "character")
@@ -3221,37 +3249,14 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
     prompt = (
         f"Character reference sheet for '{name}', a {role} in a children's picture book. "
         f"Visual description: {brief}. "
-        "Show the character from the front with clean background. "
+        "Show the character from the front with a clean white background. "
         "Include their key visual traits clearly. "
         "Style: soft watercolor children's book illustration, clean white background, "
         "expressive and friendly design suitable for ages 3-8."
     )
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as http_client:
-            response = await http_client.post(
-                "https://api.openai.com/v1/images/generations",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "dall-e-3",
-                    "prompt": prompt[:4096],
-                    "n": 1,
-                    "size": "1024x1024",
-                    "response_format": "b64_json",
-                    "quality": "standard",
-                },
-            )
-        if len(prompt) > 4096:
-            logger.warning(
-                "Reference sheet prompt truncated from %d to 4096 chars for character %s",
-                len(prompt), char.get("name", char_id),
-            )
-        response.raise_for_status()
-        data = response.json()
-        image_b64 = data["data"][0]["b64_json"]
+        image_bytes = await _gemini_generate_image(prompt)
     except httpx.HTTPStatusError as exc:
         logger.error("Reference sheet HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
         return ""
@@ -3262,7 +3267,6 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
     char_dir = CHARACTERS_DIR / char_id
     char_dir.mkdir(parents=True, exist_ok=True)
     image_path = char_dir / "reference_sheet.png"
-    image_bytes = base64.b64decode(image_b64)
     image_path.write_bytes(image_bytes)
 
     logger.info("Reference sheet saved: %s (%d bytes)", image_path, len(image_bytes))
@@ -3283,10 +3287,10 @@ async def generate_character_reference_sheet(
     if not char:
         raise HTTPException(status_code=404, detail="Character not found")
 
-    if not OPENAI_API_KEY:
+    if not os.environ.get('GEMINI_API_KEY', ''):
         raise HTTPException(
             status_code=503,
-            detail="Image generation is not available. Set OPENAI_API_KEY in the backend .env file.",
+            detail="Image generation is not available. Set GEMINI_API_KEY in Replit Secrets.",
         )
 
     reference_sheet_url = await _generate_reference_sheet_image(character_id, char)
@@ -3379,49 +3383,21 @@ async def _generate_illustration_image(
     project_id: str,
     page_id: str,
 ) -> str:
-    """
-    Generate an illustration for a single page using OpenAI's image generation API.
+    """Generate an illustration for a page using Google Imagen 3.
+
     Saves the image to the local static directory and returns the relative URL path.
-
-    Args:
-        prompt: The illustration prompt text.
-        style_preset: The style preset key (e.g. "watercolor").
-        project_id: Used for file path organization.
-        page_id: Used for file naming.
-
-    Returns:
-        Relative URL path to the saved image (e.g. "/static/illustrations/...").
-        Returns empty string if image generation is not configured or fails.
+    Returns empty string if GEMINI_API_KEY is not set or generation fails.
     """
-    if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY not set — skipping image generation")
+    if not os.environ.get('GEMINI_API_KEY', ''):
+        logger.warning("GEMINI_API_KEY not set — skipping image generation")
         return ""
 
-    # Append the style suffix to the prompt
+    # Append style suffix to prompt
     style = STYLE_PRESETS.get(style_preset, STYLE_PRESETS[DEFAULT_STYLE_PRESET])
     full_prompt = f"{prompt}\n\n{style['suffix']}"
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as http_client:
-            response = await http_client.post(
-                "https://api.openai.com/v1/images/generations",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "dall-e-3",
-                    "prompt": full_prompt[:4096],  # DALL-E 3 max prompt length
-                    "n": 1,
-                    "size": "1024x1024",
-                    "response_format": "b64_json",
-                    "quality": "standard",
-                },
-            )
-        response.raise_for_status()
-        data = response.json()
-        image_b64 = data["data"][0]["b64_json"]
-
+        image_bytes = await _gemini_generate_image(full_prompt)
     except httpx.HTTPStatusError as exc:
         logger.error("Image generation HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
         return ""
@@ -3434,7 +3410,6 @@ async def _generate_illustration_image(
     proj_dir.mkdir(parents=True, exist_ok=True)
     image_path = proj_dir / f"{page_id}.png"
 
-    image_bytes = base64.b64decode(image_b64)
     image_path.write_bytes(image_bytes)
 
     logger.info("Illustration saved: %s (%d bytes)", image_path, len(image_bytes))
@@ -3522,8 +3497,7 @@ async def generate_page_illustration(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Image generation is not available. "
-                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
+                "Image generation is not available. Set GEMINI_API_KEY in Replit Secrets."
             )
         )
 
@@ -3553,13 +3527,10 @@ async def batch_generate_illustrations(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not OPENAI_API_KEY:
+    if not os.environ.get('GEMINI_API_KEY', ''):
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Image generation is not available. "
-                "Set OPENAI_API_KEY in the backend .env file to enable this feature."
-            )
+            detail="Image generation is not available. Set GEMINI_API_KEY in Replit Secrets.",
         )
 
     pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(100)
@@ -3904,15 +3875,8 @@ async def health_check():
 
 def _llm_status() -> dict:
     """Return LLM provider and whether key is configured (no key value)."""
-    from ai_helper import LLM_PROVIDER, OPENAI_API_KEY, GEMINI_API_KEY, GROQ_API_KEY
-    key_set = False
-    if LLM_PROVIDER == "groq":
-        key_set = bool(GROQ_API_KEY)
-    elif LLM_PROVIDER == "gemini":
-        key_set = bool(GEMINI_API_KEY)
-    else:
-        key_set = bool(OPENAI_API_KEY)
-    return {"provider": LLM_PROVIDER, "configured": key_set}
+    from ai_helper import _llm_status as _ai_llm_status
+    return _ai_llm_status()
 
 
 @api_router.get("/ready")
@@ -5143,34 +5107,16 @@ async def _build_back_cover_blurb(project: dict) -> str:
 
 
 async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> str:
-    """
-    Generate a cover image using DALL-E 3 and save to static/covers/{project_id}/.
+    """Generate a cover image using Gemini Imagen 3 and save to static/covers/{project_id}/.
+
     Returns the relative URL path or empty string on failure.
     """
-    if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY not set — skipping cover image generation")
+    if not os.environ.get('GEMINI_API_KEY', ''):
+        logger.warning("GEMINI_API_KEY not set — skipping cover image generation")
         return ""
 
     try:
-        async with httpx.AsyncClient(timeout=90.0) as http_client:
-            response = await http_client.post(
-                "https://api.openai.com/v1/images/generations",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "dall-e-3",
-                    "prompt": prompt[:4096],
-                    "n": 1,
-                    "size": "1024x1024",
-                    "response_format": "b64_json",
-                    "quality": "hd",  # HD quality for the cover
-                },
-            )
-        response.raise_for_status()
-        data = response.json()
-        image_b64 = data["data"][0]["b64_json"]
+        image_bytes = await _gemini_generate_image(prompt, aspect_ratio="1:1")
     except httpx.HTTPStatusError as exc:
         logger.error("Cover image HTTP error %s: %s", exc.response.status_code, exc.response.text[:200])
         return ""
@@ -5181,8 +5127,6 @@ async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> 
     cover_dir = COVERS_DIR / project_id
     cover_dir.mkdir(parents=True, exist_ok=True)
     image_path = cover_dir / filename
-
-    image_bytes = base64.b64decode(image_b64)
     image_path.write_bytes(image_bytes)
     logger.info("Cover image saved: %s (%d bytes)", image_path, len(image_bytes))
     return f"/static/covers/{project_id}/{filename}"

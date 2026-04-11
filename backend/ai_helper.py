@@ -1,12 +1,15 @@
 """Shared LLM text-generation helper for Rainstorms.
 
-Routes all LLM chat calls to OpenAI, Google Gemini, or Groq based on LLM_PROVIDER.
+Routing strategy:
+  LLM_PROVIDER=groq   → Groq (llama-3.3-70b), falls back to Gemini on failure
+  LLM_PROVIDER=gemini → Gemini 2.0 Flash only
+  LLM_PROVIDER=openai → OpenAI GPT-4.1 only
 
 Environment variables:
   LLM_PROVIDER   – "openai" (default), "gemini", or "groq"
   OPENAI_API_KEY – required when LLM_PROVIDER=openai
-  GEMINI_API_KEY – required when LLM_PROVIDER=gemini
-  GROQ_API_KEY   – required when LLM_PROVIDER=groq (free tier: console.groq.com)
+  GEMINI_API_KEY – required when LLM_PROVIDER=gemini, or as Groq fallback
+  GROQ_API_KEY   – required when LLM_PROVIDER=groq
 """
 
 import os
@@ -36,11 +39,13 @@ def _get_openai():
 
 def _get_gemini():
     global _gemini_client
+    # Re-read from env so a newly set key is picked up without a full restart
+    _key = os.environ.get("GEMINI_API_KEY", "") or GEMINI_API_KEY
     if _gemini_client is None:
-        if not GEMINI_API_KEY:
+        if not _key:
             raise RuntimeError("GEMINI_API_KEY is not configured")
         from google import genai
-        _gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        _gemini_client = genai.Client(api_key=_key)
     return _gemini_client
 
 
@@ -54,12 +59,34 @@ def _get_groq():
     return _groq_client
 
 
+def _llm_status() -> dict:
+    """Return LLM provider and whether a key is configured (never exposes values)."""
+    if LLM_PROVIDER == "groq":
+        key_set = bool(GROQ_API_KEY)
+    elif LLM_PROVIDER == "gemini":
+        key_set = bool(os.environ.get("GEMINI_API_KEY", "") or GEMINI_API_KEY)
+    else:
+        key_set = bool(OPENAI_API_KEY)
+    return {"provider": LLM_PROVIDER, "configured": key_set}
+
+
 async def llm_chat(system_message: str, user_message: str) -> str:
-    """Send a chat prompt to the configured LLM provider and return the response text."""
+    """Send a chat prompt to the configured LLM and return the response text.
+
+    When LLM_PROVIDER=groq: automatically falls back to Gemini if Groq fails
+    and GEMINI_API_KEY is available.
+    """
     if LLM_PROVIDER == "gemini":
         return await _gemini_chat(system_message, user_message)
     if LLM_PROVIDER == "groq":
-        return await _groq_chat(system_message, user_message)
+        try:
+            return await _groq_chat(system_message, user_message)
+        except Exception as groq_err:
+            _fallback_key = os.environ.get("GEMINI_API_KEY", "") or GEMINI_API_KEY
+            if _fallback_key:
+                logger.warning("Groq failed (%s) — falling back to Gemini", groq_err)
+                return await _gemini_chat(system_message, user_message)
+            raise
     return await _openai_chat(system_message, user_message)
 
 
