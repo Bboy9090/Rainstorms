@@ -138,7 +138,7 @@ type Tab = 'metadata' | 'format' | 'validate' | 'export';
 
 export default function PublishingCenterScreen() {
   const router = useRouter();
-  const { currentProject, pages, isLoading: projectLoading } = useProject();
+  const { currentProject, pages, characters, isLoading: projectLoading } = useProject();
   const { token, isLoading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<Tab>('metadata');
@@ -150,6 +150,60 @@ export default function PublishingCenterScreen() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [exportingPlatform, setExportingPlatform] = useState<string | null>(null);
+
+  // Build autofill suggestions from project + characters
+  const buildAutofill = useCallback((): Partial<BookMetadata> => {
+    if (!currentProject) return {};
+    const today = new Date().toISOString().split('T')[0];
+    const authorName = currentProject.cover?.author_name ?? '';
+
+    const keywordSet = new Set<string>(['picture book', "children's book"]);
+    if (currentProject.theme) keywordSet.add(currentProject.theme.toLowerCase());
+    if (currentProject.tone) {
+      currentProject.tone.split(',').forEach((t) => {
+        const trimmed = t.trim().toLowerCase();
+        if (trimmed) keywordSet.add(trimmed);
+      });
+    }
+    characters.forEach((c) => { if (c.name) keywordSet.add(c.name); });
+    const ageRange = currentProject.age_range ?? '';
+    if (/[2-4]/.test(ageRange)) keywordSet.add('toddler');
+    if (/[5-8]/.test(ageRange)) keywordSet.add('early reader');
+
+    return {
+      title: currentProject.title ?? '',
+      age_range: ageRange,
+      book_description: currentProject.summary || currentProject.original_idea || '',
+      author_name: authorName,
+      copyright_holder: authorName,
+      publication_date: today,
+      language: 'en',
+      keywords: Array.from(keywordSet).filter(Boolean),
+    };
+  }, [currentProject, characters]);
+
+  // Merge autofill into metadata — only fills blank fields
+  const handleAutofill = useCallback(() => {
+    const suggestions = buildAutofill();
+    setMetadata((prev) => {
+      const next = { ...prev };
+      if (!next.title && suggestions.title) next.title = suggestions.title;
+      if (!next.age_range && suggestions.age_range) next.age_range = suggestions.age_range;
+      if (!next.book_description && suggestions.book_description) next.book_description = suggestions.book_description;
+      if (!next.author_name && suggestions.author_name) next.author_name = suggestions.author_name;
+      if (!next.copyright_holder && suggestions.copyright_holder) next.copyright_holder = suggestions.copyright_holder;
+      if (!next.publication_date && suggestions.publication_date) next.publication_date = suggestions.publication_date;
+      if (!next.language && suggestions.language) next.language = suggestions.language;
+      if ((!next.keywords || next.keywords.length === 0) && suggestions.keywords?.length) {
+        next.keywords = suggestions.keywords;
+      }
+      return next;
+    });
+    setKeywordsText((prev) => {
+      if (prev || !suggestions.keywords?.length) return prev;
+      return suggestions.keywords.join(', ');
+    });
+  }, [buildAutofill]);
 
   // Load publishing metadata — wait for auth to be ready before fetching
   useEffect(() => {
@@ -173,18 +227,23 @@ export default function PublishingCenterScreen() {
         setFormat({ ...DEFAULT_FORMAT, ...data.book_format });
       }
     } catch {
-      // Fall back to defaults pre-filled from project
-      if (currentProject) {
-        setMetadata((m) => ({
-          ...m,
-          title: m.title || currentProject.title || '',
-          age_range: m.age_range || currentProject.age_range || '',
-        }));
-      }
+      setMetadata((m) => ({
+        ...m,
+        title: m.title || currentProject.title || '',
+        age_range: m.age_range || currentProject.age_range || '',
+      }));
     } finally {
       setIsLoadingMeta(false);
     }
   }, [currentProject]);
+
+  // When metadata finishes loading and the title is still blank, silently autofill
+  useEffect(() => {
+    if (!isLoadingMeta && !metadata.title) {
+      handleAutofill();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingMeta]);
 
   const handleSave = async () => {
     if (!currentProject) return;
@@ -226,15 +285,26 @@ export default function PublishingCenterScreen() {
     if (!currentProject) return;
     setExportingPlatform(platform);
     try {
-      const baseUrl = api.defaults.baseURL?.replace('/api', '') || '';
-      const exportUrl = `${baseUrl}/api/projects/${currentProject.id}/publishing-center/export/${platform}`;
       if (Platform.OS === 'web') {
-        window.open(exportUrl, '_blank');
+        const res = await api.get(
+          `/projects/${currentProject.id}/publishing-center/export/${platform}`,
+          { responseType: 'arraybuffer' },
+        );
+        const blob = new Blob([res.data], { type: 'application/zip' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(currentProject.title || 'book').toLowerCase().replace(/\s+/g, '_')}_${platform}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
       } else {
-        await Linking.openURL(exportUrl);
+        Alert.alert(
+          'Export on Mobile',
+          'For the full publishing package download, please open Rainstorms in a web browser and export from there.',
+        );
       }
     } catch {
-      Alert.alert('Error', `Failed to export for ${platform}.`);
+      Alert.alert('Error', `Failed to export for ${platform}. Please try again.`);
     } finally {
       setExportingPlatform(null);
     }
@@ -316,6 +386,7 @@ export default function PublishingCenterScreen() {
               onChange={setMetadata}
               onKeywordsChange={setKeywordsText}
               onSave={handleSave}
+              onAutofill={handleAutofill}
               isSaving={isSaving}
             />
           )}
@@ -366,6 +437,7 @@ function MetadataTab({
   onChange,
   onKeywordsChange,
   onSave,
+  onAutofill,
   isSaving,
 }: {
   metadata: BookMetadata;
@@ -373,6 +445,7 @@ function MetadataTab({
   onChange: (m: BookMetadata) => void;
   onKeywordsChange: (s: string) => void;
   onSave: () => void;
+  onAutofill: () => void;
   isSaving: boolean;
 }) {
   const update = (field: keyof BookMetadata) => (value: string) =>
@@ -380,6 +453,17 @@ function MetadataTab({
 
   return (
     <>
+      <View style={styles.autofillRow}>
+        <View style={styles.autofillInfo}>
+          <Text style={styles.autofillTitle}>Smart Autofill</Text>
+          <Text style={styles.autofillSub}>Fills blank fields from your project and characters</Text>
+        </View>
+        <TouchableOpacity style={styles.autofillBtn} onPress={onAutofill}>
+          <Ionicons name="sparkles" size={16} color={colors.primary} />
+          <Text style={styles.autofillBtnText}>Autofill</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.sectionTitle}>Book Information</Text>
 
       <_Field label="Title" value={metadata.title} onChangeText={update('title')} />
@@ -843,6 +927,23 @@ const styles = StyleSheet.create({
   // Content
   tabContent: { flex: 1 },
   tabContentInner: { padding: spacing.lg, paddingBottom: spacing.xxl },
+
+  autofillRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  autofillInfo: { flex: 1, marginRight: spacing.md },
+  autofillTitle: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  autofillSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  autofillBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: colors.white, borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+    borderWidth: 1, borderColor: colors.primary,
+  },
+  autofillBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
 
   sectionTitle: {
     fontSize: 16, fontWeight: '700', color: colors.textPrimary,
