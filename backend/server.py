@@ -1189,23 +1189,19 @@ async def delete_account(user = Depends(require_auth)):
         raise HTTPException(status_code=403, detail="The demo account cannot be deleted.")
 
     user_id = db_user["id"]
-    # Find all of this user's projects so we can cascade-delete child rows
-    project_docs = await db.projects.find({"user_id": user_id}).to_list(1000)
+    # Find every project owned by this user (no row cap — store policy
+    # requires *all* user data to be removed).
+    project_docs = await db.projects.find({"user_id": user_id}).to_list(length=None)
     project_ids = [p["id"] for p in project_docs]
     if project_ids:
-        for pid in project_ids:
-            await db.pages.delete_many({"project_id": pid})
-            await db.characters.delete_many({"project_id": pid})
+        # Bulk-delete dependent rows by the set of project ids
+        await db.pages.delete_many({"project_id": {"$in": project_ids}})
+        await db.characters.delete_many({"project_id": {"$in": project_ids}})
         await db.projects.delete_many({"user_id": user_id})
-    # Other user-owned collections
-    try:
-        await db.legacy_characters.delete_many({"user_id": user_id})
-    except Exception:
-        pass
-    try:
-        await db.shared_lore_pool.delete_many({"owner_user_id": user_id})
-    except Exception:
-        pass
+    # Other user-owned collections — let failures bubble up so the client
+    # gets a real error instead of a false-success "deleted" response.
+    await db.legacy_characters.delete_many({"user_id": user_id})
+    await db.shared_lore_pool.delete_many({"owner_user_id": user_id})
     await db.users.delete_one({"id": user_id})
     logger.info("Deleted account %s and %d projects", user_id, len(project_ids))
     return None

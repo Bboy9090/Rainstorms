@@ -35,7 +35,7 @@ export default function AuthScreen() {
     try {
       await loginAsDemo();
       router.replace('/');
-    } catch (err: any) {
+    } catch (err) {
       setError(formatApiError(err, 'Could not start demo. Please try again.'));
     } finally {
       setIsDemoLoading(false);

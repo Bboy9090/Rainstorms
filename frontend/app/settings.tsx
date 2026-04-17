@@ -57,7 +57,7 @@ export default function SettingsScreen() {
     try {
       await deleteAccount();
       router.replace('/auth');
-    } catch (err: any) {
+    } catch (err) {
       setDeleteError(formatApiError(err, 'Failed to delete account.'));
     } finally {
       setIsDeleting(false);
