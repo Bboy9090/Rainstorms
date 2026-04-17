@@ -1168,6 +1168,121 @@ async def get_me(user = Depends(require_auth)):
         raise HTTPException(status_code=404, detail="User not found")
     return UserResponse(id=db_user["id"], email=db_user["email"], created_at=db_user["created_at"])
 
+
+# ── Account deletion (App Store / Play Store compliance) ──────────────────────
+
+DEMO_EMAIL = "demo@rainstorms.app"
+
+
+@api_router.delete("/auth/account", status_code=204)
+async def delete_account(user = Depends(require_auth)):
+    """Permanently delete the authenticated user and all of their data.
+
+    Required by Apple App Store (iOS 17+) and Google Play. The shared demo
+    account (DEMO_EMAIL) cannot be deleted via this endpoint so reviewers
+    always have a working login.
+    """
+    db_user = await db.users.find_one({"id": user["user_id"]})
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if (db_user.get("email") or "").lower() == DEMO_EMAIL:
+        raise HTTPException(status_code=403, detail="The demo account cannot be deleted.")
+
+    user_id = db_user["id"]
+    # Find all of this user's projects so we can cascade-delete child rows
+    project_docs = await db.projects.find({"user_id": user_id}).to_list(1000)
+    project_ids = [p["id"] for p in project_docs]
+    if project_ids:
+        for pid in project_ids:
+            await db.pages.delete_many({"project_id": pid})
+            await db.characters.delete_many({"project_id": pid})
+        await db.projects.delete_many({"user_id": user_id})
+    # Other user-owned collections
+    try:
+        await db.legacy_characters.delete_many({"user_id": user_id})
+    except Exception:
+        pass
+    try:
+        await db.shared_lore_pool.delete_many({"owner_user_id": user_id})
+    except Exception:
+        pass
+    await db.users.delete_one({"id": user_id})
+    logger.info("Deleted account %s and %d projects", user_id, len(project_ids))
+    return None
+
+
+# ── Demo account access (App Store reviewer login) ────────────────────────────
+
+DEMO_SAMPLE_PAGES = [
+    "Once upon a quiet evening, a small dragon named Ember sat curled by the fireplace, watching the flames dance without making a single spark of his own.",
+    "All the other dragons in the valley could blow bright sparks and bursts of color, but every time Ember tried, only a tiny puff of smoke came out.",
+    "\"Maybe I'm just not a sparkling kind of dragon,\" Ember whispered, hiding his face under his soft, leathery wings.",
+    "One night, a lost firefly named Lumi fluttered into Ember's cave, glowing too dimly to find her way back home.",
+    "\"Could you light the path for me?\" Lumi asked. Ember's heart sank — he didn't think he could light anything at all.",
+    "But when he looked at Lumi's worried little face, something warm bubbled up inside him, and a single, perfect spark drifted from his nose.",
+    "Together they followed the spark through the dark woods, and one by one, more sparks appeared every time Ember thought of helping his new friend.",
+    "From that night on, Ember knew his sparks weren't missing — they were just waiting for the right reason to shine.",
+]
+
+
+@api_router.post("/auth/demo", response_model=TokenResponse)
+async def demo_login():
+    """Find-or-create a shared demo account and return an auth token.
+
+    Lets Apple/Google reviewers experience the full app instantly without
+    creating a personal account. The demo user is seeded with one sample
+    project ("The Dragon Who Was Afraid of Sparks") with 8 written pages.
+    """
+    db_user = await db.users.find_one({"email": DEMO_EMAIL})
+    if not db_user:
+        user_id = str(uuid.uuid4())
+        # Random unguessable password — demo login is via this endpoint only
+        random_pw = uuid.uuid4().hex + uuid.uuid4().hex
+        db_user = {
+            "id": user_id,
+            "email": DEMO_EMAIL,
+            "password_hash": hash_password(random_pw),
+            "created_at": datetime.utcnow(),
+            "is_demo": True,
+        }
+        await db.users.insert_one(db_user)
+
+    # Seed a sample project the first time
+    existing = await db.projects.find_one({"user_id": db_user["id"], "is_demo": True})
+    if not existing:
+        project = Project(
+            user_id=db_user["id"],
+            title="The Dragon Who Was Afraid of Sparks",
+            original_idea="A small dragon who can't make sparks discovers his fire only ignites when he's helping someone he cares about.",
+            tone="warm and gentle",
+            age_range="4-7",
+            page_count=len(DEMO_SAMPLE_PAGES),
+            theme="courage through kindness",
+            hook="What if your magic only worked when you used it for someone else?",
+            summary="Ember the dragon believes he's broken because he can't spark like the others. When a lost firefly needs his help, he discovers that his fire shines brightest when he uses it for someone he loves.",
+            outline=[f"Page {i+1}: {t[:80]}…" for i, t in enumerate(DEMO_SAMPLE_PAGES)],
+            is_demo=True,
+            origin_type="demo",
+        )
+        await db.projects.insert_one(project.dict())
+        for i, text in enumerate(DEMO_SAMPLE_PAGES):
+            page = PageData(
+                project_id=project.id,
+                page_number=i + 1,
+                outline_beat=f"Beat {i+1}",
+                page_text=text,
+                emotional_beat=("hope" if i < 4 else "courage"),
+            )
+            await db.pages.insert_one(page.dict())
+        logger.info("Seeded demo project %s with %d pages", project.id, len(DEMO_SAMPLE_PAGES))
+
+    token = create_token(db_user["id"], db_user["email"])
+    return TokenResponse(
+        token=token,
+        user=UserResponse(id=db_user["id"], email=db_user["email"], created_at=db_user["created_at"]),
+    )
+
+
 # ==================== PROJECT ENDPOINTS ====================
 
 @api_router.post("/projects", response_model=Project)
@@ -5230,6 +5345,140 @@ async def update_cover(
         {"$set": {"cover": current_cover, "updated_at": datetime.utcnow()}},
     )
     return {"project_id": project_id, "cover": current_cover}
+
+
+# ── Public Privacy Policy & Terms of Service pages (App Store / Play Store) ───
+# Mounted directly on `app` (not behind /api) and registered before the SPA
+# fallback so the store listings and in-app links can fetch them at stable URLs.
+
+from fastapi.responses import HTMLResponse as _HTMLResponse
+
+_LEGAL_PAGE_CSS = """
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         max-width: 720px; margin: 0 auto; padding: 32px 24px 64px;
+         line-height: 1.6; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 20px; margin-top: 32px; }
+  p, li { font-size: 16px; }
+  .meta { color: #666; font-size: 14px; margin-bottom: 24px; }
+  a { color: #4f46e5; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e5e5e5; background: #0d0d0d; }
+    .meta { color: #999; }
+  }
+</style>
+"""
+
+_PRIVACY_HTML = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rainstorms — Privacy Policy</title>{_LEGAL_PAGE_CSS}</head>
+<body>
+<h1>Privacy Policy</h1>
+<p class="meta">Last updated: April 2026</p>
+
+<p>Rainstorms (\"we\", \"our\", \"the app\") helps parents and creators design
+illustrated children's picture books with the help of AI. We respect your
+privacy and only collect what we need to run the service.</p>
+
+<h2>What we collect</h2>
+<ul>
+  <li><strong>Account info:</strong> the email address and password you provide when you sign up. Passwords are stored as a one-way bcrypt hash — we never see your plain password.</li>
+  <li><strong>Your content:</strong> the books, characters, page text and AI-generated illustrations you create in the app are stored in our database so you can return to them.</li>
+  <li><strong>Diagnostic logs:</strong> standard server logs (timestamps, request paths, error traces) used to keep the service running.</li>
+</ul>
+
+<h2>What we do NOT collect</h2>
+<ul>
+  <li>We do not collect location, contacts, photos, microphone or any other device data beyond what you explicitly upload.</li>
+  <li>We do not sell your data, and we do not show advertising.</li>
+  <li>The app is intended for adults creating books — we do not knowingly collect data from children.</li>
+</ul>
+
+<h2>How AI generation works</h2>
+<p>When you ask Rainstorms to write story text or generate an illustration, your
+prompt is sent to our AI providers (currently Groq, Google Gemini, and Google
+Imagen) for processing. We do not send your account email or password to these
+providers. Generated text and images are returned to you and stored under your
+account.</p>
+
+<h2>Account deletion</h2>
+<p>You can permanently delete your account and all associated data at any time
+from <em>Settings → Delete Account</em> inside the app. Deletion removes your
+user record, all of your projects, all pages, all characters, and any related
+data from our database within seconds. This action is irreversible.</p>
+
+<h2>Data retention</h2>
+<p>Your content stays in our database for as long as your account exists. When
+you delete your account, your content is removed immediately. Server diagnostic
+logs are retained for up to 30 days.</p>
+
+<h2>Children</h2>
+<p>Rainstorms is designed for parents, teachers and authors. The app is not
+directed to children under 13 and we do not knowingly collect personal
+information from children.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy? Email
+<a href=\"mailto:privacy@rainstorms.app\">privacy@rainstorms.app</a>.</p>
+</body></html>"""
+
+_TERMS_HTML = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rainstorms — Terms of Service</title>{_LEGAL_PAGE_CSS}</head>
+<body>
+<h1>Terms of Service</h1>
+<p class="meta">Last updated: April 2026</p>
+
+<p>By using Rainstorms (\"the app\") you agree to these Terms.</p>
+
+<h2>Your account</h2>
+<p>You're responsible for keeping your login credentials safe and for all
+activity under your account. You must be at least 13 years old (or the age of
+digital consent in your country) to create an account.</p>
+
+<h2>Your content</h2>
+<p>You own the books, characters and AI-generated illustrations you create
+inside Rainstorms. By using the AI generation features you confirm that your
+prompts do not violate any law or third-party right.</p>
+
+<h2>Acceptable use</h2>
+<p>You agree not to use Rainstorms to generate content that is unlawful,
+sexually explicit, hateful, violent towards real people, or that targets,
+exploits or endangers minors. We may suspend or remove accounts that violate
+these rules.</p>
+
+<h2>AI-generated output</h2>
+<p>AI models can occasionally produce inaccurate, biased or surprising text and
+images. You are responsible for reviewing AI output before publishing or
+distributing any book made with Rainstorms.</p>
+
+<h2>Service availability</h2>
+<p>We try hard to keep Rainstorms online but we don't guarantee uninterrupted
+service. The app is provided \"as is\" without warranties of any kind, to the
+maximum extent allowed by law.</p>
+
+<h2>Termination</h2>
+<p>You can delete your account at any time from <em>Settings → Delete
+Account</em>. We may terminate accounts that violate these Terms.</p>
+
+<h2>Contact</h2>
+<p>Questions? Email
+<a href=\"mailto:support@rainstorms.app\">support@rainstorms.app</a>.</p>
+</body></html>"""
+
+
+@app.get("/privacy", include_in_schema=False)
+async def privacy_policy_page():
+    return _HTMLResponse(content=_PRIVACY_HTML)
+
+
+@app.get("/terms", include_in_schema=False)
+async def terms_of_service_page():
+    return _HTMLResponse(content=_TERMS_HTML)
 
 
 # Include the router in the main app

@@ -19,14 +19,28 @@ import { formatApiError } from '../src/utils/api';
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { login, register } = useAuth();
+  const { login, register, loginAsDemo } = useAuth();
   
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleDemoLogin = async () => {
+    setError('');
+    setIsDemoLoading(true);
+    try {
+      await loginAsDemo();
+      router.replace('/');
+    } catch (err: any) {
+      setError(formatApiError(err, 'Could not start demo. Please try again.'));
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setError('');
@@ -142,15 +156,30 @@ export default function AuthScreen() {
           />
         </Card>
 
-        {/* Guest Mode */}
+        {/* Demo Access */}
         <View style={styles.guestSection}>
-          <Text style={styles.guestText}>Or continue without an account</Text>
+          <Text style={styles.guestText}>Just want to look around?</Text>
           <Button
-            title="Continue as Guest"
-            onPress={() => router.replace('/')}
+            title="Try Demo"
+            onPress={handleDemoLogin}
+            loading={isDemoLoading}
             variant="ghost"
-            size="sm"
+            icon={<Ionicons name="play-circle-outline" size={18} color={colors.primary} />}
           />
+          <Text style={styles.demoHint}>
+            Opens a sample book so you can explore every feature instantly.
+          </Text>
+        </View>
+
+        {/* Privacy footer (App Store / Play Store requirement) */}
+        <View style={styles.legalFooter}>
+          <TouchableOpacity onPress={() => router.push('/privacy-policy')}>
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDot}>·</Text>
+          <TouchableOpacity onPress={() => router.push('/terms')}>
+            <Text style={styles.legalLink}>Terms</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -256,5 +285,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     marginBottom: spacing.sm,
+  },
+  demoHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  legalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xl,
+    gap: spacing.sm,
+  },
+  legalLink: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });

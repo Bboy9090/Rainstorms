@@ -16,6 +16,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  loginAsDemo: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -92,6 +94,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
   };
 
+  const loginAsDemo = async () => {
+    const response = await api.post('/auth/demo');
+    const { token: newToken, user: newUser } = response.data;
+    await storeItem(AUTH_TOKEN_KEY, newToken);
+    await storeItem(AUTH_USER_KEY, JSON.stringify(newUser));
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    setToken(newToken);
+    setUser(newUser);
+  };
+
+  const deleteAccount = async () => {
+    await api.delete('/auth/account');
+    await removeItem(AUTH_TOKEN_KEY);
+    await removeItem(AUTH_USER_KEY);
+    delete api.defaults.headers.common['Authorization'];
+    setToken(null);
+    setUser(null);
+  };
+
   const logout = async () => {
     await removeItem(AUTH_TOKEN_KEY);
     await removeItem(AUTH_USER_KEY);
@@ -101,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, loginAsDemo, deleteAccount, logout }}>
       {children}
     </AuthContext.Provider>
   );

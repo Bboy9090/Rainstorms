@@ -181,7 +181,13 @@ export default function ProjectsScreen() {
           <Ionicons name="folder" size={28} color={colors.primary} />
           <Text style={styles.title}>My Projects</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push('/settings')}
+          accessibilityLabel="Settings"
+        >
+          <Ionicons name="settings-outline" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
       </View>
 
       {/* New Project Button */}
