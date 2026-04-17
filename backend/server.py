@@ -24,6 +24,7 @@ import bcrypt
 import json
 import httpx
 from io import BytesIO
+from PIL import Image
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
@@ -92,6 +93,23 @@ async def _gemini_generate_image(prompt: str, aspect_ratio: str = "1:1") -> byte
     _resp.raise_for_status()
     _data = _resp.json()
     return base64.b64decode(_data["predictions"][0]["bytesBase64Encoded"])
+
+
+def _compress_to_jpeg(image_bytes: bytes, quality: int = 85) -> tuple:
+    """Convert raw image bytes (e.g. PNG) to JPEG at the given quality.
+
+    Returns a (bytes, mime_subtype) tuple, e.g. (jpeg_bytes, "jpeg").
+    Falls back to (original_bytes, "png") if conversion fails, so callers
+    always emit a data URI with the correct MIME type for the actual bytes.
+    """
+    try:
+        img = Image.open(BytesIO(image_bytes)).convert("RGB")
+        out = BytesIO()
+        img.save(out, format="JPEG", quality=quality, optimize=True)
+        return out.getvalue(), "jpeg"
+    except Exception as exc:
+        logger.warning("JPEG compression failed, keeping original PNG bytes: %s", exc)
+        return image_bytes, "png"
 
 
 # SagaArchitect / LoreEngine base URL for remote story-context fetch
@@ -434,7 +452,7 @@ class CoverData(BaseModel):
     """Stored cover metadata for a project."""
     cover_style: str = DEFAULT_COVER_STYLE
     concept: str = ""                    # LLM-generated visual concept
-    front_cover_url: str = ""            # data URI (data:image/png;base64,...) stored in DB
+    front_cover_url: str = ""            # data URI (data:image/jpeg;base64,...) stored in DB
     back_blurb: str = ""                 # LLM-generated back-cover description
     author_name: str = ""
     tagline: str = ""
@@ -3209,7 +3227,8 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
     """Generate a character reference sheet image using Gemini Imagen 3.
 
     Returns:
-        Base64 data URI (data:image/png;base64,...) stored directly in the database, or empty string on failure.
+        Base64 data URI (data:image/jpeg;base64,...) stored directly in the database, or empty string on failure.
+        Falls back to data:image/png;base64,... if JPEG compression fails.
     """
     if not os.environ.get('GEMINI_API_KEY', ''):
         logger.warning("GEMINI_API_KEY not set — skipping reference sheet generation")
@@ -3237,8 +3256,9 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
         logger.error("Reference sheet generation failed: %s", exc)
         return ""
 
-    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
-    logger.info("Reference sheet generated for character %s (%d bytes)", char_id, len(image_bytes))
+    compressed_bytes, img_fmt = _compress_to_jpeg(image_bytes)
+    data_uri = f"data:image/{img_fmt};base64," + base64.b64encode(compressed_bytes).decode()
+    logger.info("Reference sheet generated for character %s (original %d bytes, %s %d bytes)", char_id, len(image_bytes), img_fmt, len(compressed_bytes))
     return data_uri
 
 
@@ -3354,7 +3374,8 @@ async def _generate_illustration_image(
 ) -> str:
     """Generate an illustration for a page using Google Imagen 3.
 
-    Returns a base64 data URI (data:image/png;base64,...) stored directly in the database.
+    Returns a base64 data URI (data:image/jpeg;base64,...) stored directly in the database.
+    Falls back to data:image/png;base64,... if JPEG compression fails.
     Returns empty string if GEMINI_API_KEY is not set or generation fails.
     """
     if not os.environ.get('GEMINI_API_KEY', ''):
@@ -3374,8 +3395,9 @@ async def _generate_illustration_image(
         logger.error("Image generation failed: %s", exc)
         return ""
 
-    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
-    logger.info("Illustration generated for page %s (%d bytes)", page_id, len(image_bytes))
+    compressed_bytes, img_fmt = _compress_to_jpeg(image_bytes)
+    data_uri = f"data:image/{img_fmt};base64," + base64.b64encode(compressed_bytes).decode()
+    logger.info("Illustration generated for page %s (original %d bytes, %s %d bytes)", page_id, len(image_bytes), img_fmt, len(compressed_bytes))
     return data_uri
 
 
@@ -5063,7 +5085,8 @@ async def _build_back_cover_blurb(project: dict) -> str:
 async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> str:
     """Generate a cover image using Gemini Imagen 3 and return a base64 data URI.
 
-    Returns a data:image/png;base64,... string stored in the database, or empty string on failure.
+    Returns a data:image/jpeg;base64,... string stored in the database, or empty string on failure.
+    Falls back to data:image/png;base64,... if JPEG compression fails.
     """
     if not os.environ.get('GEMINI_API_KEY', ''):
         logger.warning("GEMINI_API_KEY not set — skipping cover image generation")
@@ -5078,8 +5101,9 @@ async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> 
         logger.error("Cover image generation failed: %s", exc)
         return ""
 
-    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
-    logger.info("Cover image generated for project %s (%d bytes)", project_id, len(image_bytes))
+    compressed_bytes, img_fmt = _compress_to_jpeg(image_bytes)
+    data_uri = f"data:image/{img_fmt};base64," + base64.b64encode(compressed_bytes).decode()
+    logger.info("Cover image generated for project %s (original %d bytes, %s %d bytes)", project_id, len(image_bytes), img_fmt, len(compressed_bytes))
     return data_uri
 
 
