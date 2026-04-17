@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../utils/api';
 
@@ -17,6 +19,32 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
+const AUTH_TOKEN_KEY = 'auth_token';
+const AUTH_USER_KEY = 'auth_user';
+
+async function storeItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.setItem(key, value);
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+}
+
+async function getItem(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return AsyncStorage.getItem(key);
+  }
+  return SecureStore.getItemAsync(key);
+}
+
+async function removeItem(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.removeItem(key);
+  } else {
+    await SecureStore.deleteItemAsync(key);
+  }
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,8 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadStoredAuth = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem('auth_token');
-      const storedUser = await AsyncStorage.getItem('auth_user');
+      const storedToken = await getItem(AUTH_TOKEN_KEY);
+      const storedUser = await getItem(AUTH_USER_KEY);
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
@@ -47,8 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await api.post('/auth/login', { email, password });
     const { token: newToken, user: newUser } = response.data;
-    await AsyncStorage.setItem('auth_token', newToken);
-    await AsyncStorage.setItem('auth_user', JSON.stringify(newUser));
+    await storeItem(AUTH_TOKEN_KEY, newToken);
+    await storeItem(AUTH_USER_KEY, JSON.stringify(newUser));
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
@@ -57,16 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string) => {
     const response = await api.post('/auth/register', { email, password });
     const { token: newToken, user: newUser } = response.data;
-    await AsyncStorage.setItem('auth_token', newToken);
-    await AsyncStorage.setItem('auth_user', JSON.stringify(newUser));
+    await storeItem(AUTH_TOKEN_KEY, newToken);
+    await storeItem(AUTH_USER_KEY, JSON.stringify(newUser));
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('auth_token');
-    await AsyncStorage.removeItem('auth_user');
+    await removeItem(AUTH_TOKEN_KEY);
+    await removeItem(AUTH_USER_KEY);
     delete api.defaults.headers.common['Authorization'];
     setToken(null);
     setUser(null);

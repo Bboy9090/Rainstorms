@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 function resolveBaseUrl(): string {
@@ -7,18 +8,20 @@ function resolveBaseUrl(): string {
     process.env.EXPO_PUBLIC_BACKEND_URL ||
     '';
 
+  if (Platform.OS !== 'web') {
+    return configured;
+  }
+
   if (!configured) return '';
 
-  if (typeof window !== 'undefined') {
-    try {
-      const configuredHostname = new URL(configured).hostname;
-      const currentHostname = window.location.hostname;
-      if (configuredHostname !== currentHostname) {
-        return '';
-      }
-    } catch {
+  try {
+    const configuredHostname = new URL(configured).hostname;
+    const currentHostname = window.location.hostname;
+    if (configuredHostname !== currentHostname) {
       return '';
     }
+  } catch {
+    return '';
   }
 
   return configured;
@@ -60,10 +63,10 @@ api.interceptors.response.use(
 
 /**
  * Build a full URL for a static resource path returned by the backend.
- * Handles both absolute URLs (http/https) and relative paths (/static/...).
+ * Handles absolute URLs (http/https), data URIs (data:), and relative paths (/static/...).
  */
 export function buildImageUrl(path: string): string {
   if (!path) return '';
-  if (path.startsWith('http')) return path;
+  if (path.startsWith('http') || path.startsWith('data:')) return path;
   return `${BASE_URL}${path}`;
 }
