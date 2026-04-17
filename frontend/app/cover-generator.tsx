@@ -20,7 +20,7 @@ import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
 import { Button } from '../src/components/Button';
 import { Loading } from '../src/components/Loading';
 import { useProject, CoverData } from '../src/context/ProjectContext';
-import { api, buildImageUrl } from '../src/utils/api';
+import { api, buildImageUrl, getImageFileExtension } from '../src/utils/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const COVER_PREVIEW_W = Math.min(SCREEN_W - 48, 340);
@@ -111,7 +111,7 @@ export default function CoverGeneratorScreen() {
     if (Platform.OS === 'web') {
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'front_cover.png';
+      a.download = `front_cover.${getImageFileExtension(url)}`;
       a.click();
     } else {
       await Linking.openURL(url);

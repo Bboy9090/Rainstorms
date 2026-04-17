@@ -62,6 +62,21 @@ api.interceptors.response.use(
 );
 
 /**
+ * Derive a file extension from an image URL.
+ * - data: URIs — extracts the subtype from the MIME type (e.g. "jpeg", "png")
+ * - http/https URLs — extracts the extension from the path (e.g. "jpg")
+ * - Falls back to "jpg" when the format cannot be determined
+ */
+export function getImageFileExtension(url: string): string {
+  if (url.startsWith('data:')) {
+    const match = url.match(/^data:image\/(\w+);/);
+    return match ? match[1] : 'jpg';
+  }
+  const match = url.match(/\.(\w{2,5})(?:[?#]|$)/);
+  return match ? match[1].toLowerCase() : 'jpg';
+}
+
+/**
  * Build a full URL for a static resource path returned by the backend.
  * - data: URIs — passed through unchanged (images stored in DB, Task #3)
  * - http/https URLs — passed through unchanged

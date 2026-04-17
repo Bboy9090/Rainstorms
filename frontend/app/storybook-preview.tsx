@@ -20,7 +20,7 @@ import { Card } from '../src/components/Card';
 import { Button } from '../src/components/Button';
 import { Loading } from '../src/components/Loading';
 import { useProject, PageLayoutData } from '../src/context/ProjectContext';
-import { api, BASE_URL, buildImageUrl } from '../src/utils/api';
+import { api, BASE_URL, buildImageUrl, getImageFileExtension } from '../src/utils/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -387,7 +387,7 @@ export default function StorybookPreviewScreen() {
     if (Platform.OS === 'web') {
       const a = document.createElement('a');
       a.href = fullUrl;
-      a.download = `page_${currentPageData.page_number}.png`;
+      a.download = `page_${currentPageData.page_number}.${getImageFileExtension(fullUrl)}`;
       a.click();
     } else {
       await Linking.openURL(fullUrl);
