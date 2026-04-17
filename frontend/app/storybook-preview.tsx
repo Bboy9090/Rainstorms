@@ -52,6 +52,7 @@ const LAYOUT_TYPE_LABELS: Record<string, string> = {
 
 interface LayoutAwareSpreadProps {
   imageUrl: string;
+  imageLost?: boolean;
   pageText: string;
   pageNumber: number;
   emotionalBeat: string;
@@ -64,6 +65,7 @@ interface LayoutAwareSpreadProps {
 
 function LayoutAwareSpread({
   imageUrl,
+  imageLost = false,
   pageText,
   pageNumber,
   emotionalBeat,
@@ -88,12 +90,21 @@ function LayoutAwareSpread({
   ) : (
     <View style={[spreadStyles.imagePlaceholder, { backgroundColor: theme.bgColor }]}>
       <Ionicons name="image-outline" size={40} color={colors.gray300} />
-      <Text style={spreadStyles.placeholderLabel}>Page {pageNumber}</Text>
-      {illustrationPrompt ? (
-        <Text style={spreadStyles.promptPreview} numberOfLines={2}>
-          {illustrationPrompt.slice(0, 80)}...
-        </Text>
-      ) : null}
+      {imageLost ? (
+        <>
+          <Text style={spreadStyles.placeholderLabel}>Image was lost</Text>
+          <Text style={spreadStyles.promptPreview}>Tap "Regenerate" below to recreate it</Text>
+        </>
+      ) : (
+        <>
+          <Text style={spreadStyles.placeholderLabel}>Page {pageNumber}</Text>
+          {illustrationPrompt ? (
+            <Text style={spreadStyles.promptPreview} numberOfLines={2}>
+              {illustrationPrompt.slice(0, 80)}...
+            </Text>
+          ) : null}
+        </>
+      )}
     </View>
   );
 
@@ -372,6 +383,7 @@ export default function StorybookPreviewScreen() {
   const handleDownloadIllustration = useCallback(async () => {
     if (!currentPageData?.illustration_url) return;
     const fullUrl = buildImageUrl(currentPageData.illustration_url);
+    if (!fullUrl) return;
     if (Platform.OS === 'web') {
       const a = document.createElement('a');
       a.href = fullUrl;
@@ -506,7 +518,9 @@ export default function StorybookPreviewScreen() {
   }, [pages, currentProject, updatePage]);
 
   const isGeneratingCurrent = generatingPageId === currentPageData?.id;
-  const currentImageUrl = buildImageUrl(currentPageData?.illustration_url || '');
+  const rawIllustrationUrl = currentPageData?.illustration_url ?? '';
+  const currentImageUrl = rawIllustrationUrl ? buildImageUrl(rawIllustrationUrl) : '';
+  const illustrationLost = !!rawIllustrationUrl && !currentImageUrl;
   const currentLayout = currentPageData?.page_layout ?? null;
   const currentLayoutLabel = currentLayout
     ? (LAYOUT_TYPE_LABELS[currentLayout.layout_type] ?? currentLayout.layout_type)
@@ -594,6 +608,7 @@ export default function StorybookPreviewScreen() {
         <View style={[styles.spread, { backgroundColor: activeTheme.bgColor }]}>
           <LayoutAwareSpread
             imageUrl={currentImageUrl}
+            imageLost={illustrationLost}
             pageText={currentPageData?.page_text ?? ''}
             pageNumber={currentPageData?.page_number ?? 0}
             emotionalBeat={currentPageData?.emotional_beat ?? ''}
@@ -615,7 +630,7 @@ export default function StorybookPreviewScreen() {
         >
           <Ionicons name="sparkles" size={16} color={isGeneratingCurrent ? colors.gray400 : colors.primary} />
           <Text style={[styles.pageControlText, isGeneratingCurrent && { color: colors.gray400 }]}>
-            {isGeneratingCurrent ? 'Generating...' : currentImageUrl ? 'Regenerate' : 'Generate'}
+            {isGeneratingCurrent ? 'Generating...' : rawIllustrationUrl ? 'Regenerate' : 'Generate'}
           </Text>
         </TouchableOpacity>
 
@@ -638,12 +653,14 @@ export default function StorybookPreviewScreen() {
           <Text style={styles.pageControlText}>Edit</Text>
         </TouchableOpacity>
 
-        {currentImageUrl ? (
+        {rawIllustrationUrl ? (
           <>
-            <TouchableOpacity style={styles.pageControlBtn} onPress={handleDownloadIllustration}>
-              <Ionicons name="download-outline" size={16} color={colors.primary} />
-              <Text style={styles.pageControlText}>Save</Text>
-            </TouchableOpacity>
+            {currentImageUrl ? (
+              <TouchableOpacity style={styles.pageControlBtn} onPress={handleDownloadIllustration}>
+                <Ionicons name="download-outline" size={16} color={colors.primary} />
+                <Text style={styles.pageControlText}>Save</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.pageControlBtn} onPress={handleDeleteIllustration}>
               <Ionicons name="trash-outline" size={16} color={colors.error} />
               <Text style={[styles.pageControlText, { color: colors.error }]}>Remove</Text>
