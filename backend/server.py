@@ -3209,7 +3209,7 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
     """Generate a character reference sheet image using Gemini Imagen 3.
 
     Returns:
-        Relative URL to the saved image, or empty string on failure.
+        Base64 data URI (data:image/png;base64,...) stored directly in the database, or empty string on failure.
     """
     if not os.environ.get('GEMINI_API_KEY', ''):
         logger.warning("GEMINI_API_KEY not set — skipping reference sheet generation")
@@ -3354,7 +3354,7 @@ async def _generate_illustration_image(
 ) -> str:
     """Generate an illustration for a page using Google Imagen 3.
 
-    Saves the image to the local static directory and returns the relative URL path.
+    Returns a base64 data URI (data:image/png;base64,...) stored directly in the database.
     Returns empty string if GEMINI_API_KEY is not set or generation fails.
     """
     if not os.environ.get('GEMINI_API_KEY', ''):
@@ -5061,9 +5061,9 @@ async def _build_back_cover_blurb(project: dict) -> str:
 
 
 async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> str:
-    """Generate a cover image using Gemini Imagen 3 and save to static/covers/{project_id}/.
+    """Generate a cover image using Gemini Imagen 3 and return a base64 data URI.
 
-    Returns the relative URL path or empty string on failure.
+    Returns a data:image/png;base64,... string stored in the database, or empty string on failure.
     """
     if not os.environ.get('GEMINI_API_KEY', ''):
         logger.warning("GEMINI_API_KEY not set — skipping cover image generation")

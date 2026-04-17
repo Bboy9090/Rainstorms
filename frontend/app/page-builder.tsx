@@ -350,34 +350,53 @@ export default function PageBuilderScreen() {
                     <Ionicons name="image" size={18} color={colors.primary} />
                     <Text style={styles.cardLabel}>Illustration</Text>
                   </View>
-                  <Button
-                    title={isGeneratingIllustration ? 'Generating…' : currentPageData.illustration_url ? 'Regenerate' : 'Generate Image'}
-                    onPress={handleGenerateIllustration}
-                    variant={currentPageData.illustration_url ? 'outline' : 'primary'}
-                    size="sm"
-                    loading={isGeneratingIllustration}
-                    icon={<Ionicons name="sparkles" size={14} color={currentPageData.illustration_url ? colors.primary : colors.white} />}
-                  />
+                  {(() => {
+                    const hasRaw = !!currentPageData.illustration_url;
+                    const resolvedUrl = buildImageUrl(currentPageData.illustration_url || '');
+                    const isLost = hasRaw && !resolvedUrl;
+                    return (
+                      <Button
+                        title={isGeneratingIllustration ? 'Generating…' : hasRaw ? 'Regenerate' : 'Generate Image'}
+                        onPress={handleGenerateIllustration}
+                        variant={hasRaw ? 'outline' : 'primary'}
+                        size="sm"
+                        loading={isGeneratingIllustration}
+                        icon={<Ionicons name="sparkles" size={14} color={hasRaw ? colors.primary : colors.white} />}
+                      />
+                    );
+                  })()}
                 </View>
-                {isGeneratingIllustration ? (
-                  <View style={styles.illustrationGenerating}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={styles.generatingText}>Generating illustration…</Text>
-                  </View>
-                ) : currentPageData.illustration_url ? (
-                  <Image
-                    source={{ uri: buildImageUrl(currentPageData.illustration_url) }}
-                    style={styles.illustrationPreviewImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.illustrationEmptyState}>
-                    <Ionicons name="images-outline" size={32} color={colors.gray300} />
-                    <Text style={styles.illustrationEmptyText}>
-                      Tap "Generate Image" to create the illustration
-                    </Text>
-                  </View>
-                )}
+                {(() => {
+                  const resolvedUrl = buildImageUrl(currentPageData.illustration_url || '');
+                  const isLost = !!currentPageData.illustration_url && !resolvedUrl;
+                  if (isGeneratingIllustration) {
+                    return (
+                      <View style={styles.illustrationGenerating}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={styles.generatingText}>Generating illustration…</Text>
+                      </View>
+                    );
+                  }
+                  if (resolvedUrl) {
+                    return (
+                      <Image
+                        source={{ uri: resolvedUrl }}
+                        style={styles.illustrationPreviewImage}
+                        resizeMode="cover"
+                      />
+                    );
+                  }
+                  return (
+                    <View style={styles.illustrationEmptyState}>
+                      <Ionicons name="images-outline" size={32} color={colors.gray300} />
+                      <Text style={styles.illustrationEmptyText}>
+                        {isLost
+                          ? 'Image was lost — tap Regenerate above to recreate it'
+                          : 'Tap "Generate Image" to create the illustration'}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </Card>
             )}
           </>

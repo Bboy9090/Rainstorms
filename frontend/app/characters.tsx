@@ -253,18 +253,38 @@ export default function CharactersScreen() {
               </View>
 
               {/* Reference Sheet Image */}
-              {char.reference_sheet_url ? (
-                <Image
-                  source={{ uri: buildImageUrl(char.reference_sheet_url) }}
-                  style={styles.referenceSheetImage}
-                  resizeMode="cover"
-                />
-              ) : generatingRefSheet === char.id ? (
-                <View style={styles.refSheetGenerating}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.refSheetGeneratingText}>Generating reference sheet...</Text>
-                </View>
-              ) : null}
+              {(() => {
+                const resolvedRefUrl = buildImageUrl(char.reference_sheet_url || '');
+                const refSheetLost = !!char.reference_sheet_url && !resolvedRefUrl;
+                if (generatingRefSheet === char.id) {
+                  return (
+                    <View style={styles.refSheetGenerating}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.refSheetGeneratingText}>Generating reference sheet...</Text>
+                    </View>
+                  );
+                }
+                if (resolvedRefUrl) {
+                  return (
+                    <Image
+                      source={{ uri: resolvedRefUrl }}
+                      style={styles.referenceSheetImage}
+                      resizeMode="cover"
+                    />
+                  );
+                }
+                if (refSheetLost) {
+                  return (
+                    <View style={styles.refSheetGenerating}>
+                      <Ionicons name="image-outline" size={20} color={colors.gray300} />
+                      <Text style={styles.refSheetGeneratingText}>
+                        Image was lost — tap "Regenerate Sheet" to recreate it
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Visual Profile Fields */}
               <View style={styles.charField}>
