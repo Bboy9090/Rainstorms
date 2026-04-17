@@ -107,6 +107,7 @@ export default function CoverGeneratorScreen() {
   const handleDownload = useCallback(async () => {
     if (!coverData?.front_cover_url) return;
     const url = buildImageUrl(coverData.front_cover_url);
+    if (!url) return;
     if (Platform.OS === 'web') {
       const a = document.createElement('a');
       a.href = url;
@@ -118,7 +119,9 @@ export default function CoverGeneratorScreen() {
   }, [coverData]);
 
   const activeStyleInfo = COVER_STYLES.find((s) => s.key === selectedStyle) ?? COVER_STYLES[0];
-  const coverImageUrl = coverData?.front_cover_url ? buildImageUrl(coverData.front_cover_url) : null;
+  const rawCoverUrl = coverData?.front_cover_url ?? '';
+  const coverImageUrl = rawCoverUrl ? buildImageUrl(rawCoverUrl) : '';
+  const coverImageLost = !!rawCoverUrl && !coverImageUrl;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -163,8 +166,17 @@ export default function CoverGeneratorScreen() {
         ) : (
           <View style={[styles.coverPreviewPlaceholder, { width: COVER_PREVIEW_W, height: COVER_PREVIEW_H }]}>
             <Ionicons name="book-outline" size={56} color={colors.gray300} />
-            <Text style={styles.placeholderTitle}>No Cover Yet</Text>
-            <Text style={styles.placeholderSub}>Configure settings below and tap Generate Cover</Text>
+            {coverImageLost ? (
+              <>
+                <Text style={styles.placeholderTitle}>Cover Was Lost</Text>
+                <Text style={styles.placeholderSub}>Tap "Regenerate Cover" below to recreate it</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.placeholderTitle}>No Cover Yet</Text>
+                <Text style={styles.placeholderSub}>Configure settings below and tap Generate Cover</Text>
+              </>
+            )}
           </View>
         )}
       </View>
@@ -172,13 +184,13 @@ export default function CoverGeneratorScreen() {
       {/* ── Primary action button ── */}
       <View style={styles.primaryActionRow}>
         <Button
-          title={isGenerating ? 'Generating…' : coverImageUrl ? 'Regenerate Cover' : 'Generate Cover'}
+          title={isGenerating ? 'Generating…' : rawCoverUrl ? 'Regenerate Cover' : 'Generate Cover'}
           onPress={handleGenerate}
           loading={isGenerating}
           disabled={isGenerating}
           size="lg"
         />
-        {coverImageUrl && (
+        {coverImageUrl && !coverImageLost && (
           <TouchableOpacity style={styles.downloadBtn} onPress={handleDownload}>
             <Ionicons name="download-outline" size={20} color={colors.primary} />
             <Text style={styles.downloadBtnText}>Download</Text>

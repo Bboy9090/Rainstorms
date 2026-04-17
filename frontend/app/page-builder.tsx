@@ -352,8 +352,6 @@ export default function PageBuilderScreen() {
                   </View>
                   {(() => {
                     const hasRaw = !!currentPageData.illustration_url;
-                    const resolvedUrl = buildImageUrl(currentPageData.illustration_url || '');
-                    const isLost = hasRaw && !resolvedUrl;
                     return (
                       <Button
                         title={isGeneratingIllustration ? 'Generating…' : hasRaw ? 'Regenerate' : 'Generate Image'}
