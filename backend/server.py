@@ -93,19 +93,6 @@ async def _gemini_generate_image(prompt: str, aspect_ratio: str = "1:1") -> byte
     _data = _resp.json()
     return base64.b64decode(_data["predictions"][0]["bytesBase64Encoded"])
 
-# Directory where generated illustration images are stored
-ILLUSTRATIONS_DIR = ROOT_DIR / 'static' / 'illustrations'
-try:
-    ILLUSTRATIONS_DIR.mkdir(parents=True, exist_ok=True)
-except OSError as _e:
-    logging.warning("Could not create illustrations directory %s: %s. Illustration storage unavailable.", ILLUSTRATIONS_DIR, _e)
-
-# Directory where generated character reference sheets are stored
-CHARACTERS_DIR = ROOT_DIR / 'static' / 'characters'
-try:
-    CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
-except OSError as _e:
-    logging.warning("Could not create characters directory %s: %s. Character sheet storage unavailable.", CHARACTERS_DIR, _e)
 
 # SagaArchitect / LoreEngine base URL for remote story-context fetch
 SAGA_ARCHITECT_BASE_URL = os.environ.get('SAGA_ARCHITECT_BASE_URL', '').rstrip('/')
@@ -116,14 +103,6 @@ init_lore_engine(db, _llm_chat)
 # Create the main app
 app = FastAPI(title="Rainstorms API", version="1.0.0")
 
-# Serve generated illustrations as static files (skipped in serverless environments
-# where the static directory cannot be created on the read-only filesystem)
-_static_dir = ROOT_DIR / "static"
-try:
-    _static_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
-except OSError as _e:
-    logging.warning("Could not mount /static directory %s: %s. Static file serving unavailable.", _static_dir, _e)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -449,19 +428,13 @@ COVER_STYLES: dict = {
 }
 DEFAULT_COVER_STYLE = "cozy_bedtime"
 
-# Directory for generated cover images
-COVERS_DIR = ROOT_DIR / "static" / "covers"
-try:
-    COVERS_DIR.mkdir(parents=True, exist_ok=True)
-except OSError as _e:
-    logging.warning("Could not create covers directory %s: %s. Cover image storage unavailable.", COVERS_DIR, _e)
 
 
 class CoverData(BaseModel):
     """Stored cover metadata for a project."""
     cover_style: str = DEFAULT_COVER_STYLE
     concept: str = ""                    # LLM-generated visual concept
-    front_cover_url: str = ""            # /static/covers/{project_id}/front_cover.png
+    front_cover_url: str = ""            # data URI (data:image/png;base64,...) stored in DB
     back_blurb: str = ""                 # LLM-generated back-cover description
     author_name: str = ""
     tagline: str = ""
@@ -3264,13 +3237,9 @@ async def _generate_reference_sheet_image(char_id: str, char: dict) -> str:
         logger.error("Reference sheet generation failed: %s", exc)
         return ""
 
-    char_dir = CHARACTERS_DIR / char_id
-    char_dir.mkdir(parents=True, exist_ok=True)
-    image_path = char_dir / "reference_sheet.png"
-    image_path.write_bytes(image_bytes)
-
-    logger.info("Reference sheet saved: %s (%d bytes)", image_path, len(image_bytes))
-    return f"/static/characters/{char_id}/reference_sheet.png"
+    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
+    logger.info("Reference sheet generated for character %s (%d bytes)", char_id, len(image_bytes))
+    return data_uri
 
 
 @api_router.post("/characters/{character_id}/reference-sheet")
@@ -3405,15 +3374,9 @@ async def _generate_illustration_image(
         logger.error("Image generation failed: %s", exc)
         return ""
 
-    # Save image to local static directory
-    proj_dir = ILLUSTRATIONS_DIR / project_id
-    proj_dir.mkdir(parents=True, exist_ok=True)
-    image_path = proj_dir / f"{page_id}.png"
-
-    image_path.write_bytes(image_bytes)
-
-    logger.info("Illustration saved: %s (%d bytes)", image_path, len(image_bytes))
-    return f"/static/illustrations/{project_id}/{page_id}.png"
+    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
+    logger.info("Illustration generated for page %s (%d bytes)", page_id, len(image_bytes))
+    return data_uri
 
 
 @api_router.get("/illustration-styles")
@@ -3597,15 +3560,6 @@ async def delete_page_illustration(
     page = await db.pages.find_one({"id": page_id, "project_id": project_id})
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
-
-    existing_url = page.get("illustration_url", "")
-    if existing_url:
-        # Remove local file if it exists
-        file_path = ROOT_DIR / existing_url.lstrip("/")
-        try:
-            file_path.unlink(missing_ok=True)
-        except Exception as exc:
-            logger.warning("Could not delete illustration file %s: %s", file_path, exc)
 
     await db.pages.update_one(
         {"id": page_id},
@@ -5124,12 +5078,9 @@ async def _generate_cover_image(prompt: str, project_id: str, filename: str) -> 
         logger.error("Cover image generation failed: %s", exc)
         return ""
 
-    cover_dir = COVERS_DIR / project_id
-    cover_dir.mkdir(parents=True, exist_ok=True)
-    image_path = cover_dir / filename
-    image_path.write_bytes(image_bytes)
-    logger.info("Cover image saved: %s (%d bytes)", image_path, len(image_bytes))
-    return f"/static/covers/{project_id}/{filename}"
+    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
+    logger.info("Cover image generated for project %s (%d bytes)", project_id, len(image_bytes))
+    return data_uri
 
 
 @api_router.get("/cover-styles")
