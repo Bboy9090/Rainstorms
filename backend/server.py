@@ -1272,7 +1272,14 @@ async def demo_login():
             await db.pages.insert_one(page.dict())
         logger.info("Seeded demo project %s with %d pages", project.id, len(DEMO_SAMPLE_PAGES))
 
-    token = create_token(db_user["id"], db_user["email"])
+    # Short-lived (4 h) token — demo logins are for reviewer evaluation only,
+    # not long-running sessions.
+    demo_payload = {
+        "user_id": db_user["id"],
+        "email": db_user["email"],
+        "exp": datetime.utcnow() + timedelta(hours=4),
+    }
+    token = jwt.encode(demo_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return TokenResponse(
         token=token,
         user=UserResponse(id=db_user["id"], email=db_user["email"], created_at=db_user["created_at"]),
