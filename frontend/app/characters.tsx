@@ -11,16 +11,18 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Loading } from '../src/components/Loading';
 import { SaveIndicator } from '../src/components/SaveIndicator';
 import { useProject, Character } from '../src/context/ProjectContext';
-import { api, buildImageUrl, formatApiError } from '../src/utils/api';
+import { api, buildImageUrl, formatApiError, getImageFileExtension } from '../src/utils/api';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -162,6 +164,19 @@ export default function CharactersScreen() {
       setTogglingLock(null);
     }
   }, [updateCharacter]);
+
+  const handleDownloadRefSheet = useCallback(async (refSheetUrl: string) => {
+    const url = buildImageUrl(refSheetUrl);
+    if (!url) return;
+    if (Platform.OS === 'web') {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reference_sheet.${getImageFileExtension(url)}`;
+      a.click();
+    } else {
+      await Linking.openURL(url);
+    }
+  }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -341,6 +356,16 @@ export default function CharactersScreen() {
                     {char.reference_sheet_url ? 'Regenerate Sheet' : 'Generate Sheet'}
                   </Text>
                 </TouchableOpacity>
+
+                {char.reference_sheet_url && buildImageUrl(char.reference_sheet_url) ? (
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => handleDownloadRefSheet(char.reference_sheet_url!)}
+                  >
+                    <Ionicons name="download-outline" size={14} color={colors.primary} />
+                    <Text style={styles.actionBtnText}>Download</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 <TouchableOpacity
                   style={[
