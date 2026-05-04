@@ -49,6 +49,8 @@ export default function PageBuilderScreen() {
   const [isGeneratingIllustration, setIsGeneratingIllustration] = useState(false);
   const [isImproving, setIsImproving] = useState<string | null>(null);
   const [showImprovePanel, setShowImprovePanel] = useState(false);
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+  const [textHistory, setTextHistory] = useState<Record<string, string[]>>({});
 
   if (isLoading || !currentProject) {
     return <Loading message="Loading pages..." fullScreen />;
@@ -140,7 +142,63 @@ export default function PageBuilderScreen() {
 
   const handleTextChange = (text: string) => {
     if (currentPageData) {
+      // Add to history if the difference is significant or if it's the first manual change
+      const history = textHistory[currentPageData.id] || [];
+      if (history.length === 0 || Math.abs(history[history.length - 1].length - text.length) > 20) {
+        setTextHistory(prev => ({
+          ...prev,
+          [currentPageData.id]: [...(prev[currentPageData.id] || []), currentPageData.page_text]
+        }));
+      }
       updatePage(currentPageData.id, { page_text: text });
+    }
+  };
+
+  const handleUndoText = () => {
+    if (!currentPageData) return;
+    const history = textHistory[currentPageData.id] || [];
+    if (history.length > 0) {
+      const lastText = history[history.length - 1];
+      const newHistory = history.slice(0, -1);
+      setTextHistory(prev => ({ ...prev, [currentPageData.id]: newHistory }));
+      updatePage(currentPageData.id, { page_text: lastText });
+    }
+  };
+
+  const handleBatchGenerate = async () => {
+    setIsBatchGenerating(true);
+    try {
+      const pagesToProcess = pages.filter(p => !p.page_text);
+      if (pagesToProcess.length === 0) {
+        Alert.alert('All Clear', 'All pages already have text. Use regenerate on individual pages if needed.');
+        return;
+      }
+
+      for (const page of pagesToProcess) {
+        const response = await api.post('/generate/page-text', {
+          project_id: currentProject.id,
+          page_number: page.page_number,
+          outline_beat: page.outline_beat,
+        });
+        updatePage(page.id, {
+          page_text: response.data.page_text,
+          emotional_beat: response.data.emotional_beat,
+        });
+        // Also generate prompt automatically during batch
+        const promptRes = await api.post('/generate/illustration-prompt', {
+          project_id: currentProject.id,
+          page_number: page.page_number,
+          page_text: response.data.page_text,
+        });
+        updatePage(page.id, {
+          illustration_prompt: promptRes.data.illustration_prompt,
+        });
+      }
+      Alert.alert('Success', `Batch generation complete for ${pagesToProcess.length} pages.`);
+    } catch (err: any) {
+      Alert.alert('Batch Error', 'Some pages failed to generate. Check your connection.');
+    } finally {
+      setIsBatchGenerating(false);
     }
   };
 
@@ -165,6 +223,13 @@ export default function PageBuilderScreen() {
           <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
         </View>
         <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.headerButton, isBatchGenerating && styles.headerButtonActive]}
+            onPress={handleBatchGenerate}
+            disabled={isBatchGenerating}
+          >
+            <Ionicons name="sparkles-outline" size={20} color={isBatchGenerating ? colors.white : colors.primary} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => router.push('/storybook-preview')}
@@ -238,6 +303,14 @@ export default function PageBuilderScreen() {
                   <Text style={styles.cardLabel}>Page Text</Text>
                 </View>
                 <View style={styles.buttonGroup}>
+                  {(textHistory[currentPageData.id]?.length || 0) > 0 && (
+                    <TouchableOpacity
+                      style={styles.undoButton}
+                      onPress={handleUndoText}
+                    >
+                      <Ionicons name="arrow-undo" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
                   {currentPageData.page_text && (
                     <TouchableOpacity
                       style={styles.improveToggle}
@@ -496,6 +569,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadows.sm,
   },
+  headerButtonActive: {
+    backgroundColor: colors.primary,
+  },
   pageNav: {
     maxHeight: 60,
     borderBottomWidth: 1,
@@ -725,5 +801,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+  undoButton: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

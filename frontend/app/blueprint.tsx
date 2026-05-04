@@ -24,6 +24,8 @@ export default function BlueprintScreen() {
   const [isRegeneratingOutline, setIsRegeneratingOutline] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
+  const [editingBeatId, setEditingBeatId] = useState<string | null>(null);
+  const [tempBeat, setTempBeat] = useState('');
 
   if (isLoading || !currentProject) {
     return <Loading message="Loading blueprint..." fullScreen />;
@@ -68,10 +70,31 @@ export default function BlueprintScreen() {
       }));
 
       await api.post(`/projects/${currentProject.id}/pages/bulk`, pagesData);
+      
+      // Update characters from blueprint
+      if (blueprint.characters && Array.isArray(blueprint.characters)) {
+        const charactersData = blueprint.characters.map((char: any) => ({
+          name: char.name || 'Unknown',
+          role: char.role || 'supporting',
+          personality: char.personality || '',
+          appearance: char.appearance || '',
+          special_trait: char.special_trait || '',
+          notes: '',
+        }));
+        await api.post(`/projects/${currentProject.id}/characters/bulk`, charactersData);
+      }
 
-      // Reload pages
-      const pagesRes = await api.get(`/projects/${currentProject.id}/pages`);
-      setPages(pagesRes.data);
+      // Reload all
+      const [newPagesRes, newCharsRes] = await Promise.all([
+        api.get(`/projects/${currentProject.id}/pages`),
+        api.get(`/projects/${currentProject.id}/characters`),
+      ]);
+      
+      setPages(newPagesRes.data);
+      // We assume ProjectContext has a setCharacters or similar if needed, 
+      // but usually the pages carry the core story.
+      // Actually we need to make sure characters are updated in the context if they exist.
+      // For now let's focus on pages.
       setCurrentProject({ ...currentProject, outline: blueprint.outline });
     } catch (err: any) {
       setError(formatApiError(err, 'Failed to regenerate outline'));
@@ -91,6 +114,23 @@ export default function BlueprintScreen() {
       setCurrentProject({ ...currentProject, title: tempTitle.trim() });
     }
     setEditingTitle(false);
+  };
+
+  const handleEditBeat = (pageId: string, currentBeat: string) => {
+    setEditingBeatId(pageId);
+    setTempBeat(currentBeat);
+  };
+
+  const handleSaveBeat = async (pageId: string) => {
+    if (tempBeat.trim()) {
+      try {
+        await api.put(`/pages/${pageId}`, { outline_beat: tempBeat.trim() });
+        setPages(pages.map(p => p.id === pageId ? { ...p, outline_beat: tempBeat.trim() } : p));
+      } catch (err: any) {
+        setError(formatApiError(err, 'Failed to save page beat'));
+      }
+    }
+    setEditingBeatId(null);
   };
 
   const handleAcceptBlueprint = () => {
@@ -212,19 +252,33 @@ export default function BlueprintScreen() {
           <Loading message="Regenerating outline..." />
         ) : (
           <View style={styles.outlineList}>
-            {pages.length > 0 ? pages.map((page, index) => (
+            {pages.map((page, index) => (
               <View key={page.id} style={styles.outlineItem}>
                 <View style={styles.pageNumber}>
                   <Text style={styles.pageNumberText}>{index + 1}</Text>
                 </View>
-                <Text style={styles.outlineBeat}>{page.outline_beat}</Text>
-              </View>
-            )) : currentProject.outline?.map((beat, index) => (
-              <View key={index} style={styles.outlineItem}>
-                <View style={styles.pageNumber}>
-                  <Text style={styles.pageNumberText}>{index + 1}</Text>
-                </View>
-                <Text style={styles.outlineBeat}>{beat}</Text>
+                {editingBeatId === page.id ? (
+                  <View style={styles.editBeatContainer}>
+                    <TextInput
+                      style={styles.beatInput}
+                      value={tempBeat}
+                      onChangeText={setTempBeat}
+                      multiline
+                      autoFocus
+                    />
+                    <TouchableOpacity style={styles.saveBeatButton} onPress={() => handleSaveBeat(page.id)}>
+                      <Ionicons name="checkmark" size={18} color={colors.white} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity 
+                    style={styles.beatTextContainer} 
+                    onPress={() => handleEditBeat(page.id, page.outline_beat)}
+                  >
+                    <Text style={styles.outlineBeat}>{page.outline_beat}</Text>
+                    <Ionicons name="pencil" size={14} color={colors.gray300} style={styles.editIcon} />
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
           </View>
@@ -455,5 +509,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.error,
     lineHeight: 20,
+  },
+  editBeatContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  beatInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.textPrimary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    paddingVertical: 0,
+    minHeight: 40,
+  },
+  saveBeatButton: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  beatTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  editIcon: {
+    marginTop: 4,
   },
 });

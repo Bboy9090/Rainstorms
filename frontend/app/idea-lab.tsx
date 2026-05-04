@@ -142,6 +142,19 @@ export default function IdeaLabScreen() {
       }));
 
       await api.post(`/projects/${projectRes.data.id}/pages/bulk`, pagesData);
+      
+      // Create characters from blueprint
+      if (blueprint.characters && Array.isArray(blueprint.characters)) {
+        const charactersData = blueprint.characters.map((char: any) => ({
+          name: char.name || 'Unknown',
+          role: char.role || 'supporting',
+          personality: char.personality || '',
+          appearance: char.appearance || '',
+          special_trait: char.special_trait || '',
+          notes: '',
+        }));
+        await api.post(`/projects/${projectRes.data.id}/characters/bulk`, charactersData);
+      }
 
       // Load the full project
       const [fullProject, chars, pages] = await Promise.all([

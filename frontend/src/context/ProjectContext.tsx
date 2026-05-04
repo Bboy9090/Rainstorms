@@ -148,8 +148,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [currentProject, characters, pages]);
 
   // Debounced save to backend
-  const debouncedSaveToBackend = useCallback(
-    debounce(async () => {
+  // We use a ref to ensure the debounced function is stable and doesn't get recreated
+  // which would break the debounce timer.
+  const saveDebounceRef = useRef<ReturnType<typeof debounce> | null>(null);
+
+  useEffect(() => {
+    saveDebounceRef.current = debounce(async () => {
       setSaveStatus('saving');
       let hasError = false;
 
@@ -170,7 +174,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         }
 
         // Save character changes
-        for (const [charId, updates] of pendingCharacterChanges.current) {
+        const charUpdates = Array.from(pendingCharacterChanges.current.entries());
+        for (const [charId, updates] of charUpdates) {
           const success = await saveCharacterToBackend(charId, updates);
           if (!success) {
             await queuePendingSave({
@@ -181,11 +186,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             });
             hasError = true;
           }
+          pendingCharacterChanges.current.delete(charId);
         }
-        pendingCharacterChanges.current.clear();
 
         // Save page changes
-        for (const [pageId, updates] of pendingPageChanges.current) {
+        const pageUpdates = Array.from(pendingPageChanges.current.entries());
+        for (const [pageId, updates] of pageUpdates) {
           const success = await savePageToBackend(pageId, updates);
           if (!success) {
             await queuePendingSave({
@@ -196,12 +202,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             });
             hasError = true;
           }
+          pendingPageChanges.current.delete(pageId);
         }
-        pendingPageChanges.current.clear();
 
         setSaveStatus(hasError ? 'error' : 'saved');
         if (!hasError) {
           setLastSaved(new Date());
+          // If we had no errors, try processing any older pending saves too
+          await processPendingSaves();
         }
         
         // Reset status after a delay
@@ -211,9 +219,27 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setSaveStatus('error');
         setTimeout(() => setSaveStatus('idle'), 3000);
       }
-    }, AUTOSAVE_DELAY),
-    [currentProject]
-  );
+    }, AUTOSAVE_DELAY);
+  }, [currentProject?.id]); // Only recreate if the project ID changes
+
+  const triggerSave = useCallback(() => {
+    if (saveDebounceRef.current) {
+      saveDebounceRef.current();
+    }
+  }, []);
+
+  // Periodic check for pending saves (every 30s)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const processedCount = await processPendingSaves();
+      if (processedCount > 0) {
+        console.info(`Processed ${processedCount} pending background saves.`);
+        setLastSaved(new Date());
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
 
   // Set project and trigger autosave
   const setCurrentProject = useCallback((project: Project | null) => {
@@ -237,10 +263,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev;
       const updated = { ...prev, ...updates };
       pendingProjectChanges.current = { ...pendingProjectChanges.current, ...updates };
-      debouncedSaveToBackend();
+      triggerSave();
       return updated;
     });
-  }, [debouncedSaveToBackend]);
+  }, [triggerSave]);
 
   // Update character with autosave
   const updateCharacter = useCallback((characterId: string, updates: Partial<Character>) => {
@@ -250,10 +276,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       );
       const existing = pendingCharacterChanges.current.get(characterId) || {};
       pendingCharacterChanges.current.set(characterId, { ...existing, ...updates });
-      debouncedSaveToBackend();
+      triggerSave();
       return updated;
     });
-  }, [debouncedSaveToBackend]);
+  }, [triggerSave]);
 
   // Update page with autosave
   const updatePage = useCallback((pageId: string, updates: Partial<Page>) => {
@@ -263,10 +289,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       );
       const existing = pendingPageChanges.current.get(pageId) || {};
       pendingPageChanges.current.set(pageId, { ...existing, ...updates });
-      debouncedSaveToBackend();
+      triggerSave();
       return updated;
     });
-  }, [debouncedSaveToBackend]);
+  }, [triggerSave]);
 
   // Force immediate save
   const saveNow = useCallback(async () => {

@@ -30,6 +30,7 @@ const STYLE_PRESETS = [
   { key: 'pastel', label: 'Soft Pastel Bedtime', emoji: '🌙' },
   { key: 'cartoon', label: 'Cartoon Picture Book', emoji: '🖍️' },
   { key: 'flat_modern', label: 'Flat Modern Illustration', emoji: '✏️' },
+  { key: 'sketch_cartoony', label: 'Color Sketch Cartoony', emoji: '🖍️' },
 ];
 
 // Page theme metadata (mirrors backend PAGE_THEMES)
