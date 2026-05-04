@@ -71,23 +71,36 @@ def _llm_status() -> dict:
 
 
 async def llm_chat(system_message: str, user_message: str) -> str:
-    """Send a chat prompt to the configured LLM and return the response text.
-
-    When LLM_PROVIDER=groq: automatically falls back to Gemini if Groq fails
-    and GEMINI_API_KEY is available.
+    """Send a chat prompt to the configured LLM with a 3-way failsafe chain.
+    
+    Priority: [Selected Provider] -> Groq -> OpenAI -> Gemini
+    This ensures zero-downtime generation for the storymaking pipeline.
     """
-    if LLM_PROVIDER == "gemini":
-        return await _gemini_chat(system_message, user_message)
-    if LLM_PROVIDER == "groq":
+    # 1. Determine the chain order
+    providers = [LLM_PROVIDER]
+    for p in ["groq", "openai", "gemini"]:
+        if p not in providers:
+            providers.append(p)
+            
+    last_err = None
+    # 2. Iterate through providers until success
+    for p in providers:
         try:
-            return await _groq_chat(system_message, user_message)
-        except Exception as groq_err:
-            _fallback_key = os.environ.get("GEMINI_API_KEY", "") or GEMINI_API_KEY
-            if _fallback_key:
-                logger.warning("Groq failed (%s) — falling back to Gemini", groq_err)
+            if p == "groq" and GROQ_API_KEY:
+                return await _groq_chat(system_message, user_message)
+            elif p == "openai" and OPENAI_API_KEY:
+                return await _openai_chat(system_message, user_message)
+            elif p == "gemini" and (os.environ.get("GEMINI_API_KEY", "") or GEMINI_API_KEY):
                 return await _gemini_chat(system_message, user_message)
-            raise
-    return await _openai_chat(system_message, user_message)
+        except Exception as e:
+            logger.warning(f"LLM Provider {p.upper()} failed: {e}. Trying fallback...")
+            last_err = e
+            continue
+            
+    # 3. If everything fails, raise the last error
+    if last_err:
+        raise last_err
+    raise RuntimeError("No LLM providers are configured or available.")
 
 
 async def _openai_chat(system_message: str, user_message: str) -> str:

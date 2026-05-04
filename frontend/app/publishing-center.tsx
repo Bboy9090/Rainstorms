@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -150,6 +151,9 @@ export default function PublishingCenterScreen() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [exportingPlatform, setExportingPlatform] = useState<string | null>(null);
+  const [isAutofilling, setIsAutofilling] = useState(false);
+  const [isOneClickPublishing, setIsOneClickPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState<string>('');
 
   // Build autofill suggestions from project + characters
   const buildAutofill = useCallback((): Partial<BookMetadata> => {
@@ -182,28 +186,38 @@ export default function PublishingCenterScreen() {
     };
   }, [currentProject, characters]);
 
-  // Merge autofill into metadata — only fills blank fields
-  const handleAutofill = useCallback(() => {
-    const suggestions = buildAutofill();
-    setMetadata((prev) => {
-      const next = { ...prev };
-      if (!next.title && suggestions.title) next.title = suggestions.title;
-      if (!next.age_range && suggestions.age_range) next.age_range = suggestions.age_range;
-      if (!next.book_description && suggestions.book_description) next.book_description = suggestions.book_description;
-      if (!next.author_name && suggestions.author_name) next.author_name = suggestions.author_name;
-      if (!next.copyright_holder && suggestions.copyright_holder) next.copyright_holder = suggestions.copyright_holder;
-      if (!next.publication_date && suggestions.publication_date) next.publication_date = suggestions.publication_date;
-      if (!next.language && suggestions.language) next.language = suggestions.language;
-      if ((!next.keywords || next.keywords.length === 0) && suggestions.keywords?.length) {
-        next.keywords = suggestions.keywords;
+  // AI Autofill — uses the new backend LLM endpoint
+  const handleAIAutofill = useCallback(async () => {
+    if (!currentProject) return;
+    setIsAutofilling(true);
+    try {
+      const res = await api.post(`/projects/${currentProject.id}/publishing-center/autofill`);
+      const suggestions = res.data;
+      
+      setMetadata((prev) => ({
+        ...prev,
+        subtitle: prev.subtitle || suggestions.subtitle,
+        book_description: prev.book_description || suggestions.book_description,
+        keywords: prev.keywords?.length ? prev.keywords : suggestions.keywords,
+        author_name: prev.author_name || suggestions.suggested_author_name,
+        copyright_holder: prev.copyright_holder || suggestions.copyright_holder,
+        age_range: prev.age_range || suggestions.age_range,
+      }));
+
+      if (suggestions.keywords?.length) {
+        setKeywordsText(suggestions.keywords.join(', '));
       }
-      return next;
-    });
-    setKeywordsText((prev) => {
-      if (prev || !suggestions.keywords?.length) return prev;
-      return suggestions.keywords.join(', ');
-    });
-  }, [buildAutofill]);
+      
+      Alert.alert('AI Autofill Complete', 'We generated professional metadata based on your story content.');
+    } catch (err) {
+      console.error('AI Autofill failed:', err);
+      // Fallback to local basic autofill logic if API fails
+      const suggestions = buildAutofill();
+      setMetadata((prev) => ({ ...prev, title: prev.title || suggestions.title }));
+    } finally {
+      setIsAutofilling(false);
+    }
+  }, [currentProject, buildAutofill]);
 
   // Load publishing metadata — wait for auth to be ready before fetching
   useEffect(() => {
@@ -310,6 +324,57 @@ export default function PublishingCenterScreen() {
     }
   };
 
+  const handleOneClickPublish = async () => {
+    if (!currentProject) return;
+    setIsOneClickPublishing(true);
+    setPublishProgress('Initializing magic publish...');
+    
+    try {
+      // 1. AI Autofill
+      setPublishProgress('AI analyzing story content...');
+      const autoRes = await api.post(`/projects/${currentProject.id}/publishing-center/autofill`);
+      const suggestions = autoRes.data;
+      const keywords = suggestions.keywords || [];
+      const metaToSave = { 
+        ...metadata, 
+        ...suggestions,
+        keywords: metadata.keywords?.length ? metadata.keywords : keywords 
+      };
+
+      // 2. Save
+      setPublishProgress('Securing publishing metadata...');
+      await api.put(`/projects/${currentProject.id}/publishing-center/metadata`, {
+        book_metadata: metaToSave,
+        book_format: format,
+      });
+      setMetadata(metaToSave);
+
+      // 3. Validate
+      setPublishProgress('Validating print-readiness...');
+      const valRes = await api.post(`/projects/${currentProject.id}/publishing-center/validate`);
+      setValidationResult(valRes.data);
+
+      if (!valRes.data.ready) {
+        throw new Error('Validation issues found. Please review the Validate tab.');
+      }
+
+      // 4. Export
+      setPublishProgress('Generating full publishing package...');
+      await handleExport('all');
+
+      setPublishProgress('Done!');
+      setTimeout(() => {
+        setIsOneClickPublishing(false);
+        Alert.alert('Publishing Successful', 'Your full publishing package has been generated and downloaded.');
+      }, 1000);
+    } catch (err: any) {
+      setIsOneClickPublishing(false);
+      Alert.alert('Publishing Blocked', err.message || 'An error occurred during publishing.');
+    } finally {
+      setPublishProgress('');
+    }
+  };
+
   if (projectLoading || !currentProject) {
     return <Loading message="Loading project..." fullScreen />;
   }
@@ -386,8 +451,12 @@ export default function PublishingCenterScreen() {
               onChange={setMetadata}
               onKeywordsChange={setKeywordsText}
               onSave={handleSave}
-              onAutofill={handleAutofill}
+              onAutofill={handleAIAutofill}
+              onOneClickPublish={handleOneClickPublish}
               isSaving={isSaving}
+              isAutofilling={isAutofilling}
+              isPublishing={isOneClickPublishing}
+              publishProgress={publishProgress}
             />
           )}
           {activeTab === 'format' && (
@@ -411,8 +480,14 @@ export default function PublishingCenterScreen() {
               exportingPlatform={exportingPlatform}
               onExport={handleExport}
             />
-          )}
-        </ScrollView>
+      {isOneClickPublishing && (
+        <View style={styles.publishOverlay}>
+          <Card style={styles.publishOverlayCard} variant="elevated">
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.publishOverlayTitle}>Magic Publishing in Progress</Text>
+            <Text style={styles.publishOverlayText}>{publishProgress}</Text>
+          </Card>
+        </View>
       )}
     </View>
   );
@@ -438,7 +513,10 @@ function MetadataTab({
   onKeywordsChange,
   onSave,
   onAutofill,
+  onOneClickPublish,
   isSaving,
+  isAutofilling,
+  isPublishing,
 }: {
   metadata: BookMetadata;
   keywordsText: string;
@@ -446,7 +524,10 @@ function MetadataTab({
   onKeywordsChange: (s: string) => void;
   onSave: () => void;
   onAutofill: () => void;
+  onOneClickPublish: () => void;
   isSaving: boolean;
+  isAutofilling: boolean;
+  isPublishing: boolean;
 }) {
   const update = (field: keyof BookMetadata) => (value: string) =>
     onChange({ ...metadata, [field]: value });
@@ -455,12 +536,43 @@ function MetadataTab({
     <>
       <View style={styles.autofillRow}>
         <View style={styles.autofillInfo}>
-          <Text style={styles.autofillTitle}>Smart Autofill</Text>
-          <Text style={styles.autofillSub}>Fills blank fields from your project and characters</Text>
+          <Text style={styles.autofillTitle}>Magic AI Publish</Text>
+          <Text style={styles.autofillSub}>Autofill, validate, & export everything in one click</Text>
         </View>
-        <TouchableOpacity style={styles.autofillBtn} onPress={onAutofill}>
-          <Ionicons name="sparkles" size={16} color={colors.primary} />
-          <Text style={styles.autofillBtnText}>Autofill</Text>
+        <TouchableOpacity 
+          style={[styles.autofillBtn, { backgroundColor: colors.primary }]} 
+          onPress={onOneClickPublish}
+          disabled={isPublishing}
+        >
+          {isPublishing ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <>
+              <Ionicons name="rocket" size={16} color={colors.white} />
+              <Text style={[styles.autofillBtnText, { color: colors.white }]}>Magic Publish</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.autofillRow, { backgroundColor: colors.gray100 }]}>
+        <View style={styles.autofillInfo}>
+          <Text style={[styles.autofillTitle, { color: colors.textPrimary }]}>Smart AI Autofill</Text>
+          <Text style={styles.autofillSub}>Let AI generate your book description and keywords</Text>
+        </View>
+        <TouchableOpacity 
+          style={[styles.autofillBtn, { borderColor: colors.gray300 }]} 
+          onPress={onAutofill}
+          disabled={isAutofilling}
+        >
+          {isAutofilling ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <Ionicons name="sparkles" size={16} color={colors.primary} />
+              <Text style={styles.autofillBtnText}>AI Fill</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -1038,4 +1150,32 @@ const styles = StyleSheet.create({
   packageFileRow: { marginBottom: spacing.sm },
   packageFileName: { fontSize: 13, fontWeight: '600', color: colors.primary, fontFamily: 'monospace' },
   packageFileDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+  
+  // Publish Overlay
+  publishOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    zIndex: 1000,
+  },
+  publishOverlayCard: {
+    width: '100%',
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  publishOverlayTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  publishOverlayText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

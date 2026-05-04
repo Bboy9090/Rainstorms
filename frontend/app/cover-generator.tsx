@@ -31,6 +31,7 @@ const COVER_STYLES = [
   { key: 'adventure',        label: 'Adventure',         emoji: '⚡', description: 'Bold colors, action composition' },
   { key: 'character_closeup',label: 'Character Close-Up',emoji: '👤', description: 'Character portrait, expressive face' },
   { key: 'scene',            label: 'Scene Cover',       emoji: '🏡', description: 'Important story moment, full scene' },
+  { key: 'sketch_cartoony',  label: 'Color Sketch Cartoony', emoji: '🖍️', description: 'Playful hand-drawn sketch, vibrant colors' },
 ];
 
 export default function CoverGeneratorScreen() {
@@ -43,7 +44,7 @@ export default function CoverGeneratorScreen() {
     currentProject?.cover ?? null
   );
   const [selectedStyle, setSelectedStyle] = useState<string>(
-    currentProject?.cover?.cover_style ?? 'cozy_bedtime'
+    currentProject?.cover?.cover_style ?? 'sketch_cartoony'
   );
   const [authorName, setAuthorName] = useState<string>(
     currentProject?.cover?.author_name ?? ''
@@ -57,7 +58,7 @@ export default function CoverGeneratorScreen() {
   useEffect(() => {
     if (currentProject?.cover) {
       setCoverData(currentProject.cover);
-      setSelectedStyle(currentProject.cover.cover_style ?? 'cozy_bedtime');
+      setSelectedStyle(currentProject.cover.cover_style ?? 'sketch_cartoony');
       setAuthorName(currentProject.cover.author_name ?? '');
       setTagline(currentProject.cover.tagline ?? '');
     }

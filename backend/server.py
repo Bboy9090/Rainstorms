@@ -292,6 +292,11 @@ STYLE_PRESETS: dict = {
         "suffix": "Style: flat modern children's illustration, clean geometric shapes, contemporary color palette, minimalist composition, editorial picture book style",
         "emoji": "✏️",
     },
+    "sketch_cartoony": {
+        "label": "Color Sketch Cartoony",
+        "suffix": "Style: colorful cartoony sketch, energetic lines, vibrant bright colors, playful hand-drawn children's book illustration, marker and colored pencil texture",
+        "emoji": "🖍️",
+    },
 }
 DEFAULT_STYLE_PRESET = "watercolor"
 
@@ -442,6 +447,12 @@ COVER_STYLES: dict = {
         "emoji": "🏡",
         "description": "Important story moment, full scene, cinematic framing.",
         "prompt_suffix": "cinematic full scene illustration, important story moment, detailed environment, storybook atmosphere, wide composition for book cover",
+    },
+    "sketch_cartoony": {
+        "label": "Color Sketch Cartoony",
+        "emoji": "🖍️",
+        "description": "Playful hand-drawn sketch style with vibrant colors and energetic lines.",
+        "prompt_suffix": "colorful cartoony sketch, vibrant bright colors, energetic lines, playful hand-drawn children's book cover illustration, marker and colored pencil texture",
     },
 }
 DEFAULT_COVER_STYLE = "cozy_bedtime"
@@ -1720,6 +1731,28 @@ async def create_character(project_id: str, char_data: CharacterCreate):
     await db.characters.insert_one(char.dict())
     return char
 
+@api_router.post("/projects/{project_id}/characters/bulk", response_model=List[Character])
+async def bulk_create_characters(project_id: str, characters_data: List[CharacterCreate]):
+    """Create multiple characters at once"""
+    chars = []
+    for char_data in characters_data:
+        char = Character(
+            project_id=project_id,
+            name=char_data.name,
+            role=char_data.role,
+            personality=char_data.personality,
+            appearance=char_data.appearance,
+            special_trait=char_data.special_trait,
+            notes=char_data.notes,
+            color_palette=char_data.color_palette,
+            clothing=char_data.clothing,
+            unique_traits=char_data.unique_traits,
+            visual_tags=char_data.visual_tags,
+        )
+        await db.characters.insert_one(char.dict())
+        chars.append(char)
+    return chars
+
 @api_router.put("/characters/{character_id}", response_model=Character)
 async def update_character(character_id: str, updates: dict):
     """Update a character"""
@@ -2341,7 +2374,7 @@ def _build_interior_pdf(project: dict, pages: List[dict], fmt: dict) -> BytesIO:
     from reportlab.lib.pagesizes import letter as _letter
     from reportlab.lib.units import inch as _inch
     from reportlab.lib.styles import getSampleStyleSheet as _get_styles, ParagraphStyle as _PS
-    from reportlab.platypus import SimpleDocTemplate as _Doc, Paragraph as _P, Spacer as _Sp, PageBreak as _PB
+    from reportlab.platypus import SimpleDocTemplate as _Doc, Paragraph as _P, Spacer as _Sp, PageBreak as _PB, Image as _Img
     from reportlab.lib.colors import HexColor as _Hex
     from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 
@@ -2424,8 +2457,31 @@ def _build_interior_pdf(project: dict, pages: List[dict], fmt: dict) -> BytesIO:
 
         story.append(_P(f"Page {pnum}", page_num_style))
 
-        # Illustration placeholder (professional note for the printer/designer)
-        if prompt:
+        # Illustration
+        illus_url = page.get("illustration_url", "")
+        if illus_url and illus_url.startswith("data:image"):
+            try:
+                header, encoded = illus_url.split(",", 1)
+                img_data = base64.b64decode(encoded)
+                img_buf = BytesIO(img_data)
+                
+                # Calculate display size - full width minus safe margins
+                avail_w = trim_w - (2 * safe_margin)
+                # Most generated images are 1:1, so we'll fit to width but cap height to 60% of page
+                max_h = trim_h * 0.6
+                display_w = avail_w
+                display_h = avail_w # 1:1
+                
+                if display_h > max_h:
+                    display_h = max_h
+                    display_w = max_h # Keep 1:1
+                
+                story.append(_Img(img_buf, width=display_w, height=display_h))
+                story.append(_Sp(1, 0.2 * _inch))
+            except Exception as e:
+                logger.error("Failed to embed page image in PDF: %s", e)
+                story.append(_P("[Image Load Error]", illus_note_style))
+        elif prompt:
             story.append(_P(f"[ILLUSTRATION: {prompt[:120]}{'...' if len(prompt) > 120 else ''}]",
                             illus_note_style))
         else:
@@ -2478,15 +2534,7 @@ def _build_cover_pdf(project: dict, fmt: dict) -> BytesIO:
     c.setFillColor(_Hex("#818CF8"))
     c.rect(0, total_h * 0.6, total_w, total_h * 0.4, fill=1, stroke=0)
 
-    # ── Front cover (rightmost panel) ──
-    front_x = total_w - trim_w - bleed
-    front_y = bleed
-    c.setFillColor(_Hex("#EEF2FF"))
-    c.roundRect(front_x, front_y, trim_w, trim_h, 0, fill=1, stroke=0)
-
-    c.setFont("Helvetica-Bold", 24)
-    c.setFillColor(_Hex("#1E293B"))
-    # Title (wrapped manually for basic layout)
+    # Title wrapping
     words = title.split()
     lines: List[str] = []
     line: List[str] = []
@@ -2497,6 +2545,40 @@ def _build_cover_pdf(project: dict, fmt: dict) -> BytesIO:
             line = [w]
     if line:
         lines.append(" ".join(line))
+    
+    # ── Front cover (rightmost panel) ──
+    front_x = total_w - trim_w - bleed
+    front_y = bleed
+    
+    # ── Draw Image if available ──
+    cover_data = project.get("cover") or {}
+    front_url = cover_data.get("front_cover_url")
+    if front_url and front_url.startswith("data:image"):
+        try:
+            from PIL import Image as _PILImage
+            header, encoded = front_url.split(",", 1)
+            img_data = base64.b64decode(encoded)
+            img_buf = BytesIO(img_data)
+            # Use ImageReader for ReportLab
+            from reportlab.lib.utils import ImageReader
+            img_reader = ImageReader(img_buf)
+            c.drawImage(img_reader, front_x, front_y, width=trim_w, height=trim_h)
+            
+            # Add overlay if desired (semi-transparent)
+            c.setFillColor(_Hex("#000000"), alpha=0.4)
+            c.rect(front_x, front_y, trim_w, trim_h * 0.3, fill=1, stroke=0)
+            c.setFillColor(_Hex("#FFFFFF"), alpha=1.0)
+        except Exception as e:
+            logger.error("Failed to embed cover image in PDF: %s", e)
+            c.setFillColor(_Hex("#EEF2FF"))
+            c.roundRect(front_x, front_y, trim_w, trim_h, 0, fill=1, stroke=0)
+            c.setFillColor(_Hex("#1E293B"))
+    else:
+        c.setFillColor(_Hex("#EEF2FF"))
+        c.roundRect(front_x, front_y, trim_w, trim_h, 0, fill=1, stroke=0)
+        c.setFillColor(_Hex("#1E293B"))
+
+    c.setFont("Helvetica-Bold", 24)
     y_pos = front_y + trim_h - 1.0 * _inch
     for ln in lines[:4]:
         c.drawCentredString(front_x + trim_w / 2, y_pos, ln)
@@ -2604,11 +2686,23 @@ def _build_epub(project: dict, pages: List[dict]) -> BytesIO:
 
         # Build spine manifest items
         page_items = ""
+        image_items = ""
         spine_items = ""
         for pg in sorted_pages:
             pnum = pg.get("page_number", 0)
             page_items += f'    <item id="page{pnum}" href="page{pnum}.xhtml" media-type="application/xhtml+xml"/>\n'
             spine_items += f'    <itemref idref="page{pnum}"/>\n'
+
+            # Add image item to manifest if available
+            illus_url = pg.get("illustration_url", "")
+            if illus_url and illus_url.startswith("data:image"):
+                header = illus_url.split(",")[0]
+                mime = "image/jpeg"
+                ext = "jpg"
+                if "png" in header:
+                    mime = "image/png"
+                    ext = "png"
+                image_items += f'    <item id="img{pnum}" href="images/page{pnum}.{ext}" media-type="{mime}"/>\n'
 
         # EPUB/content.opf
         opf = f"""\
@@ -2659,19 +2753,38 @@ def _build_epub(project: dict, pages: List[dict]) -> BytesIO:
         for pg in sorted_pages:
             pnum = pg.get("page_number", 0)
             text = pg.get("page_text", "").strip() or "(Illustration page)"
+
+            # Handle illustration embedding
+            img_tag = ""
+            illus_url = pg.get("illustration_url", "")
+            if illus_url and illus_url.startswith("data:image"):
+                try:
+                    header, encoded = illus_url.split(",", 1)
+                    ext = "jpg"
+                    if "png" in header: ext = "png"
+                    # Write image to zip
+                    zf.writestr(f"EPUB/images/page{pnum}.{ext}", base64.b64decode(encoded))
+                    # Create HTML tag
+                    img_tag = f'<div class="illus"><img src="images/page{pnum}.{ext}" alt="Page {pnum} illustration"/></div>'
+                except Exception as e:
+                    logger.error("EPUB image export failed for page %s: %s", pnum, e)
+
             page_html = f"""\
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="{language}">
 <head><meta charset="UTF-8"/><title>Page {pnum}</title>
 <style>
-  body {{ font-family: Georgia, serif; margin: 1.5em; }}
-  p.text {{ font-size: 1.3em; line-height: 1.7; color: #1E293B; text-align: center; }}
-  p.page-num {{ color: #94A3B8; font-size: 0.9em; text-align: center; }}
+  body {{ font-family: Georgia, serif; margin: 1em; }}
+  p.text {{ font-size: 1.2em; line-height: 1.6; color: #1E293B; text-align: center; margin-top: 1em; }}
+  p.page-num {{ color: #94A3B8; font-size: 0.8em; text-align: center; }}
+  div.illus {{ text-align: center; margin: 1em 0; }}
+  div.illus img {{ max-width: 100%; height: auto; border-radius: 8px; }}
 </style>
 </head>
 <body>
   <p class="page-num">Page {pnum}</p>
+  {img_tag}
   <p class="text">{_xml_escape(text)}</p>
 </body>
 </html>"""
@@ -2818,6 +2931,22 @@ async def _build_publishing_zip(project: dict, pages: List[dict], fmt: dict, pla
     epub_bytes = _build_epub(project, pages)
     meta_json = _build_metadata_json(project, fmt)
 
+    # Real cover preview using Pillow if possible
+    cover_preview = b""
+    cover_data = project.get("cover") or {}
+    front_url = cover_data.get("front_cover_url")
+    if front_url and front_url.startswith("data:image"):
+        try:
+            from PIL import Image as _PILImage
+            header, encoded = front_url.split(",", 1)
+            img_data = base64.b64decode(encoded)
+            # Re-compress or just use as is
+            cover_preview = img_data
+        except:
+            cover_preview = b"PLACEHOLDER: Image decoding failed"
+    else:
+        cover_preview = b"PLACEHOLDER: No cover image generated yet"
+
     title_slug = project.get("title", "book").lower().replace(" ", "_")[:30]
     folder = f"{title_slug}_{platform}_export"
 
@@ -2828,9 +2957,7 @@ async def _build_publishing_zip(project: dict, pages: List[dict], fmt: dict, pla
         zf.writestr(f"{folder}/ebook.epub", epub_bytes.getvalue())
         zf.writestr(f"{folder}/metadata.json", meta_json)
         zf.writestr(f"{folder}/publishing_checklist.txt", checklist_text)
-        # Placeholder for cover_preview.jpg (real implementation would use Pillow)
-        zf.writestr(f"{folder}/cover_preview.jpg",
-                    b"PLACEHOLDER: Replace with generated cover preview image")
+        zf.writestr(f"{folder}/cover_preview.jpg", cover_preview)
 
     zip_buf.seek(0)
     return zip_buf
@@ -2896,6 +3023,66 @@ async def save_publishing_metadata(
         "book_metadata": updates.get("publishing_metadata") or project.get("publishing_metadata") or BookMetadata().dict(),
         "book_format": updates.get("book_format") or project.get("book_format") or BookFormatSettings().dict(),
     }
+
+
+@api_router.post("/projects/{project_id}/publishing-center/autofill")
+async def autofill_publishing_metadata(
+    project_id: str,
+    user=Depends(require_auth),
+):
+    """
+    POST /api/projects/{id}/publishing-center/autofill
+    Use AI to generate optimal book metadata (description, keywords, etc.) based on story content.
+    """
+    project = await db.projects.find_one({"id": project_id, "user_id": user["user_id"]})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    pages = await db.pages.find({"project_id": project_id}).sort("page_number", 1).to_list(50)
+    
+    # Build context for LLM
+    story_summary = project.get("summary", "")
+    page_texts = [p.get("page_text", "") for p in pages if p.get("page_text")]
+    full_context = "\n".join(page_texts)[:4000]
+
+    _system = "You are a professional children's book publisher and metadata expert."
+    prompt = f"""
+Given this children's book content and summary, generate professional publishing metadata.
+
+TITLE: {project.get('title', 'Untitled')}
+SUMMARY: {story_summary}
+CONTENT PREVIEW: {full_context}
+
+Return exactly this JSON structure:
+{{
+  "subtitle": "An engaging 1-sentence subtitle",
+  "book_description": "A compelling 3-4 sentence blurb for the back cover or Amazon listing",
+  "keywords": ["7", "relevant", "search", "keywords", "for", "childrens", "books"],
+  "age_range": "{project.get('age_range', '3-8')}",
+  "copyright_holder": "Author Name",
+  "suggested_author_name": "Author Name"
+}}
+
+Return ONLY valid JSON.
+"""
+    response = await _llm_chat(_system, prompt)
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"): cleaned = cleaned[4:]
+        data = json.loads(cleaned.strip())
+        return data
+    except Exception as e:
+        logger.error("AI Autofill failed: %s", e)
+        return {
+            "subtitle": "",
+            "book_description": story_summary[:500],
+            "keywords": [],
+            "age_range": project.get("age_range", "3-8"),
+            "copyright_holder": "",
+            "suggested_author_name": ""
+        }
 
 
 @api_router.post("/projects/{project_id}/publishing-center/validate")
