@@ -2,11 +2,21 @@
   "name": "rainstorms-enterprise",
   "version": "1.1.0",
   "private": true,
-  "description": "World-class monorepo for Rainstorms.",
+  "description": "Rainstorms guided children's-story creation monorepo.",
   "scripts": {
-    "lint:js": "prettier --write \"frontend/**/*.{js,jsx,ts,tsx}\"",
-    "lint:py": "cd backend && black . && flake8 .",
-    "test": "cd backend && pytest",
+    "format:js": "prettier --write \"frontend/**/*.{js,jsx,ts,tsx,json}\"",
+    "format:check:js": "prettier --check \"frontend/**/*.{js,jsx,ts,tsx,json}\"",
+    "lint:js": "npm run lint --workspace frontend",
+    "typecheck:js": "npm run typecheck --workspace frontend",
+    "build:js": "npm run build --workspace frontend",
+    "format:py": "cd backend && black .",
+    "format:check:py": "cd backend && black --check .",
+    "lint:py": "cd backend && flake8 .",
+    "test:py": "cd backend && pytest",
+    "test": "npm run test:py",
+    "check:frontend": "npm run format:check:js && npm run lint:js && npm run typecheck:js && npm run build:js",
+    "check:backend": "npm run format:check:py && npm run lint:py && npm run test:py",
+    "check": "npm run check:frontend && npm run check:backend",
     "deploy": "make deploy-prod",
     "prepare": "husky"
   },
@@ -19,7 +29,7 @@
     "prettier": "^3.2.5"
   },
   "lint-staged": {
-    "frontend/**/*.{js,jsx,ts,tsx}": [
+    "frontend/**/*.{js,jsx,ts,tsx,json}": [
       "prettier --write"
     ],
     "backend/**/*.py": [
