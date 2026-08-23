@@ -27,7 +27,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npx expo prebuild --platform android --non-interactive
       - working-directory: frontend/android
         run: chmod +x gradlew && ./gradlew assembleDebug --stacktrace
