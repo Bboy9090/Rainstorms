@@ -27,8 +27,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - run: npm install --legacy-peer-deps
-      - run: npx expo prebuild --platform android --non-interactive
+      - run: npm install --prefix frontend --ignore-scripts --legacy-peer-deps
+      - working-directory: frontend
+        run: npx expo prebuild --platform android --non-interactive
       - working-directory: frontend/android
         run: chmod +x gradlew && ./gradlew assembleDebug --stacktrace
       - run: sha256sum android/app/build/outputs/apk/debug/app-debug.apk > APK-SHA256.txt
