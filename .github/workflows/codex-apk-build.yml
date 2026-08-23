@@ -27,7 +27,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-          cache: gradle
       - run: npm ci
       - run: npx expo prebuild --platform android --non-interactive
       - working-directory: frontend/android
