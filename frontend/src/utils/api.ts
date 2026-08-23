@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 function resolveBaseUrl(): string {
@@ -8,23 +7,17 @@ function resolveBaseUrl(): string {
     process.env.EXPO_PUBLIC_BACKEND_URL ||
     '';
 
-  if (Platform.OS !== 'web') {
-    return configured;
-  }
-
   if (!configured) return '';
 
   try {
-    const configuredHostname = new URL(configured).hostname;
-    const currentHostname = window.location.hostname;
-    if (configuredHostname !== currentHostname) {
+    const url = new URL(configured);
+    if (url.protocol !== 'https:' && url.hostname !== 'localhost') {
       return '';
     }
+    return url.origin;
   } catch {
     return '';
   }
-
-  return configured;
 }
 
 export const BASE_URL = resolveBaseUrl();
