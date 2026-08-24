@@ -1,0 +1,40 @@
+name: Codex APK Build
+on:
+  push:
+    branches:
+      - 'codex/apk-build-2026-08-23'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: HUSKY=0 npm install --ignore-scripts --legacy-peer-deps
+      - run: CI=1 npm exec --workspace frontend -- expo prebuild --platform android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --stacktrace
+      - run: sha256sum android/app/build/outputs/apk/debug/app-debug.apk > APK-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rainstorms-debug-APK
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            APK-SHA256.txt
+          retention-days: 30
