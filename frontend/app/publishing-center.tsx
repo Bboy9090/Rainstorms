@@ -254,7 +254,7 @@ export default function PublishingCenterScreen() {
   // When metadata finishes loading and the title is still blank, silently autofill
   useEffect(() => {
     if (!isLoadingMeta && !metadata.title) {
-      handleAutofill();
+      handleAIAutofill();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingMeta]);
@@ -456,7 +456,6 @@ export default function PublishingCenterScreen() {
               isSaving={isSaving}
               isAutofilling={isAutofilling}
               isPublishing={isOneClickPublishing}
-              publishProgress={publishProgress}
             />
           )}
           {activeTab === 'format' && (
@@ -480,6 +479,9 @@ export default function PublishingCenterScreen() {
               exportingPlatform={exportingPlatform}
               onExport={handleExport}
             />
+          )}
+        </ScrollView>
+      )}
       {isOneClickPublishing && (
         <View style={styles.publishOverlay}>
           <Card style={styles.publishOverlayCard} variant="elevated">
