@@ -399,7 +399,7 @@ export default function CharactersScreen() {
             onPress={() => router.push('/story-memory')}
             variant="outline"
             size="md"
-            icon={<Ionicons name="brain" size={18} color={colors.primary} />}
+            icon={<Ionicons name="bulb-outline" size={18} color={colors.primary} />}
             style={styles.memoryButton}
           />
           <Button
