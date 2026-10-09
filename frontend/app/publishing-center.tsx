@@ -254,7 +254,7 @@ export default function PublishingCenterScreen() {
   // When metadata finishes loading and the title is still blank, silently autofill
   useEffect(() => {
     if (!isLoadingMeta && !metadata.title) {
-      handleAutofill();
+      handleAIAutofill();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingMeta]);
