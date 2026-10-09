@@ -456,7 +456,6 @@ export default function PublishingCenterScreen() {
               isSaving={isSaving}
               isAutofilling={isAutofilling}
               isPublishing={isOneClickPublishing}
-              publishProgress={publishProgress}
             />
           )}
           {activeTab === 'format' && (
