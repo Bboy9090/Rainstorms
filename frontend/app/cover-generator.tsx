@@ -64,10 +64,6 @@ export default function CoverGeneratorScreen() {
     }
   }, [currentProject?.cover]);
 
-  if (isLoading || !currentProject) {
-    return <Loading message="Loading cover generator..." fullScreen />;
-  }
-
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
     try {
@@ -118,6 +114,10 @@ export default function CoverGeneratorScreen() {
       await Linking.openURL(url);
     }
   }, [coverData]);
+
+  if (isLoading || !currentProject) {
+    return <Loading message="Loading cover generator..." fullScreen />;
+  }
 
   const activeStyleInfo = COVER_STYLES.find((s) => s.key === selectedStyle) ?? COVER_STYLES[0];
   const rawCoverUrl = coverData?.front_cover_url ?? '';
