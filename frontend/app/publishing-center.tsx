@@ -480,6 +480,7 @@ export default function PublishingCenterScreen() {
               exportingPlatform={exportingPlatform}
               onExport={handleExport}
             />
+          )}
       {isOneClickPublishing && (
         <View style={styles.publishOverlay}>
           <Card style={styles.publishOverlayCard} variant="elevated">
