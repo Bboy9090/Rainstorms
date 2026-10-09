@@ -100,7 +100,7 @@ export default function StoryMemoryScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={styles.headerTitle}>
-            <Ionicons name="brain" size={24} color={colors.primary} />
+            <Ionicons name="bulb-outline" size={24} color={colors.primary} />
             <Text style={styles.title}>Story Memory</Text>
           </View>
           <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
