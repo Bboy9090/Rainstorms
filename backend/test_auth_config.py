@@ -1,4 +1,4 @@
-"""Offline signing-configuration checks; no database or AI provider required."""
+"""Offline signing checks without a database or AI provider."""
 
 import os
 import unittest
@@ -10,7 +10,9 @@ from auth_config import load_jwt_secret, validate_jwt_secret
 class JwtSigningConfigTests(unittest.TestCase):
     def test_missing_secret_stops_startup(self):
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(ValueError, "JWT_SECRET must be configured"):
+            with self.assertRaisesRegex(
+                ValueError, "JWT_SECRET must be configured"
+            ):
                 load_jwt_secret()
 
     def test_weak_or_padded_values_are_rejected(self):
