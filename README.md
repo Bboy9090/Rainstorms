@@ -299,7 +299,12 @@ Ready to deploy Rainstorms to production? Follow the comprehensive deployment gu
 ### Key Deployment Steps
 
 1. Create MongoDB Atlas cluster and copy connection string
-2. Generate strong `JWT_SECRET`
+2. Configure `JWT_SECRET` with a unique random value of at least 32 characters
+   (for example, generate it locally with `python -c 'import secrets; print(secrets.token_urlsafe(48))'`
+   and store it in your host's secret configuration). The API refuses startup
+   when this key is missing, short, or padded with whitespace. Keep the key stable
+   across application instances and restarts. Replacing the former public
+   default invalidates sessions signed with that default; users must sign in again.
 3. Deploy backend to Railway with environment variables
 4. Build and deploy frontend to Vercel
 5. Configure custom domains (optional but recommended)
