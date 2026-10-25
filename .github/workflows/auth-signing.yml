@@ -1,0 +1,37 @@
+name: JWT signing configuration
+
+on:
+  pull_request:
+    paths:
+      - 'backend/auth_config.py'
+      - 'backend/config.py'
+      - 'backend/server.py'
+      - 'backend/test_auth_config.py'
+      - '.github/workflows/auth-signing.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/auth_config.py'
+      - 'backend/config.py'
+      - 'backend/server.py'
+      - 'backend/test_auth_config.py'
+      - '.github/workflows/auth-signing.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  signing-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reject missing and weak signing keys
+        working-directory: backend
+        run: python -m unittest test_auth_config -v
+      - name: Compile API configuration entry points
+        working-directory: backend
+        run: python -m py_compile server.py config.py auth_config.py test_auth_config.py
