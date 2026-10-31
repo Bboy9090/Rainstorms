@@ -232,7 +232,7 @@ export default function PublishingCenterScreen() {
       const suggestions = buildAutofill();
       setMetadata((prev) => ({
         ...prev,
-        title: prev.title || suggestions.title,
+        title: prev.title || suggestions.title || "",
       }));
     } finally {
       setIsAutofilling(false);
@@ -838,7 +838,7 @@ function FormatTab({
                 format.trim_size === s && styles.chipTextActive,
               ]}
             >
-              {s}"
+              {s}&quot;
             </Text>
           </TouchableOpacity>
         ))}
@@ -922,7 +922,7 @@ function FormatTab({
         <View style={styles.toggleInfo}>
           <Text style={styles.toggleLabel}>Bleed Margins</Text>
           <Text style={styles.toggleDesc}>
-            0.125" bleed on all sides (required by most printers)
+            0.125&quot; bleed on all sides (required by most printers)
           </Text>
         </View>
         <Switch
@@ -952,8 +952,8 @@ function FormatTab({
       <Card style={styles.spineCard} variant="elevated">
         <Text style={styles.spineTitle}>📐 Spine Width Calculator</Text>
         <Text style={styles.spineFormula}>
-          {pageCount} pages × {PAPER_THICKNESS}" paper ={" "}
-          <Text style={styles.spineResult}>{spineWidth}"</Text>
+          {pageCount} pages × {PAPER_THICKNESS}&quot; paper ={" "}
+          <Text style={styles.spineResult}>{spineWidth}&quot;</Text>
         </Text>
         <Text style={styles.spineNote}>
           This value is automatically applied to your cover PDF.
@@ -1156,7 +1156,7 @@ function ExportTab({
 
       <Card style={styles.packageInfoCard} variant="elevated">
         <Text style={styles.packageInfoTitle}>
-          📦 What's in the export package?
+          📦 What&apos;s in the export package?
         </Text>
         {[
           {
