@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -131,7 +131,7 @@ export default function CharactersScreen() {
     }
   };
 
-  const handleGenerateReferenceSheet = useCallback(async (char: Character) => {
+  const handleGenerateReferenceSheet = async (char: Character) => {
     if (!char.appearance && !char.color_palette && !char.unique_traits) {
       Alert.alert(
         'No Visual Profile',
@@ -148,9 +148,9 @@ export default function CharactersScreen() {
     } finally {
       setGeneratingRefSheet(null);
     }
-  }, [updateCharacter]);
+  };
 
-  const handleToggleLock = useCallback(async (char: Character) => {
+  const handleToggleLock = async (char: Character) => {
     setTogglingLock(char.id);
     try {
       const endpoint = char.appearance_locked
@@ -163,9 +163,9 @@ export default function CharactersScreen() {
     } finally {
       setTogglingLock(null);
     }
-  }, [updateCharacter]);
+  };
 
-  const handleDownloadRefSheet = useCallback(async (refSheetUrl: string) => {
+  const handleDownloadRefSheet = async (refSheetUrl: string) => {
     const url = buildImageUrl(refSheetUrl);
     if (!url) return;
     if (Platform.OS === 'web') {
@@ -176,7 +176,7 @@ export default function CharactersScreen() {
     } else {
       await Linking.openURL(url);
     }
-  }, []);
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -293,7 +293,7 @@ export default function CharactersScreen() {
                     <View style={styles.refSheetGenerating}>
                       <Ionicons name="image-outline" size={20} color={colors.gray300} />
                       <Text style={styles.refSheetGeneratingText}>
-                        Image was lost — tap "Regenerate Sheet" to recreate it
+                        Image was lost — tap &quot;Regenerate Sheet&quot; to recreate it
                       </Text>
                     </View>
                   );
