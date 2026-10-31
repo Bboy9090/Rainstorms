@@ -170,7 +170,7 @@ export default function CoverGeneratorScreen() {
             {coverImageLost ? (
               <>
                 <Text style={styles.placeholderTitle}>Cover Was Lost</Text>
-                <Text style={styles.placeholderSub}>Tap "Regenerate Cover" below to recreate it</Text>
+                <Text style={styles.placeholderSub}>Tap &quot;Regenerate Cover&quot; below to recreate it</Text>
               </>
             ) : (
               <>
