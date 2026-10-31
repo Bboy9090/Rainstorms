@@ -1,0 +1,43 @@
+name: Release source normalization
+
+on:
+  push:
+    branches:
+      - release/mobile-hardening-20261031
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: ${{ !contains(github.event.head_commit.message, 'chore: normalize release formatting') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: release/mobile-hardening-20261031
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - run: python -m pip install black==26.3.1
+      - name: Normalize frontend and backend source
+        run: |
+          npm run format:js
+          npm run format:py
+      - name: Commit normalized source when needed
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "Source is already normalized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend backend
+          git commit -m "chore: normalize release formatting"
+          git push origin HEAD:release/mobile-hardening-20261031
