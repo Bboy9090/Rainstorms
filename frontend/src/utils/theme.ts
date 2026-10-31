@@ -11,6 +11,7 @@ export const colors = {
   // Secondary - Pink/Purple
   secondary: "hsl(315, 80%, 70%)",
   secondaryLight: "hsl(315, 90%, 80%)",
+  purple: "#9B59B6",
 
   // Accent - Gold/Yellow from the book glow
   accent: "hsl(45, 100%, 65%)",
