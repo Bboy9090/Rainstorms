@@ -407,7 +407,7 @@ export default function LorePoolScreen() {
                   <Card key={idx} style={styles.seedCard} variant="elevated">
                     <Text style={styles.seedTitle}>{seed.title}</Text>
                     <Text style={styles.seedTheme}>{seed.theme}</Text>
-                    {seed.hook ? <Text style={styles.seedHook}>"{seed.hook}"</Text> : null}
+                    {seed.hook ? <Text style={styles.seedHook}>&quot;{seed.hook}&quot;</Text> : null}
                     {seed.story_premise ? <Text style={styles.seedPremise}>{seed.story_premise}</Text> : null}
                     {seed.inspiration_tags?.length > 0 && (
                       <View style={styles.tagList}>
@@ -458,7 +458,7 @@ export default function LorePoolScreen() {
           <Text style={styles.blueprintName}>{generatedResult.title}</Text>
           <Text style={styles.blueprintMeta}>{generatedResult.theme}</Text>
           {generatedResult.hook ? (
-            <Text style={styles.blueprintHook}>"{generatedResult.hook}"</Text>
+            <Text style={styles.blueprintHook}>&quot;{generatedResult.hook}&quot;</Text>
           ) : null}
           <Text style={styles.poolNote}>
             ✨ Generated from {generatedResult._archetype_count ?? '?'} shared archetypes.
