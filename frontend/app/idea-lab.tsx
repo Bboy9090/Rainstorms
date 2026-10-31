@@ -209,7 +209,7 @@ export default function IdeaLabScreen() {
         </View>
 
         <Text style={styles.subtitle}>
-          Start with your story idea. We'll help you build the rest.
+          Start with your story idea. We&apos;ll help you build the rest.
         </Text>
 
         {/* Universe Mode Toggle */}
@@ -272,7 +272,7 @@ export default function IdeaLabScreen() {
             )}
             {selectedUniverseId && (
               <Text style={styles.universeSelectedNote}>
-                ✨ Story will be generated consistent with this universe's canon, characters, factions, and world rules.
+                ✨ Story will be generated consistent with this universe&apos;s canon, characters, factions, and world rules.
               </Text>
             )}
           </Card>
@@ -382,7 +382,7 @@ export default function IdeaLabScreen() {
             <Text style={styles.tipItem}>• Include a main character and their challenge</Text>
             <Text style={styles.tipItem}>• Think about what lesson or emotion to convey</Text>
             <Text style={styles.tipItem}>• Picture books work best with simple, clear plots</Text>
-            <Text style={styles.tipItem}>• Don't worry about perfection - you can edit later!</Text>
+            <Text style={styles.tipItem}>• Don&apos;t worry about perfection - you can edit later!</Text>
           </View>
         </Card>
       </ScrollView>
