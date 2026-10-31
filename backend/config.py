@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
 from typing import List, Optional
-from pydantic_settings import BaseSettings, SettingsConfigDict\nfrom pydantic import field_validator\nfrom auth_config import validate_jwt_secret
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from auth_config import validate_jwt_secret
 
 ROOT_DIR = Path(__file__).parent
 
