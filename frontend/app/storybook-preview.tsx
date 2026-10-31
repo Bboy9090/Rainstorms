@@ -94,7 +94,7 @@ function LayoutAwareSpread({
       {imageLost ? (
         <>
           <Text style={spreadStyles.placeholderLabel}>Image was lost</Text>
-          <Text style={spreadStyles.promptPreview}>Tap "Regenerate" below to recreate it</Text>
+          <Text style={spreadStyles.promptPreview}>Tap &quot;Regenerate&quot; below to recreate it</Text>
         </>
       ) : (
         <>
@@ -740,7 +740,7 @@ export default function StorybookPreviewScreen() {
 
       {/* ── Footer hook ── */}
       <View style={styles.footer}>
-        <Text style={styles.footerHook}>"{currentProject.hook}"</Text>
+        <Text style={styles.footerHook}>&quot;{currentProject.hook}&quot;</Text>
       </View>
 
       {/* ── Style Picker Modal ── */}
@@ -780,7 +780,7 @@ export default function StorybookPreviewScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Page Theme</Text>
             <Text style={styles.modalSubtitle}>
-              Choose typography and color style for the book's pages.
+              Choose typography and color style for the book&apos;s pages.
             </Text>
             {PAGE_THEMES.map((theme) => (
               <TouchableOpacity
