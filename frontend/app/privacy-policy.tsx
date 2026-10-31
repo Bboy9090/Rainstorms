@@ -59,7 +59,7 @@ export default function PrivacyPolicyScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.meta}>Last updated: April 2026</Text>
         <Text style={styles.intro}>
-          Rainstorms helps parents and creators design illustrated children's picture books with the
+          Rainstorms helps parents and creators design illustrated children&apos;s picture books with the
           help of AI. We respect your privacy and only collect what we need to run the service.
         </Text>
         {SECTIONS.map((s) => (
