@@ -90,6 +90,7 @@ export default function CoverGeneratorScreen() {
   }, [currentProject?.cover]);
 
   const handleGenerate = useCallback(async () => {
+    if (!currentProject) return;
     setIsGenerating(true);
     try {
       const res = await api.post(
@@ -112,6 +113,7 @@ export default function CoverGeneratorScreen() {
   }, [currentProject, selectedStyle, authorName, tagline, updateProject]);
 
   const handleSaveMeta = useCallback(async () => {
+    if (!currentProject) return;
     setIsSavingMeta(true);
     try {
       const res = await api.put(`/projects/${currentProject.id}/cover`, {
