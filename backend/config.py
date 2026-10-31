@@ -1,6 +1,5 @@
-import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from auth_config import validate_jwt_secret
@@ -48,6 +47,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    @field_validator("JWT_SECRET")
+    @classmethod
+    def check_jwt_secret(cls, value: str) -> str:
+        return validate_jwt_secret(value)
 
     @property
     def cors_origins_list(self) -> List[str]:
