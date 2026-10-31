@@ -7,6 +7,7 @@ import {
   ViewStyle,
   TextStyle,
   Pressable,
+  StyleProp,
 } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -23,8 +24,8 @@ interface ButtonProps {
   size?: "sm" | "md" | "lg";
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   icon?: React.ReactNode;
 }
 
