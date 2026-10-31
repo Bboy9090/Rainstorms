@@ -1,0 +1,88 @@
+name: Mobile Store Qualification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/mobile-store-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/mobile-store-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci --legacy-peer-deps --ignore-scripts
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean --non-interactive
+        env:
+          EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+      - name: Build release App Bundle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          sha256sum app/build/outputs/bundle/release/app-release.aab > app/build/outputs/bundle/release/AAB-SHA256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rainstorms-android-aab-unsigned
+          path: |
+            frontend/android/app/build/outputs/bundle/release/app-release.aab
+            frontend/android/app/build/outputs/bundle/release/AAB-SHA256.txt
+          if-no-files-found: error
+
+  ios-release:
+    runs-on: macos-latest
+    timeout-minutes: 55
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps --ignore-scripts
+      - name: Generate iOS project
+        run: npx expo prebuild --platform ios --clean --non-interactive
+        env:
+          EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+      - name: Build unsigned iOS Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKSPACE=$(find ios -maxdepth 2 -name '*.xcworkspace' -print -quit)
+          PROJECT=$(find ios -maxdepth 2 -name '*.xcodeproj' -print -quit)
+          if [[ -n "$WORKSPACE" ]]; then
+            xcodebuild -workspace "$WORKSPACE" -scheme Rainstorms -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          elif [[ -n "$PROJECT" ]]; then
+            xcodebuild -project "$PROJECT" -scheme Rainstorms -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          else
+            echo "No generated Xcode project/workspace found."
+            exit 1
+          fi
