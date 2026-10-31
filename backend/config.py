@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from typing import List, Optional
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict\nfrom pydantic import field_validator\nfrom auth_config import validate_jwt_secret
 
 ROOT_DIR = Path(__file__).parent
 
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     MONGO_TLS_SKIP_VERIFY: bool = False
 
     # Security
-    JWT_SECRET: str = "rainstorms_secret_key_2024_v1"
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 72
     CORS_ORIGINS: str = "*"
