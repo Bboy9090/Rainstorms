@@ -1,0 +1,5 @@
+[flake8]
+# Black owns line wrapping; keep flake8 focused on semantic/style defects that
+# Black does not normalize.
+extend-ignore = E203,E501,W503
+exclude = .git,__pycache__,.venv,venv
