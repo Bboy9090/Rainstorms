@@ -478,11 +478,11 @@ export default function StorybookPreviewScreen() {
 
   const activeTheme =
     PAGE_THEMES.find(
-      (t) => t.key === (currentProject.page_theme || selectedTheme),
+      (t) => t.key === (currentProject?.page_theme || selectedTheme),
     ) ?? PAGE_THEMES[0];
 
   const handleGenerateSingle = useCallback(async () => {
-    if (!currentPageData) return;
+    if (!currentPageData || !currentProject) return;
     if (!currentPageData.illustration_prompt) {
       Alert.alert(
         "No Prompt",
@@ -508,7 +508,7 @@ export default function StorybookPreviewScreen() {
   }, [currentPageData, currentProject, updatePage]);
 
   const handleDeleteIllustration = useCallback(async () => {
-    if (!currentPageData) return;
+    if (!currentPageData || !currentProject) return;
     Alert.alert(
       "Remove Illustration",
       "Remove the illustration from this page?",
@@ -547,6 +547,7 @@ export default function StorybookPreviewScreen() {
   }, [currentPageData]);
 
   const handleSaveStyle = useCallback(async () => {
+    if (!currentProject) return;
     setIsSavingStyle(true);
     try {
       await api.put(`/projects/${currentProject.id}/illustration-style`, {
@@ -561,6 +562,7 @@ export default function StorybookPreviewScreen() {
   }, [currentProject, selectedStyle]);
 
   const handleSaveTheme = useCallback(async () => {
+    if (!currentProject) return;
     setIsSavingTheme(true);
     try {
       await api.put(`/projects/${currentProject.id}/page-theme`, {
@@ -576,7 +578,7 @@ export default function StorybookPreviewScreen() {
   }, [currentProject, selectedTheme, updateProject]);
 
   const handleAutoLayoutCurrent = useCallback(async () => {
-    if (!currentPageData) return;
+    if (!currentPageData || !currentProject) return;
     setIsAutoLayouting(true);
     try {
       const res = await api.post(
@@ -592,6 +594,7 @@ export default function StorybookPreviewScreen() {
   }, [currentPageData, currentProject, updatePage]);
 
   const handleBatchLayout = useCallback(async () => {
+    if (!currentProject) return;
     Alert.alert(
       "Auto Layout Entire Book",
       `Apply smart layout to all ${pages.length} pages?`,
