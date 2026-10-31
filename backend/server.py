@@ -31,7 +31,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
 from ai_helper import llm_chat as _llm_chat
-from lore_engine import lore_router, meta_router, init_lore_engine\nfrom auth_config import load_jwt_secret
+from lore_engine import lore_router, meta_router, init_lore_engine
+from auth_config import load_jwt_secret
 
 # Database — prefer MongoDB Atlas when MONGO_URL is a real Atlas SRV URL;
 # otherwise fall back to Replit's built-in PostgreSQL (zero config needed).
