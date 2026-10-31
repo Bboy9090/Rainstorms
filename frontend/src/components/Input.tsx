@@ -82,7 +82,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     fontSize: 16,
     color: colors.textPrimary,
-    ...shadows.inner,
   },
   inputFocused: {
     borderColor: colors.primary,
