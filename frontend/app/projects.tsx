@@ -205,7 +205,7 @@ export default function ProjectsScreen() {
         <Card style={styles.emptyCard}>
           <Ionicons name="book-outline" size={48} color={colors.gray300} />
           <Text style={styles.emptyTitle}>No projects yet</Text>
-          <Text style={styles.emptyText}>Start creating your first children's book!</Text>
+          <Text style={styles.emptyText}>Start creating your first children&apos;s book!</Text>
         </Card>
       ) : (
         <View style={styles.projectsList}>
