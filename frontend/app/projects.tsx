@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  AlertButton,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -140,14 +141,16 @@ export default function ProjectsScreen() {
   };
 
   const handleVisibilityPicker = (project: ProjectSummary) => {
+    const buttons: AlertButton[] = VISIBILITY_OPTIONS.map((opt) => ({
+      text: opt.label,
+      onPress: () => handleSetVisibility(project, opt.value),
+      style: opt.value === "private" ? "destructive" : "default",
+    }));
+    buttons.push({ text: "Cancel", style: "cancel" });
     Alert.alert(
       "Content Visibility",
       "Choose how this project is shared. Private content is never used in the Lore Pool.",
-      VISIBILITY_OPTIONS.map((opt) => ({
-        text: opt.label,
-        onPress: () => handleSetVisibility(project, opt.value),
-        style: opt.value === "private" ? "destructive" : "default",
-      })).concat([{ text: "Cancel", style: "cancel", onPress: () => {} }]),
+      buttons,
     );
   };
 
