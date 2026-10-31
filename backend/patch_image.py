@@ -1,26 +1,29 @@
 import sys
 import re
 
+
 def patch_server():
-    with open('server.py', 'r', encoding='utf-8') as f:
+    with open("server.py", "r", encoding="utf-8") as f:
         content = f.read()
 
     # 1. Remove OPENAI_API_KEY guards in endpoints
     content = re.sub(
         r'    if not OPENAI_API_KEY:\s+raise HTTPException\(\s+status_code=503,\s+detail="Image generation is not available. Set OPENAI_API_KEY in the backend \.env file\.",\s+\)',
-        '',
-        content, count=1
+        "",
+        content,
+        count=1,
     )
     content = re.sub(
         r'    if not OPENAI_API_KEY:\s+raise HTTPException\(\s+status_code=503,\s+detail=\(\s+"Image generation is not available\. "\s+"Set OPENAI_API_KEY in the backend \.env file to enable this feature\."\s+\)\s+\)',
-        '',
-        content, count=1
+        "",
+        content,
+        count=1,
     )
-    
+
     # 2. Update error message in generate_page_illustration
     content = content.replace(
         '"Image generation is not available. "\n                "Set OPENAI_API_KEY in the backend .env file to enable this feature."',
-        '"Image generation failed. Try again."'
+        '"Image generation failed. Try again."',
     )
 
     # 3. Patch _generate_reference_sheet_image
@@ -59,7 +62,7 @@ def patch_server():
 
     image_bytes = base64.b64decode(image_b64)
     image_path.write_bytes(image_bytes)"""
-    
+
     new_sheet = """    image_bytes = None
     try:
         import urllib.parse
@@ -194,7 +197,7 @@ def patch_server():
     proj_dir.mkdir(parents=True, exist_ok=True)
     image_path = proj_dir / f"{page_id}.png"
     image_path.write_bytes(image_bytes)"""
-    
+
     content = content.replace(old_ill, new_ill)
 
     # 5. Patch _generate_cover_image
@@ -278,10 +281,11 @@ def patch_server():
     cover_dir.mkdir(parents=True, exist_ok=True)
     image_path = cover_dir / filename
     image_path.write_bytes(image_bytes)"""
-    
+
     content = content.replace(old_cov, new_cov)
 
-    with open('server.py', 'w', encoding='utf-8') as f:
+    with open("server.py", "w", encoding="utf-8") as f:
         f.write(content)
+
 
 patch_server()

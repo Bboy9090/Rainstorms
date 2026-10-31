@@ -1,31 +1,34 @@
-import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect } from "react";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
   withSpring,
-} from 'react-native-reanimated';
-import { colors, spacing } from '../utils/theme';
-import { springConfigs } from '../utils/animations';
+} from "react-native-reanimated";
+import { colors, spacing } from "../utils/theme";
+import { springConfigs } from "../utils/animations";
 
 interface LoadingProps {
   message?: string;
   fullScreen?: boolean;
 }
 
-export function Loading({ message = 'Loading...', fullScreen = false }: LoadingProps) {
+export function Loading({
+  message = "Loading...",
+  fullScreen = false,
+}: LoadingProps) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
         withSpring(1.05, springConfigs.gentle),
-        withSpring(1, springConfigs.gentle)
+        withSpring(1, springConfigs.gentle),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -45,8 +48,8 @@ export function Loading({ message = 'Loading...', fullScreen = false }: LoadingP
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: spacing.xl,
   },
   fullScreen: {
@@ -54,14 +57,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgStart,
   },
   content: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   message: {
     marginTop: spacing.md,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

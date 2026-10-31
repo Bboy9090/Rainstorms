@@ -14,7 +14,16 @@ class JwtSigningConfigTests(unittest.TestCase):
                 load_jwt_secret()
 
     def test_weak_or_padded_values_are_rejected(self):
-        values = [None, "", " " * 64, "short", "rainstorms_secret_key_2024_v1", "x" * 31, " " + "x" * 32, "x" * 32 + " "]
+        values = [
+            None,
+            "",
+            " " * 64,
+            "short",
+            "rainstorms_secret_key_2024_v1",
+            "x" * 31,
+            " " + "x" * 32,
+            "x" * 32 + " ",
+        ]
         for value in values:
             with self.subTest(length=None if value is None else len(value)):
                 with self.assertRaises(ValueError) as error:

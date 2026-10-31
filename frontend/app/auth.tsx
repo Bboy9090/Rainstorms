@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,56 +7,56 @@ import {
   Platform,
   TouchableOpacity,
   ScrollView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Input } from '../src/components/Input';
-import { useAuth } from '../src/context/AuthContext';
-import { formatApiError } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Input } from "../src/components/Input";
+import { useAuth } from "../src/context/AuthContext";
+import { formatApiError } from "../src/utils/api";
 
 export default function AuthScreen() {
   const router = useRouter();
   const { login, register, loginAsDemo } = useAuth();
-  
+
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleDemoLogin = async () => {
-    setError('');
+    setError("");
     setIsDemoLoading(true);
     try {
       await loginAsDemo();
-      router.replace('/');
+      router.replace("/");
     } catch (err) {
-      setError(formatApiError(err, 'Could not start demo. Please try again.'));
+      setError(formatApiError(err, "Could not start demo. Please try again."));
     } finally {
       setIsDemoLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    setError('');
-    
+    setError("");
+
     if (!email.trim() || !password.trim()) {
-      setError('Please fill in all fields');
+      setError("Please fill in all fields");
       return;
     }
-    
+
     if (!isLogin && password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
-    
+
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError("Password must be at least 6 characters");
       return;
     }
 
@@ -67,9 +67,9 @@ export default function AuthScreen() {
       } else {
         await register(email, password);
       }
-      router.replace('/');
+      router.replace("/");
     } catch (err: any) {
-      setError(formatApiError(err, 'Authentication failed. Please try again.'));
+      setError(formatApiError(err, "Authentication failed. Please try again."));
     } finally {
       setIsLoading(false);
     }
@@ -78,12 +78,15 @@ export default function AuthScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -104,13 +107,17 @@ export default function AuthScreen() {
               style={[styles.tab, isLogin && styles.tabActive]}
               onPress={() => setIsLogin(true)}
             >
-              <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>Sign In</Text>
+              <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>
+                Sign In
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, !isLogin && styles.tabActive]}
               onPress={() => setIsLogin(false)}
             >
-              <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>Sign Up</Text>
+              <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>
+                Sign Up
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -149,7 +156,7 @@ export default function AuthScreen() {
           )}
 
           <Button
-            title={isLogin ? 'Sign In' : 'Create Account'}
+            title={isLogin ? "Sign In" : "Create Account"}
             onPress={handleSubmit}
             loading={isLoading}
             style={styles.submitButton}
@@ -164,7 +171,13 @@ export default function AuthScreen() {
             onPress={handleDemoLogin}
             loading={isDemoLoading}
             variant="ghost"
-            icon={<Ionicons name="play-circle-outline" size={18} color={colors.primary} />}
+            icon={
+              <Ionicons
+                name="play-circle-outline"
+                size={18}
+                color={colors.primary}
+              />
+            }
           />
           <Text style={styles.demoHint}>
             Opens a sample book so you can explore every feature instantly.
@@ -173,11 +186,11 @@ export default function AuthScreen() {
 
         {/* Privacy footer (App Store / Play Store requirement) */}
         <View style={styles.legalFooter}>
-          <TouchableOpacity onPress={() => router.push('/privacy-policy')}>
+          <TouchableOpacity onPress={() => router.push("/privacy-policy")}>
             <Text style={styles.legalLink}>Privacy Policy</Text>
           </TouchableOpacity>
           <Text style={styles.legalDot}>·</Text>
-          <TouchableOpacity onPress={() => router.push('/terms')}>
+          <TouchableOpacity onPress={() => router.push("/terms")}>
             <Text style={styles.legalLink}>Terms</Text>
           </TouchableOpacity>
         </View>
@@ -203,12 +216,12 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: borderRadius.full,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   logoSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: spacing.xl,
   },
   logoContainer: {
@@ -216,14 +229,14 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: borderRadius.lg,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.md,
     marginBottom: spacing.md,
   },
   logoText: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   tagline: {
@@ -235,7 +248,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   tabContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: spacing.lg,
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.md,
@@ -244,7 +257,7 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: spacing.sm,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: borderRadius.sm,
   },
   tabActive: {
@@ -253,17 +266,17 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textMuted,
   },
   tabTextActive: {
     color: colors.textPrimary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
     padding: spacing.sm,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
@@ -278,7 +291,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   guestSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: spacing.xl,
   },
   guestText: {
@@ -290,20 +303,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: spacing.xs,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: spacing.lg,
   },
   legalFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: spacing.xl,
     gap: spacing.sm,
   },
   legalLink: {
     fontSize: 13,
     color: colors.textMuted,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
   legalDot: {
     fontSize: 13,

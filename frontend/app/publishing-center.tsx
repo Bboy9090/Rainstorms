@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,17 +10,17 @@ import {
   Platform,
   Switch,
   ActivityIndicator,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Loading } from '../src/components/Loading';
-import { useProject } from '../src/context/ProjectContext';
-import { useAuth } from '../src/context/AuthContext';
-import { api } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Loading } from "../src/components/Loading";
+import { useProject } from "../src/context/ProjectContext";
+import { useAuth } from "../src/context/AuthContext";
+import { api } from "../src/utils/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ interface BookFormat {
 }
 
 interface ValidationIssue {
-  level: 'warning' | 'error';
+  level: "warning" | "error";
   code: string;
   message: string;
 }
@@ -66,122 +66,134 @@ interface ValidationResult {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const TRIM_SIZES = ['8x8', '8.5x8.5', '8.5x11', '10x8'];
-const PAPER_TYPES = ['standard', 'premium'];
-const COVER_FINISHES = ['matte', 'glossy'];
-const INTERIOR_COLORS = ['color', 'bw'];
-const ISBN_STATUSES = ['none', 'pending', 'registered'];
+const TRIM_SIZES = ["8x8", "8.5x8.5", "8.5x11", "10x8"];
+const PAPER_TYPES = ["standard", "premium"];
+const COVER_FINISHES = ["matte", "glossy"];
+const INTERIOR_COLORS = ["color", "bw"];
+const ISBN_STATUSES = ["none", "pending", "registered"];
 
 const DEFAULT_METADATA: BookMetadata = {
-  title: '',
-  subtitle: '',
-  author_name: '',
-  pen_name: '',
-  series_name: '',
+  title: "",
+  subtitle: "",
+  author_name: "",
+  pen_name: "",
+  series_name: "",
   series_number: null,
-  book_description: '',
+  book_description: "",
   keywords: [],
-  age_range: '',
-  language: 'en',
-  publisher_name: '',
-  publication_date: '',
-  isbn_status: 'none',
-  copyright_holder: '',
+  age_range: "",
+  language: "en",
+  publisher_name: "",
+  publication_date: "",
+  isbn_status: "none",
+  copyright_holder: "",
 };
 
 const DEFAULT_FORMAT: BookFormat = {
-  trim_size: '8x8',
+  trim_size: "8x8",
   bleed_enabled: true,
-  paper_type: 'standard',
-  cover_finish: 'matte',
-  interior_color: 'color',
+  paper_type: "standard",
+  cover_finish: "matte",
+  interior_color: "color",
   font_embedding: true,
 };
 
 const PLATFORMS = [
   {
-    key: 'kdp',
-    label: 'Amazon KDP',
-    icon: 'logo-amazon' as const,
-    color: '#FF9900',
-    bgColor: '#FFF8F0',
-    description: 'Print + Kindle ebook on Amazon',
+    key: "kdp",
+    label: "Amazon KDP",
+    icon: "logo-amazon" as const,
+    color: "#FF9900",
+    bgColor: "#FFF8F0",
+    description: "Print + Kindle ebook on Amazon",
   },
   {
-    key: 'ingram',
-    label: 'IngramSpark',
-    icon: 'book' as const,
-    color: '#C0392B',
-    bgColor: '#FFF0EE',
-    description: 'Global distribution to bookstores & libraries',
+    key: "ingram",
+    label: "IngramSpark",
+    icon: "book" as const,
+    color: "#C0392B",
+    bgColor: "#FFF0EE",
+    description: "Global distribution to bookstores & libraries",
   },
   {
-    key: 'lulu',
-    label: 'Lulu',
-    icon: 'print' as const,
-    color: '#6B21A8',
-    bgColor: '#FAF0FF',
-    description: 'Print-on-demand with direct storefront',
+    key: "lulu",
+    label: "Lulu",
+    icon: "print" as const,
+    color: "#6B21A8",
+    bgColor: "#FAF0FF",
+    description: "Print-on-demand with direct storefront",
   },
   {
-    key: 'all',
-    label: 'All Platforms',
-    icon: 'download' as const,
+    key: "all",
+    label: "All Platforms",
+    icon: "download" as const,
     color: colors.primary,
     bgColor: colors.tintPrimary,
-    description: 'Download a complete package for all platforms',
+    description: "Download a complete package for all platforms",
   },
 ];
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-type Tab = 'metadata' | 'format' | 'validate' | 'export';
+type Tab = "metadata" | "format" | "validate" | "export";
 
 export default function PublishingCenterScreen() {
   const router = useRouter();
-  const { currentProject, pages, characters, isLoading: projectLoading } = useProject();
+  const {
+    currentProject,
+    pages,
+    characters,
+    isLoading: projectLoading,
+  } = useProject();
   const { token, isLoading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<Tab>('metadata');
+  const [activeTab, setActiveTab] = useState<Tab>("metadata");
   const [metadata, setMetadata] = useState<BookMetadata>(DEFAULT_METADATA);
   const [format, setFormat] = useState<BookFormat>(DEFAULT_FORMAT);
-  const [keywordsText, setKeywordsText] = useState('');
+  const [keywordsText, setKeywordsText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingMeta, setIsLoadingMeta] = useState(true);
   const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
-  const [exportingPlatform, setExportingPlatform] = useState<string | null>(null);
+  const [validationResult, setValidationResult] =
+    useState<ValidationResult | null>(null);
+  const [exportingPlatform, setExportingPlatform] = useState<string | null>(
+    null,
+  );
   const [isAutofilling, setIsAutofilling] = useState(false);
   const [isOneClickPublishing, setIsOneClickPublishing] = useState(false);
-  const [publishProgress, setPublishProgress] = useState<string>('');
+  const [publishProgress, setPublishProgress] = useState<string>("");
 
   // Build autofill suggestions from project + characters
   const buildAutofill = useCallback((): Partial<BookMetadata> => {
     if (!currentProject) return {};
-    const today = new Date().toISOString().split('T')[0];
-    const authorName = currentProject.cover?.author_name ?? '';
+    const today = new Date().toISOString().split("T")[0];
+    const authorName = currentProject.cover?.author_name ?? "";
 
-    const keywordSet = new Set<string>(['picture book', "children's book"]);
-    if (currentProject.theme) keywordSet.add(currentProject.theme.toLowerCase());
+    const keywordSet = new Set<string>(["picture book", "children's book"]);
+    if (currentProject.theme)
+      keywordSet.add(currentProject.theme.toLowerCase());
     if (currentProject.tone) {
-      currentProject.tone.split(',').forEach((t) => {
+      currentProject.tone.split(",").forEach((t) => {
         const trimmed = t.trim().toLowerCase();
         if (trimmed) keywordSet.add(trimmed);
       });
     }
-    characters.forEach((c) => { if (c.name) keywordSet.add(c.name); });
-    const ageRange = currentProject.age_range ?? '';
-    if (/[2-4]/.test(ageRange)) keywordSet.add('toddler');
-    if (/[5-8]/.test(ageRange)) keywordSet.add('early reader');
+    characters.forEach((c) => {
+      if (c.name) keywordSet.add(c.name);
+    });
+    const ageRange = currentProject.age_range ?? "";
+    if (/[2-4]/.test(ageRange)) keywordSet.add("toddler");
+    if (/[5-8]/.test(ageRange)) keywordSet.add("early reader");
 
     return {
-      title: currentProject.title ?? '',
+      title: currentProject.title ?? "",
       age_range: ageRange,
-      book_description: currentProject.summary || currentProject.original_idea || '',
+      book_description:
+        currentProject.summary || currentProject.original_idea || "",
       author_name: authorName,
       copyright_holder: authorName,
       publication_date: today,
-      language: 'en',
+      language: "en",
       keywords: Array.from(keywordSet).filter(Boolean),
     };
   }, [currentProject, characters]);
@@ -191,9 +203,11 @@ export default function PublishingCenterScreen() {
     if (!currentProject) return;
     setIsAutofilling(true);
     try {
-      const res = await api.post(`/projects/${currentProject.id}/publishing-center/autofill`);
+      const res = await api.post(
+        `/projects/${currentProject.id}/publishing-center/autofill`,
+      );
       const suggestions = res.data;
-      
+
       setMetadata((prev) => ({
         ...prev,
         subtitle: prev.subtitle || suggestions.subtitle,
@@ -205,15 +219,21 @@ export default function PublishingCenterScreen() {
       }));
 
       if (suggestions.keywords?.length) {
-        setKeywordsText(suggestions.keywords.join(', '));
+        setKeywordsText(suggestions.keywords.join(", "));
       }
-      
-      Alert.alert('AI Autofill Complete', 'We generated professional metadata based on your story content.');
+
+      Alert.alert(
+        "AI Autofill Complete",
+        "We generated professional metadata based on your story content.",
+      );
     } catch (err) {
-      console.error('AI Autofill failed:', err);
+      console.error("AI Autofill failed:", err);
       // Fallback to local basic autofill logic if API fails
       const suggestions = buildAutofill();
-      setMetadata((prev) => ({ ...prev, title: prev.title || suggestions.title }));
+      setMetadata((prev) => ({
+        ...prev,
+        title: prev.title || suggestions.title,
+      }));
     } finally {
       setIsAutofilling(false);
     }
@@ -231,11 +251,13 @@ export default function PublishingCenterScreen() {
     if (!currentProject) return;
     setIsLoadingMeta(true);
     try {
-      const res = await api.get(`/projects/${currentProject.id}/publishing-center/metadata`);
+      const res = await api.get(
+        `/projects/${currentProject.id}/publishing-center/metadata`,
+      );
       const data = res.data;
       if (data.book_metadata) {
         setMetadata({ ...DEFAULT_METADATA, ...data.book_metadata });
-        setKeywordsText((data.book_metadata.keywords || []).join(', '));
+        setKeywordsText((data.book_metadata.keywords || []).join(", "));
       }
       if (data.book_format) {
         setFormat({ ...DEFAULT_FORMAT, ...data.book_format });
@@ -243,8 +265,8 @@ export default function PublishingCenterScreen() {
     } catch {
       setMetadata((m) => ({
         ...m,
-        title: m.title || currentProject.title || '',
-        age_range: m.age_range || currentProject.age_range || '',
+        title: m.title || currentProject.title || "",
+        age_range: m.age_range || currentProject.age_range || "",
       }));
     } finally {
       setIsLoadingMeta(false);
@@ -264,18 +286,21 @@ export default function PublishingCenterScreen() {
     setIsSaving(true);
     try {
       const keywords = keywordsText
-        .split(',')
+        .split(",")
         .map((k) => k.trim())
         .filter(Boolean);
       const metaToSave = { ...metadata, keywords };
-      await api.put(`/projects/${currentProject.id}/publishing-center/metadata`, {
-        book_metadata: metaToSave,
-        book_format: format,
-      });
+      await api.put(
+        `/projects/${currentProject.id}/publishing-center/metadata`,
+        {
+          book_metadata: metaToSave,
+          book_format: format,
+        },
+      );
       setMetadata(metaToSave);
-      Alert.alert('Saved', 'Publishing metadata saved successfully.');
+      Alert.alert("Saved", "Publishing metadata saved successfully.");
     } catch {
-      Alert.alert('Error', 'Failed to save metadata. Please try again.');
+      Alert.alert("Error", "Failed to save metadata. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -286,10 +311,12 @@ export default function PublishingCenterScreen() {
     setIsValidating(true);
     setValidationResult(null);
     try {
-      const res = await api.post(`/projects/${currentProject.id}/publishing-center/validate`);
+      const res = await api.post(
+        `/projects/${currentProject.id}/publishing-center/validate`,
+      );
       setValidationResult(res.data);
     } catch {
-      Alert.alert('Error', 'Validation failed. Please try again.');
+      Alert.alert("Error", "Validation failed. Please try again.");
     } finally {
       setIsValidating(false);
     }
@@ -299,26 +326,29 @@ export default function PublishingCenterScreen() {
     if (!currentProject) return;
     setExportingPlatform(platform);
     try {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         const res = await api.get(
           `/projects/${currentProject.id}/publishing-center/export/${platform}`,
-          { responseType: 'arraybuffer' },
+          { responseType: "arraybuffer" },
         );
-        const blob = new Blob([res.data], { type: 'application/zip' });
+        const blob = new Blob([res.data], { type: "application/zip" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `${(currentProject.title || 'book').toLowerCase().replace(/\s+/g, '_')}_${platform}.zip`;
+        a.download = `${(currentProject.title || "book").toLowerCase().replace(/\s+/g, "_")}_${platform}.zip`;
         a.click();
         URL.revokeObjectURL(url);
       } else {
         Alert.alert(
-          'Export on Mobile',
-          'For the full publishing package download, please open Rainstorms in a web browser and export from there.',
+          "Export on Mobile",
+          "For the full publishing package download, please open Rainstorms in a web browser and export from there.",
         );
       }
     } catch {
-      Alert.alert('Error', `Failed to export for ${platform}. Please try again.`);
+      Alert.alert(
+        "Error",
+        `Failed to export for ${platform}. Please try again.`,
+      );
     } finally {
       setExportingPlatform(null);
     }
@@ -327,51 +357,66 @@ export default function PublishingCenterScreen() {
   const handleOneClickPublish = async () => {
     if (!currentProject) return;
     setIsOneClickPublishing(true);
-    setPublishProgress('Initializing magic publish...');
-    
+    setPublishProgress("Initializing magic publish...");
+
     try {
       // 1. AI Autofill
-      setPublishProgress('AI analyzing story content...');
-      const autoRes = await api.post(`/projects/${currentProject.id}/publishing-center/autofill`);
+      setPublishProgress("AI analyzing story content...");
+      const autoRes = await api.post(
+        `/projects/${currentProject.id}/publishing-center/autofill`,
+      );
       const suggestions = autoRes.data;
       const keywords = suggestions.keywords || [];
-      const metaToSave = { 
-        ...metadata, 
+      const metaToSave = {
+        ...metadata,
         ...suggestions,
-        keywords: metadata.keywords?.length ? metadata.keywords : keywords 
+        keywords: metadata.keywords?.length ? metadata.keywords : keywords,
       };
 
       // 2. Save
-      setPublishProgress('Securing publishing metadata...');
-      await api.put(`/projects/${currentProject.id}/publishing-center/metadata`, {
-        book_metadata: metaToSave,
-        book_format: format,
-      });
+      setPublishProgress("Securing publishing metadata...");
+      await api.put(
+        `/projects/${currentProject.id}/publishing-center/metadata`,
+        {
+          book_metadata: metaToSave,
+          book_format: format,
+        },
+      );
       setMetadata(metaToSave);
 
       // 3. Validate
-      setPublishProgress('Validating print-readiness...');
-      const valRes = await api.post(`/projects/${currentProject.id}/publishing-center/validate`);
+      setPublishProgress("Validating print-readiness...");
+      const valRes = await api.post(
+        `/projects/${currentProject.id}/publishing-center/validate`,
+      );
       setValidationResult(valRes.data);
 
       if (!valRes.data.ready) {
-        throw new Error('Validation issues found. Please review the Validate tab.');
+        throw new Error(
+          "Validation issues found. Please review the Validate tab.",
+        );
       }
 
       // 4. Export
-      setPublishProgress('Generating full publishing package...');
-      await handleExport('all');
+      setPublishProgress("Generating full publishing package...");
+      await handleExport("all");
 
-      setPublishProgress('Done!');
+      setPublishProgress("Done!");
       setTimeout(() => {
         setIsOneClickPublishing(false);
-        Alert.alert('Publishing Successful', 'Your full publishing package has been generated and downloaded.');
+        Alert.alert(
+          "Publishing Successful",
+          "Your full publishing package has been generated and downloaded.",
+        );
       }, 1000);
     } catch (err: any) {
       setIsOneClickPublishing(false);
-      Alert.alert('Publishing Blocked', err.message || 'An error occurred during publishing.');
+      Alert.alert(
+        "Publishing Blocked",
+        err.message || "An error occurred during publishing.",
+      );
     } finally {
-      setPublishProgress('');
+      setPublishProgress("");
     }
   };
 
@@ -385,7 +430,10 @@ export default function PublishingCenterScreen() {
     <View style={styles.container}>
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
@@ -398,16 +446,23 @@ export default function PublishingCenterScreen() {
       {/* ── Book Overview Card ── */}
       <View style={styles.overviewWrapper}>
         <Card style={styles.overviewCard} variant="elevated">
-          <Text style={styles.bookTitle} numberOfLines={1}>{currentProject.title}</Text>
+          <Text style={styles.bookTitle} numberOfLines={1}>
+            {currentProject.title}
+          </Text>
           <View style={styles.statsRow}>
             <_Stat label="Pages" value={String(pages.length)} />
             <_Stat
               label="Written"
               value={`${pagesWithText}/${pages.length}`}
-              color={pagesWithText === pages.length ? colors.success : colors.warning}
+              color={
+                pagesWithText === pages.length ? colors.success : colors.warning
+              }
             />
             <_Stat label="Trim" value={format.trim_size + '"'} />
-            <_Stat label="Format" value={format.interior_color === 'color' ? 'Color' : 'B&W'} />
+            <_Stat
+              label="Format"
+              value={format.interior_color === "color" ? "Color" : "B&W"}
+            />
           </View>
         </Card>
       </View>
@@ -416,15 +471,18 @@ export default function PublishingCenterScreen() {
       <View style={styles.tabBar}>
         {(
           [
-            { key: 'metadata', icon: 'information-circle', label: 'Metadata' },
-            { key: 'format', icon: 'settings', label: 'Format' },
-            { key: 'validate', icon: 'checkmark-circle', label: 'Validate' },
-            { key: 'export', icon: 'cloud-download', label: 'Export' },
+            { key: "metadata", icon: "information-circle", label: "Metadata" },
+            { key: "format", icon: "settings", label: "Format" },
+            { key: "validate", icon: "checkmark-circle", label: "Validate" },
+            { key: "export", icon: "cloud-download", label: "Export" },
           ] as Array<{ key: Tab; icon: string; label: string }>
         ).map((tab) => (
           <TouchableOpacity
             key={tab.key}
-            style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
+            style={[
+              styles.tabItem,
+              activeTab === tab.key && styles.tabItemActive,
+            ]}
             onPress={() => setActiveTab(tab.key)}
           >
             <Ionicons
@@ -432,7 +490,12 @@ export default function PublishingCenterScreen() {
               size={18}
               color={activeTab === tab.key ? colors.primary : colors.textMuted}
             />
-            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === tab.key && styles.tabLabelActive,
+              ]}
+            >
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -443,8 +506,11 @@ export default function PublishingCenterScreen() {
       {isLoadingMeta ? (
         <Loading message="Loading metadata…" />
       ) : (
-        <ScrollView style={styles.tabContent} contentContainerStyle={styles.tabContentInner}>
-          {activeTab === 'metadata' && (
+        <ScrollView
+          style={styles.tabContent}
+          contentContainerStyle={styles.tabContentInner}
+        >
+          {activeTab === "metadata" && (
             <MetadataTab
               metadata={metadata}
               keywordsText={keywordsText}
@@ -458,7 +524,7 @@ export default function PublishingCenterScreen() {
               isPublishing={isOneClickPublishing}
             />
           )}
-          {activeTab === 'format' && (
+          {activeTab === "format" && (
             <FormatTab
               format={format}
               pageCount={currentProject.page_count}
@@ -467,14 +533,14 @@ export default function PublishingCenterScreen() {
               isSaving={isSaving}
             />
           )}
-          {activeTab === 'validate' && (
+          {activeTab === "validate" && (
             <ValidateTab
               validationResult={validationResult}
               isValidating={isValidating}
               onValidate={handleValidate}
             />
           )}
-          {activeTab === 'export' && (
+          {activeTab === "export" && (
             <ExportTab
               exportingPlatform={exportingPlatform}
               onExport={handleExport}
@@ -487,7 +553,9 @@ export default function PublishingCenterScreen() {
         <View style={styles.publishOverlay}>
           <Card style={styles.publishOverlayCard} variant="elevated">
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.publishOverlayTitle}>Magic Publishing in Progress</Text>
+            <Text style={styles.publishOverlayTitle}>
+              Magic Publishing in Progress
+            </Text>
             <Text style={styles.publishOverlayText}>{publishProgress}</Text>
           </Card>
         </View>
@@ -498,10 +566,20 @@ export default function PublishingCenterScreen() {
 
 // ── Stat chip ──────────────────────────────────────────────────────────────────
 
-function _Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+function _Stat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
   return (
     <View style={styles.statItem}>
-      <Text style={[styles.statValue, color ? { color } : undefined]}>{value}</Text>
+      <Text style={[styles.statValue, color ? { color } : undefined]}>
+        {value}
+      </Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -540,10 +618,12 @@ function MetadataTab({
       <View style={styles.autofillRow}>
         <View style={styles.autofillInfo}>
           <Text style={styles.autofillTitle}>Magic AI Publish</Text>
-          <Text style={styles.autofillSub}>Autofill, validate, & export everything in one click</Text>
+          <Text style={styles.autofillSub}>
+            Autofill, validate, & export everything in one click
+          </Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.autofillBtn, { backgroundColor: colors.primary }]} 
+        <TouchableOpacity
+          style={[styles.autofillBtn, { backgroundColor: colors.primary }]}
           onPress={onOneClickPublish}
           disabled={isPublishing}
         >
@@ -552,7 +632,9 @@ function MetadataTab({
           ) : (
             <>
               <Ionicons name="rocket" size={16} color={colors.white} />
-              <Text style={[styles.autofillBtnText, { color: colors.white }]}>Magic Publish</Text>
+              <Text style={[styles.autofillBtnText, { color: colors.white }]}>
+                Magic Publish
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -560,11 +642,15 @@ function MetadataTab({
 
       <View style={[styles.autofillRow, { backgroundColor: colors.gray100 }]}>
         <View style={styles.autofillInfo}>
-          <Text style={[styles.autofillTitle, { color: colors.textPrimary }]}>Smart AI Autofill</Text>
-          <Text style={styles.autofillSub}>Let AI generate your book description and keywords</Text>
+          <Text style={[styles.autofillTitle, { color: colors.textPrimary }]}>
+            Smart AI Autofill
+          </Text>
+          <Text style={styles.autofillSub}>
+            Let AI generate your book description and keywords
+          </Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.autofillBtn, { borderColor: colors.gray300 }]} 
+        <TouchableOpacity
+          style={[styles.autofillBtn, { borderColor: colors.gray300 }]}
           onPress={onAutofill}
           disabled={isAutofilling}
         >
@@ -581,48 +667,117 @@ function MetadataTab({
 
       <Text style={styles.sectionTitle}>Book Information</Text>
 
-      <_Field label="Title" value={metadata.title} onChangeText={update('title')} />
-      <_Field label="Subtitle" value={metadata.subtitle} onChangeText={update('subtitle')} placeholder="Optional tagline" />
-      <_Field label="Author Name" value={metadata.author_name} onChangeText={update('author_name')} />
-      <_Field label="Pen Name" value={metadata.pen_name} onChangeText={update('pen_name')} placeholder="Optional pen name" />
+      <_Field
+        label="Title"
+        value={metadata.title}
+        onChangeText={update("title")}
+      />
+      <_Field
+        label="Subtitle"
+        value={metadata.subtitle}
+        onChangeText={update("subtitle")}
+        placeholder="Optional tagline"
+      />
+      <_Field
+        label="Author Name"
+        value={metadata.author_name}
+        onChangeText={update("author_name")}
+      />
+      <_Field
+        label="Pen Name"
+        value={metadata.pen_name}
+        onChangeText={update("pen_name")}
+        placeholder="Optional pen name"
+      />
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Series</Text>
-      <_Field label="Series Name" value={metadata.series_name} onChangeText={update('series_name')} placeholder="e.g. Captain Blanket" />
+      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
+        Series
+      </Text>
+      <_Field
+        label="Series Name"
+        value={metadata.series_name}
+        onChangeText={update("series_name")}
+        placeholder="e.g. Captain Blanket"
+      />
       <_Field
         label="Series Number"
-        value={metadata.series_number !== null ? String(metadata.series_number) : ''}
-        onChangeText={(v) => onChange({ ...metadata, series_number: v ? parseInt(v, 10) || null : null })}
+        value={
+          metadata.series_number !== null ? String(metadata.series_number) : ""
+        }
+        onChangeText={(v) =>
+          onChange({
+            ...metadata,
+            series_number: v ? parseInt(v, 10) || null : null,
+          })
+        }
         keyboardType="numeric"
         placeholder="e.g. 1"
       />
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Publishing Details</Text>
-      <_Field label="Publisher Name" value={metadata.publisher_name} onChangeText={update('publisher_name')} />
-      <_Field label="Copyright Holder" value={metadata.copyright_holder} onChangeText={update('copyright_holder')} />
-      <_Field label="Publication Date" value={metadata.publication_date} onChangeText={update('publication_date')} placeholder="YYYY-MM-DD" />
-      <_Field label="Age Range" value={metadata.age_range} onChangeText={update('age_range')} placeholder="e.g. 3-8" />
-      <_Field label="Language Code" value={metadata.language} onChangeText={update('language')} placeholder="en" />
+      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
+        Publishing Details
+      </Text>
+      <_Field
+        label="Publisher Name"
+        value={metadata.publisher_name}
+        onChangeText={update("publisher_name")}
+      />
+      <_Field
+        label="Copyright Holder"
+        value={metadata.copyright_holder}
+        onChangeText={update("copyright_holder")}
+      />
+      <_Field
+        label="Publication Date"
+        value={metadata.publication_date}
+        onChangeText={update("publication_date")}
+        placeholder="YYYY-MM-DD"
+      />
+      <_Field
+        label="Age Range"
+        value={metadata.age_range}
+        onChangeText={update("age_range")}
+        placeholder="e.g. 3-8"
+      />
+      <_Field
+        label="Language Code"
+        value={metadata.language}
+        onChangeText={update("language")}
+        placeholder="en"
+      />
 
       <Text style={styles.fieldLabel}>ISBN Status</Text>
       <View style={styles.chipRow}>
         {ISBN_STATUSES.map((s) => (
           <TouchableOpacity
             key={s}
-            style={[styles.chip, metadata.isbn_status === s && styles.chipActive]}
+            style={[
+              styles.chip,
+              metadata.isbn_status === s && styles.chipActive,
+            ]}
             onPress={() => onChange({ ...metadata, isbn_status: s })}
           >
-            <Text style={[styles.chipText, metadata.isbn_status === s && styles.chipTextActive]}>
-              {s === 'none' ? 'No ISBN' : s.charAt(0).toUpperCase() + s.slice(1)}
+            <Text
+              style={[
+                styles.chipText,
+                metadata.isbn_status === s && styles.chipTextActive,
+              ]}
+            >
+              {s === "none"
+                ? "No ISBN"
+                : s.charAt(0).toUpperCase() + s.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Description & Keywords</Text>
+      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
+        Description & Keywords
+      </Text>
       <_Field
         label="Book Description"
         value={metadata.book_description}
-        onChangeText={update('book_description')}
+        onChangeText={update("book_description")}
         multiline
         placeholder="A short description for the back cover and publishing platforms…"
         numberOfLines={5}
@@ -635,7 +790,7 @@ function MetadataTab({
       />
 
       <Button
-        title={isSaving ? 'Saving…' : 'Save Metadata'}
+        title={isSaving ? "Saving…" : "Save Metadata"}
         onPress={onSave}
         loading={isSaving}
         style={styles.saveButton}
@@ -667,7 +822,9 @@ function FormatTab({
   return (
     <>
       <Text style={styles.sectionTitle}>Trim Size</Text>
-      <Text style={styles.helpText}>Choose the physical print dimensions of your book.</Text>
+      <Text style={styles.helpText}>
+        Choose the physical print dimensions of your book.
+      </Text>
       <View style={styles.chipRow}>
         {TRIM_SIZES.map((s) => (
           <TouchableOpacity
@@ -675,14 +832,21 @@ function FormatTab({
             style={[styles.chip, format.trim_size === s && styles.chipActive]}
             onPress={() => onChange({ ...format, trim_size: s })}
           >
-            <Text style={[styles.chipText, format.trim_size === s && styles.chipTextActive]}>
+            <Text
+              style={[
+                styles.chipText,
+                format.trim_size === s && styles.chipTextActive,
+              ]}
+            >
               {s}"
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Paper & Finish</Text>
+      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
+        Paper & Finish
+      </Text>
 
       <Text style={styles.fieldLabel}>Paper Type</Text>
       <View style={styles.chipRow}>
@@ -692,7 +856,12 @@ function FormatTab({
             style={[styles.chip, format.paper_type === t && styles.chipActive]}
             onPress={() => onChange({ ...format, paper_type: t })}
           >
-            <Text style={[styles.chipText, format.paper_type === t && styles.chipTextActive]}>
+            <Text
+              style={[
+                styles.chipText,
+                format.paper_type === t && styles.chipTextActive,
+              ]}
+            >
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -704,10 +873,18 @@ function FormatTab({
         {COVER_FINISHES.map((f) => (
           <TouchableOpacity
             key={f}
-            style={[styles.chip, format.cover_finish === f && styles.chipActive]}
+            style={[
+              styles.chip,
+              format.cover_finish === f && styles.chipActive,
+            ]}
             onPress={() => onChange({ ...format, cover_finish: f })}
           >
-            <Text style={[styles.chipText, format.cover_finish === f && styles.chipTextActive]}>
+            <Text
+              style={[
+                styles.chipText,
+                format.cover_finish === f && styles.chipTextActive,
+              ]}
+            >
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </Text>
           </TouchableOpacity>
@@ -719,22 +896,34 @@ function FormatTab({
         {INTERIOR_COLORS.map((c) => (
           <TouchableOpacity
             key={c}
-            style={[styles.chip, format.interior_color === c && styles.chipActive]}
+            style={[
+              styles.chip,
+              format.interior_color === c && styles.chipActive,
+            ]}
             onPress={() => onChange({ ...format, interior_color: c })}
           >
-            <Text style={[styles.chipText, format.interior_color === c && styles.chipTextActive]}>
-              {c === 'bw' ? 'Black & White' : 'Full Color'}
+            <Text
+              style={[
+                styles.chipText,
+                format.interior_color === c && styles.chipTextActive,
+              ]}
+            >
+              {c === "bw" ? "Black & White" : "Full Color"}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>Advanced Settings</Text>
+      <Text style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
+        Advanced Settings
+      </Text>
 
       <View style={styles.toggleRow}>
         <View style={styles.toggleInfo}>
           <Text style={styles.toggleLabel}>Bleed Margins</Text>
-          <Text style={styles.toggleDesc}>0.125" bleed on all sides (required by most printers)</Text>
+          <Text style={styles.toggleDesc}>
+            0.125" bleed on all sides (required by most printers)
+          </Text>
         </View>
         <Switch
           value={format.bleed_enabled}
@@ -747,7 +936,9 @@ function FormatTab({
       <View style={styles.toggleRow}>
         <View style={styles.toggleInfo}>
           <Text style={styles.toggleLabel}>Embed Fonts</Text>
-          <Text style={styles.toggleDesc}>Required for PDF/X print standards</Text>
+          <Text style={styles.toggleDesc}>
+            Required for PDF/X print standards
+          </Text>
         </View>
         <Switch
           value={format.font_embedding}
@@ -761,7 +952,8 @@ function FormatTab({
       <Card style={styles.spineCard} variant="elevated">
         <Text style={styles.spineTitle}>📐 Spine Width Calculator</Text>
         <Text style={styles.spineFormula}>
-          {pageCount} pages × {PAPER_THICKNESS}" paper = <Text style={styles.spineResult}>{spineWidth}"</Text>
+          {pageCount} pages × {PAPER_THICKNESS}" paper ={" "}
+          <Text style={styles.spineResult}>{spineWidth}"</Text>
         </Text>
         <Text style={styles.spineNote}>
           This value is automatically applied to your cover PDF.
@@ -769,7 +961,7 @@ function FormatTab({
       </Card>
 
       <Button
-        title={isSaving ? 'Saving…' : 'Save Format Settings'}
+        title={isSaving ? "Saving…" : "Save Format Settings"}
         onPress={onSave}
         loading={isSaving}
         style={styles.saveButton}
@@ -798,7 +990,7 @@ function ValidateTab({
       </Text>
 
       <Button
-        title={isValidating ? 'Checking…' : 'Run Print Validation'}
+        title={isValidating ? "Checking…" : "Run Print Validation"}
         onPress={onValidate}
         loading={isValidating}
         style={{ marginBottom: spacing.lg }}
@@ -811,22 +1003,28 @@ function ValidateTab({
           <Card
             style={[
               styles.statusCard,
-              { borderLeftColor: validationResult.ready ? colors.success : colors.error },
+              {
+                borderLeftColor: validationResult.ready
+                  ? colors.success
+                  : colors.error,
+              },
             ]}
           >
             <View style={styles.statusRow}>
               <Ionicons
-                name={validationResult.ready ? 'checkmark-circle' : 'warning'}
+                name={validationResult.ready ? "checkmark-circle" : "warning"}
                 size={28}
                 color={validationResult.ready ? colors.success : colors.error}
               />
               <View style={styles.statusText}>
                 <Text style={styles.statusTitle}>
-                  {validationResult.ready ? '✓ Ready to Export' : 'Issues Found'}
+                  {validationResult.ready
+                    ? "✓ Ready to Export"
+                    : "Issues Found"}
                 </Text>
                 <Text style={styles.statusSubtitle}>
                   {validationResult.issue_count === 0
-                    ? 'All checks passed!'
+                    ? "All checks passed!"
                     : `${validationResult.errors.length} error(s), ${validationResult.warnings.length} warning(s)`}
                 </Text>
               </View>
@@ -845,9 +1043,17 @@ function ValidateTab({
 
           {validationResult.issue_count === 0 && (
             <Card style={styles.allGoodCard}>
-              <Ionicons name="checkmark-circle" size={40} color={colors.success} />
-              <Text style={styles.allGoodText}>All validation checks passed!</Text>
-              <Text style={styles.allGoodSub}>Your book is ready to export.</Text>
+              <Ionicons
+                name="checkmark-circle"
+                size={40}
+                color={colors.success}
+              />
+              <Text style={styles.allGoodText}>
+                All validation checks passed!
+              </Text>
+              <Text style={styles.allGoodSub}>
+                Your book is ready to export.
+              </Text>
             </Card>
           )}
         </>
@@ -857,20 +1063,28 @@ function ValidateTab({
 }
 
 function _IssueCard({ issue }: { issue: ValidationIssue }) {
-  const isError = issue.level === 'error';
+  const isError = issue.level === "error";
   return (
     <Card
-      style={[styles.issueCard, { borderLeftColor: isError ? colors.error : colors.warning }]}
+      style={[
+        styles.issueCard,
+        { borderLeftColor: isError ? colors.error : colors.warning },
+      ]}
     >
       <View style={styles.issueRow}>
         <Ionicons
-          name={isError ? 'close-circle' : 'warning'}
+          name={isError ? "close-circle" : "warning"}
           size={20}
           color={isError ? colors.error : colors.warning}
         />
         <View style={styles.issueText}>
-          <Text style={[styles.issueBadge, { color: isError ? colors.error : colors.warning }]}>
-            {isError ? 'ERROR' : 'WARNING'}
+          <Text
+            style={[
+              styles.issueBadge,
+              { color: isError ? colors.error : colors.warning },
+            ]}
+          >
+            {isError ? "ERROR" : "WARNING"}
           </Text>
           <Text style={styles.issueMessage}>{issue.message}</Text>
         </View>
@@ -892,14 +1106,20 @@ function ExportTab({
     <>
       <Text style={styles.sectionTitle}>Export Publishing Package</Text>
       <Text style={styles.helpText}>
-        Each export contains: interior.pdf, cover.pdf, ebook.epub, metadata.json,
-        and a publishing checklist. Files are bundled as a ZIP archive.
+        Each export contains: interior.pdf, cover.pdf, ebook.epub,
+        metadata.json, and a publishing checklist. Files are bundled as a ZIP
+        archive.
       </Text>
 
       {PLATFORMS.map((platform) => (
         <Card key={platform.key} style={styles.platformCard}>
           <View style={styles.platformHeader}>
-            <View style={[styles.platformIcon, { backgroundColor: platform.bgColor }]}>
+            <View
+              style={[
+                styles.platformIcon,
+                { backgroundColor: platform.bgColor },
+              ]}
+            >
               <Ionicons name={platform.icon} size={26} color={platform.color} />
             </View>
             <View style={styles.platformInfo}>
@@ -911,21 +1131,23 @@ function ExportTab({
           <Button
             title={
               exportingPlatform === platform.key
-                ? 'Generating…'
-                : platform.key === 'all'
-                ? 'Download All Files'
-                : `Export for ${platform.label}`
+                ? "Generating…"
+                : platform.key === "all"
+                  ? "Download All Files"
+                  : `Export for ${platform.label}`
             }
             onPress={() => onExport(platform.key)}
             loading={exportingPlatform === platform.key}
-            disabled={exportingPlatform !== null && exportingPlatform !== platform.key}
-            variant={platform.key === 'all' ? 'primary' : 'outline'}
+            disabled={
+              exportingPlatform !== null && exportingPlatform !== platform.key
+            }
+            variant={platform.key === "all" ? "primary" : "outline"}
             style={styles.exportButton}
             icon={
               <Ionicons
                 name="download"
                 size={18}
-                color={platform.key === 'all' ? colors.white : colors.primary}
+                color={platform.key === "all" ? colors.white : colors.primary}
               />
             }
           />
@@ -933,13 +1155,30 @@ function ExportTab({
       ))}
 
       <Card style={styles.packageInfoCard} variant="elevated">
-        <Text style={styles.packageInfoTitle}>📦 What's in the export package?</Text>
+        <Text style={styles.packageInfoTitle}>
+          📦 What's in the export package?
+        </Text>
         {[
-          { file: 'interior.pdf', desc: 'Print-ready story with title page, copyright, & all pages' },
-          { file: 'cover.pdf', desc: 'Front cover + spine + back cover with calculated spine width' },
-          { file: 'ebook.epub', desc: 'EPUB 3.0 — compatible with Kindle, Apple Books & Kobo' },
-          { file: 'metadata.json', desc: 'All publishing metadata in structured format' },
-          { file: 'publishing_checklist.txt', desc: 'Platform-specific submission guide' },
+          {
+            file: "interior.pdf",
+            desc: "Print-ready story with title page, copyright, & all pages",
+          },
+          {
+            file: "cover.pdf",
+            desc: "Front cover + spine + back cover with calculated spine width",
+          },
+          {
+            file: "ebook.epub",
+            desc: "EPUB 3.0 — compatible with Kindle, Apple Books & Kobo",
+          },
+          {
+            file: "metadata.json",
+            desc: "All publishing metadata in structured format",
+          },
+          {
+            file: "publishing_checklist.txt",
+            desc: "Platform-specific submission guide",
+          },
         ].map((item) => (
           <View key={item.file} style={styles.packageFileRow}>
             <Text style={styles.packageFileName}>{item.file}</Text>
@@ -968,20 +1207,26 @@ function _Field({
   placeholder?: string;
   multiline?: boolean;
   numberOfLines?: number;
-  keyboardType?: 'default' | 'numeric' | 'email-address';
+  keyboardType?: "default" | "numeric" | "email-address";
 }) {
   return (
     <View style={styles.fieldWrapper}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, multiline && { height: (numberOfLines || 3) * 22 + 16, textAlignVertical: 'top' }]}
+        style={[
+          styles.fieldInput,
+          multiline && {
+            height: (numberOfLines || 3) * 22 + 16,
+            textAlignVertical: "top",
+          },
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder || label}
         placeholderTextColor={colors.textMuted}
         multiline={multiline}
         numberOfLines={numberOfLines}
-        keyboardType={keyboardType || 'default'}
+        keyboardType={keyboardType || "default"}
       />
     </View>
   );
@@ -994,9 +1239,9 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -1004,26 +1249,34 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   backButton: {
-    width: 40, height: 40, borderRadius: borderRadius.full,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
     backgroundColor: colors.gray100,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  headerText: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
+  headerTitle: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  headerText: { fontSize: 22, fontWeight: "700", color: colors.textPrimary },
   headerSpacer: { width: 40 },
 
   // Overview
   overviewWrapper: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   overviewCard: { padding: spacing.md },
-  bookTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center' },
-  statValue: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+  bookTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  statsRow: { flexDirection: "row", justifyContent: "space-around" },
+  statItem: { alignItems: "center" },
+  statValue: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
   statLabel: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 
   // Tab bar
   tabBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.cardBg,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
@@ -1032,153 +1285,233 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   tabItem: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingVertical: spacing.sm, borderRadius: borderRadius.md, gap: 2,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    gap: 2,
   },
   tabItemActive: { backgroundColor: colors.tintPrimary },
-  tabLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
-  tabLabelActive: { color: colors.primary, fontWeight: '700' },
+  tabLabel: { fontSize: 11, color: colors.textMuted, fontWeight: "500" },
+  tabLabelActive: { color: colors.primary, fontWeight: "700" },
 
   // Content
   tabContent: { flex: 1 },
   tabContentInner: { padding: spacing.lg, paddingBottom: spacing.xxl },
 
   autofillRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.tintPrimary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     marginBottom: spacing.lg,
   },
   autofillInfo: { flex: 1, marginRight: spacing.md },
-  autofillTitle: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  autofillTitle: { fontSize: 14, fontWeight: "600", color: colors.primary },
   autofillSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   autofillBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: colors.white, borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-    borderWidth: 1, borderColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
-  autofillBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  autofillBtnText: { fontSize: 14, fontWeight: "600", color: colors.primary },
 
   sectionTitle: {
-    fontSize: 16, fontWeight: '700', color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
   helpText: {
-    fontSize: 13, color: colors.textSecondary, lineHeight: 20,
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
     marginBottom: spacing.md,
   },
 
   // Chips
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  chip: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full, backgroundColor: colors.gray100,
-    borderWidth: 1, borderColor: colors.gray200,
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
-  chipActive: { backgroundColor: colors.tintPrimary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
-  chipTextActive: { color: colors.primary, fontWeight: '700' },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  chipActive: {
+    backgroundColor: colors.tintPrimary,
+    borderColor: colors.primary,
+  },
+  chipText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  chipTextActive: { color: colors.primary, fontWeight: "700" },
 
   // Fields
   fieldWrapper: { marginBottom: spacing.md },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
   fieldInput: {
-    backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.gray200,
-    borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    fontSize: 15, color: colors.textPrimary, ...shadows.sm,
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 15,
+    color: colors.textPrimary,
+    ...shadows.sm,
   },
 
   saveButton: { marginTop: spacing.lg },
 
   // Toggles
   toggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.gray100,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray100,
     marginBottom: spacing.sm,
   },
   toggleInfo: { flex: 1, marginRight: spacing.md },
-  toggleLabel: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  toggleLabel: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
   toggleDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 
   // Spine card
-  spineCard: { padding: spacing.md, marginTop: spacing.lg, marginBottom: spacing.md },
-  spineTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.xs },
+  spineCard: {
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  spineTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
   spineFormula: { fontSize: 14, color: colors.textSecondary },
-  spineResult: { color: colors.primary, fontWeight: '700' },
+  spineResult: { color: colors.primary, fontWeight: "700" },
   spineNote: { fontSize: 12, color: colors.textMuted, marginTop: spacing.xs },
 
   // Validation
   statusCard: {
-    padding: spacing.md, marginBottom: spacing.md,
-    borderLeftWidth: 4, borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 4,
+    borderRadius: borderRadius.md,
   },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   statusText: { flex: 1 },
-  statusTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  statusTitle: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   statusSubtitle: { fontSize: 13, color: colors.textSecondary },
 
   issueCard: {
-    padding: spacing.md, marginBottom: spacing.sm,
-    borderLeftWidth: 4, borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderLeftWidth: 4,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.cardBg,
   },
-  issueRow: { flexDirection: 'row', gap: spacing.sm },
+  issueRow: { flexDirection: "row", gap: spacing.sm },
   issueText: { flex: 1 },
-  issueBadge: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  issueMessage: { fontSize: 13, color: colors.textPrimary, marginTop: 2, lineHeight: 18 },
+  issueBadge: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5 },
+  issueMessage: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginTop: 2,
+    lineHeight: 18,
+  },
 
   allGoodCard: {
-    padding: spacing.xl, alignItems: 'center', gap: spacing.sm,
+    padding: spacing.xl,
+    alignItems: "center",
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
-  allGoodText: { fontSize: 18, fontWeight: '700', color: colors.success },
+  allGoodText: { fontSize: 18, fontWeight: "700", color: colors.success },
   allGoodSub: { fontSize: 14, color: colors.textSecondary },
 
   // Export
   platformCard: { padding: spacing.lg, marginBottom: spacing.md },
-  platformHeader: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  platformHeader: {
+    flexDirection: "row",
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
   platformIcon: {
-    width: 52, height: 52, borderRadius: borderRadius.md,
-    alignItems: 'center', justifyContent: 'center',
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   platformInfo: { flex: 1 },
-  platformName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
+  platformName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   platformDesc: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   exportButton: {},
 
   // Package info
   packageInfoCard: { padding: spacing.md, marginTop: spacing.xl },
-  packageInfoTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md },
+  packageInfoTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
   packageFileRow: { marginBottom: spacing.sm },
-  packageFileName: { fontSize: 13, fontWeight: '600', color: colors.primary, fontFamily: 'monospace' },
+  packageFileName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
+    fontFamily: "monospace",
+  },
   packageFileDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
-  
+
   // Publish Overlay
   publishOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
     padding: spacing.xl,
     zIndex: 1000,
   },
   publishOverlayCard: {
-    width: '100%',
+    width: "100%",
     padding: spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.md,
   },
   publishOverlayTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   publishOverlayText: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

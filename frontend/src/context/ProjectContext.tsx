@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { api, formatApiError } from '../utils/api';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from "react";
+import { api, formatApiError } from "../utils/api";
 import {
   debounce,
   saveStateToStorage,
@@ -10,7 +18,7 @@ import {
   savePageToBackend,
   processPendingSaves,
   queuePendingSave,
-} from '../utils/autosave';
+} from "../utils/autosave";
 
 export interface Character {
   id: string;
@@ -82,7 +90,7 @@ export interface Project {
   cover: CoverData | null;
 }
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 interface ProjectContextType {
   currentProject: Project | null;
@@ -112,23 +120,31 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 const AUTOSAVE_DELAY = 1500; // 1.5 seconds debounce
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
+  const [currentProject, setCurrentProjectState] = useState<Project | null>(
+    null,
+  );
   const [characters, setCharactersState] = useState<Character[]>([]);
   const [pages, setPagesState] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  
+
   // Track pending changes
   const pendingProjectChanges = useRef<Partial<Project> | null>(null);
-  const pendingCharacterChanges = useRef<Map<string, Partial<Character>>>(new Map());
+  const pendingCharacterChanges = useRef<Map<string, Partial<Character>>>(
+    new Map(),
+  );
   const pendingPageChanges = useRef<Map<string, Partial<Page>>>(new Map());
 
   // Load persisted state on mount
   useEffect(() => {
     const loadPersistedState = async () => {
-      const { project, characters: chars, pages: pgs } = await loadStateFromStorage();
+      const {
+        project,
+        characters: chars,
+        pages: pgs,
+      } = await loadStateFromStorage();
       if (project) {
         setCurrentProjectState(project);
         setCharactersState(chars);
@@ -154,16 +170,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     saveDebounceRef.current = debounce(async () => {
-      setSaveStatus('saving');
+      setSaveStatus("saving");
       let hasError = false;
 
       try {
         // Save project changes
         if (pendingProjectChanges.current && currentProject) {
-          const success = await saveProjectToBackend(currentProject.id, pendingProjectChanges.current);
+          const success = await saveProjectToBackend(
+            currentProject.id,
+            pendingProjectChanges.current,
+          );
           if (!success) {
             await queuePendingSave({
-              type: 'project',
+              type: "project",
               id: currentProject.id,
               data: pendingProjectChanges.current,
               timestamp: Date.now(),
@@ -174,12 +193,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         }
 
         // Save character changes
-        const charUpdates = Array.from(pendingCharacterChanges.current.entries());
+        const charUpdates = Array.from(
+          pendingCharacterChanges.current.entries(),
+        );
         for (const [charId, updates] of charUpdates) {
           const success = await saveCharacterToBackend(charId, updates);
           if (!success) {
             await queuePendingSave({
-              type: 'character',
+              type: "character",
               id: charId,
               data: updates,
               timestamp: Date.now(),
@@ -195,7 +216,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           const success = await savePageToBackend(pageId, updates);
           if (!success) {
             await queuePendingSave({
-              type: 'page',
+              type: "page",
               id: pageId,
               data: updates,
               timestamp: Date.now(),
@@ -205,19 +226,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           pendingPageChanges.current.delete(pageId);
         }
 
-        setSaveStatus(hasError ? 'error' : 'saved');
+        setSaveStatus(hasError ? "error" : "saved");
         if (!hasError) {
           setLastSaved(new Date());
           // If we had no errors, try processing any older pending saves too
           await processPendingSaves();
         }
-        
+
         // Reset status after a delay
-        setTimeout(() => setSaveStatus('idle'), 2000);
+        setTimeout(() => setSaveStatus("idle"), 2000);
       } catch (err) {
-        console.error('Autosave error:', err);
-        setSaveStatus('error');
-        setTimeout(() => setSaveStatus('idle'), 3000);
+        console.error("Autosave error:", err);
+        setSaveStatus("error");
+        setTimeout(() => setSaveStatus("idle"), 3000);
       }
     }, AUTOSAVE_DELAY);
   }, [currentProject?.id]); // Only recreate if the project ID changes
@@ -240,7 +261,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
-
   // Set project and trigger autosave
   const setCurrentProject = useCallback((project: Project | null) => {
     setCurrentProjectState(project);
@@ -258,48 +278,66 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Update project with autosave
-  const updateProject = useCallback((updates: Partial<Project>) => {
-    setCurrentProjectState(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, ...updates };
-      pendingProjectChanges.current = { ...pendingProjectChanges.current, ...updates };
-      triggerSave();
-      return updated;
-    });
-  }, [triggerSave]);
+  const updateProject = useCallback(
+    (updates: Partial<Project>) => {
+      setCurrentProjectState((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev, ...updates };
+        pendingProjectChanges.current = {
+          ...pendingProjectChanges.current,
+          ...updates,
+        };
+        triggerSave();
+        return updated;
+      });
+    },
+    [triggerSave],
+  );
 
   // Update character with autosave
-  const updateCharacter = useCallback((characterId: string, updates: Partial<Character>) => {
-    setCharactersState(prev => {
-      const updated = prev.map(c => 
-        c.id === characterId ? { ...c, ...updates } : c
-      );
-      const existing = pendingCharacterChanges.current.get(characterId) || {};
-      pendingCharacterChanges.current.set(characterId, { ...existing, ...updates });
-      triggerSave();
-      return updated;
-    });
-  }, [triggerSave]);
+  const updateCharacter = useCallback(
+    (characterId: string, updates: Partial<Character>) => {
+      setCharactersState((prev) => {
+        const updated = prev.map((c) =>
+          c.id === characterId ? { ...c, ...updates } : c,
+        );
+        const existing = pendingCharacterChanges.current.get(characterId) || {};
+        pendingCharacterChanges.current.set(characterId, {
+          ...existing,
+          ...updates,
+        });
+        triggerSave();
+        return updated;
+      });
+    },
+    [triggerSave],
+  );
 
   // Update page with autosave
-  const updatePage = useCallback((pageId: string, updates: Partial<Page>) => {
-    setPagesState(prev => {
-      const updated = prev.map(p => 
-        p.id === pageId ? { ...p, ...updates } : p
-      );
-      const existing = pendingPageChanges.current.get(pageId) || {};
-      pendingPageChanges.current.set(pageId, { ...existing, ...updates });
-      triggerSave();
-      return updated;
-    });
-  }, [triggerSave]);
+  const updatePage = useCallback(
+    (pageId: string, updates: Partial<Page>) => {
+      setPagesState((prev) => {
+        const updated = prev.map((p) =>
+          p.id === pageId ? { ...p, ...updates } : p,
+        );
+        const existing = pendingPageChanges.current.get(pageId) || {};
+        pendingPageChanges.current.set(pageId, { ...existing, ...updates });
+        triggerSave();
+        return updated;
+      });
+    },
+    [triggerSave],
+  );
 
   // Force immediate save
   const saveNow = useCallback(async () => {
-    setSaveStatus('saving');
+    setSaveStatus("saving");
     try {
       if (pendingProjectChanges.current && currentProject) {
-        await saveProjectToBackend(currentProject.id, pendingProjectChanges.current);
+        await saveProjectToBackend(
+          currentProject.id,
+          pendingProjectChanges.current,
+        );
         pendingProjectChanges.current = null;
       }
       for (const [charId, updates] of pendingCharacterChanges.current) {
@@ -310,13 +348,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         await savePageToBackend(pageId, updates);
       }
       pendingPageChanges.current.clear();
-      
-      setSaveStatus('saved');
+
+      setSaveStatus("saved");
       setLastSaved(new Date());
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (err) {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
     }
   }, [currentProject]);
 
@@ -333,7 +371,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setCharactersState(charsRes.data);
       setPagesState(pagesRes.data);
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to load project'));
+      setError(formatApiError(err, "Failed to load project"));
     } finally {
       setIsLoading(false);
     }
@@ -343,13 +381,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get('/demo');
+      const response = await api.get("/demo");
       setCurrentProjectState(response.data.project);
       setCharactersState(response.data.characters);
       setPagesState(response.data.pages);
       setError(null); // Clear any prior error on success
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to load demo project'));
+      setError(formatApiError(err, "Failed to load demo project"));
     } finally {
       setIsLoading(false);
     }
@@ -360,7 +398,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setCharactersState([]);
     setPagesState([]);
     setError(null);
-    setSaveStatus('idle');
+    setSaveStatus("idle");
     setLastSaved(null);
     clearStoredState();
   }, []);
@@ -397,7 +435,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 export function useProject() {
   const context = useContext(ProjectContext);
   if (context === undefined) {
-    throw new Error('useProject must be used within a ProjectProvider');
+    throw new Error("useProject must be used within a ProjectProvider");
   }
   return context;
 }

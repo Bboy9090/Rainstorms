@@ -7,11 +7,13 @@ from auth_config import validate_jwt_secret
 
 ROOT_DIR = Path(__file__).parent
 
+
 class Settings(BaseSettings):
     """
     Enterprise Configuration for Rainstorms.
     Supports environment variable overrides and .env file loading.
     """
+
     # API Metadata
     APP_TITLE: str = "Rainstorms API"
     APP_VERSION: str = "1.1.0"
@@ -44,9 +46,7 @@ class Settings(BaseSettings):
     CHARACTERS_DIR: Path = ROOT_DIR / "static" / "characters"
 
     model_config = SettingsConfigDict(
-        env_file=ROOT_DIR / ".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
+        env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
     )
 
     @property
@@ -54,6 +54,7 @@ class Settings(BaseSettings):
         if not self.CORS_ORIGINS:
             return ["*"]
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
 
 # Singleton instance for the application
 settings = Settings()

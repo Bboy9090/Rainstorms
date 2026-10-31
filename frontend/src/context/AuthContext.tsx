@@ -1,8 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../utils/api';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api } from "../utils/api";
 
 interface User {
   id: string;
@@ -21,11 +27,11 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AUTH_TOKEN_KEY = 'auth_token';
-const AUTH_USER_KEY = 'auth_user';
+const AUTH_TOKEN_KEY = "auth_token";
+const AUTH_USER_KEY = "auth_user";
 
 async function storeItem(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     await AsyncStorage.setItem(key, value);
   } else {
     await SecureStore.setItemAsync(key, value);
@@ -33,14 +39,14 @@ async function storeItem(key: string, value: string): Promise<void> {
 }
 
 async function getItem(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     return AsyncStorage.getItem(key);
   }
   return SecureStore.getItemAsync(key);
 }
 
 async function removeItem(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     await AsyncStorage.removeItem(key);
   } else {
     await SecureStore.deleteItemAsync(key);
@@ -65,50 +71,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
-        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
       }
     } catch (error) {
-      console.error('Failed to load auth:', error);
+      console.error("Failed to load auth:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await api.post("/auth/login", { email, password });
     const { token: newToken, user: newUser } = response.data;
     await storeItem(AUTH_TOKEN_KEY, newToken);
     await storeItem(AUTH_USER_KEY, JSON.stringify(newUser));
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
   };
 
   const register = async (email: string, password: string) => {
-    const response = await api.post('/auth/register', { email, password });
+    const response = await api.post("/auth/register", { email, password });
     const { token: newToken, user: newUser } = response.data;
     await storeItem(AUTH_TOKEN_KEY, newToken);
     await storeItem(AUTH_USER_KEY, JSON.stringify(newUser));
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
   };
 
   const loginAsDemo = async () => {
-    const response = await api.post('/auth/demo');
+    const response = await api.post("/auth/demo");
     const { token: newToken, user: newUser } = response.data;
     await storeItem(AUTH_TOKEN_KEY, newToken);
     await storeItem(AUTH_USER_KEY, JSON.stringify(newUser));
-    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+    api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
   };
 
   const deleteAccount = async () => {
-    await api.delete('/auth/account');
+    await api.delete("/auth/account");
     await removeItem(AUTH_TOKEN_KEY);
     await removeItem(AUTH_USER_KEY);
-    delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common["Authorization"];
     setToken(null);
     setUser(null);
   };
@@ -116,13 +122,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await removeItem(AUTH_TOKEN_KEY);
     await removeItem(AUTH_USER_KEY);
-    delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common["Authorization"];
     setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, loginAsDemo, deleteAccount, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isLoading,
+        login,
+        register,
+        loginAsDemo,
+        deleteAccount,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -131,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../utils/theme';
-import { SaveStatus } from '../context/ProjectContext';
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, borderRadius } from "../utils/theme";
+import { SaveStatus } from "../context/ProjectContext";
 
 interface SaveIndicatorProps {
   status: SaveStatus;
@@ -14,7 +14,7 @@ export function SaveIndicator({ status, lastSaved }: SaveIndicatorProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (status !== 'idle') {
+    if (status !== "idle") {
       setVisible(true);
       Animated.timing(opacity, {
         toValue: 1,
@@ -30,35 +30,35 @@ export function SaveIndicator({ status, lastSaved }: SaveIndicatorProps) {
     }
   }, [status, opacity]);
 
-  if (!visible && status === 'idle') return null;
+  if (!visible && status === "idle") return null;
 
   const getStatusConfig = () => {
     switch (status) {
-      case 'saving':
+      case "saving":
         return {
-          icon: 'sync' as const,
-          text: 'Saving...',
+          icon: "sync" as const,
+          text: "Saving...",
           color: colors.primary,
           bgColor: colors.tintPrimary,
         };
-      case 'saved':
+      case "saved":
         return {
-          icon: 'checkmark-circle' as const,
-          text: 'Saved',
+          icon: "checkmark-circle" as const,
+          text: "Saved",
           color: colors.success,
           bgColor: colors.tintSuccess,
         };
-      case 'error':
+      case "error":
         return {
-          icon: 'alert-circle' as const,
-          text: 'Save failed',
+          icon: "alert-circle" as const,
+          text: "Save failed",
           color: colors.error,
           bgColor: colors.tintError,
         };
       default:
         return {
-          icon: 'ellipse' as const,
-          text: '',
+          icon: "ellipse" as const,
+          text: "",
           color: colors.gray400,
           bgColor: colors.gray100,
         };
@@ -68,12 +68,14 @@ export function SaveIndicator({ status, lastSaved }: SaveIndicatorProps) {
   const config = getStatusConfig();
 
   return (
-    <Animated.View style={[styles.container, { opacity, backgroundColor: config.bgColor }]}>
-      <Ionicons 
-        name={config.icon} 
-        size={14} 
+    <Animated.View
+      style={[styles.container, { opacity, backgroundColor: config.bgColor }]}
+    >
+      <Ionicons
+        name={config.icon}
+        size={14}
         color={config.color}
-        style={status === 'saving' ? styles.spinning : undefined}
+        style={status === "saving" ? styles.spinning : undefined}
       />
       <Text style={[styles.text, { color: config.color }]}>{config.text}</Text>
     </Animated.View>
@@ -82,8 +84,8 @@ export function SaveIndicator({ status, lastSaved }: SaveIndicatorProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.full,
@@ -91,7 +93,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   spinning: {
     // Note: React Native doesn't support CSS animations

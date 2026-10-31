@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,21 +7,21 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Loading } from '../src/components/Loading';
-import { useProject } from '../src/context/ProjectContext';
-import { api } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Loading } from "../src/components/Loading";
+import { useProject } from "../src/context/ProjectContext";
+import { api } from "../src/utils/api";
 
 export default function ExportScreen() {
   const router = useRouter();
   const { currentProject, pages, characters, isLoading } = useProject();
-  
+
   const [isExportingStory, setIsExportingStory] = useState(false);
   const [isExportingPrompts, setIsExportingPrompts] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
@@ -33,16 +33,16 @@ export default function ExportScreen() {
   const handleExportStoryPDF = async () => {
     setIsExportingStory(true);
     try {
-      const baseUrl = api.defaults.baseURL?.replace('/api', '') || '';
+      const baseUrl = api.defaults.baseURL?.replace("/api", "") || "";
       const pdfUrl = `${baseUrl}/api/projects/${currentProject.id}/export/story-pdf`;
-      
-      if (Platform.OS === 'web') {
-        window.open(pdfUrl, '_blank');
+
+      if (Platform.OS === "web") {
+        window.open(pdfUrl, "_blank");
       } else {
         await Linking.openURL(pdfUrl);
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to export PDF');
+      Alert.alert("Error", "Failed to export PDF");
     } finally {
       setIsExportingStory(false);
     }
@@ -51,16 +51,16 @@ export default function ExportScreen() {
   const handleExportPromptsPDF = async () => {
     setIsExportingPrompts(true);
     try {
-      const baseUrl = api.defaults.baseURL?.replace('/api', '') || '';
+      const baseUrl = api.defaults.baseURL?.replace("/api", "") || "";
       const pdfUrl = `${baseUrl}/api/projects/${currentProject.id}/export/prompts-pdf`;
-      
-      if (Platform.OS === 'web') {
-        window.open(pdfUrl, '_blank');
+
+      if (Platform.OS === "web") {
+        window.open(pdfUrl, "_blank");
       } else {
         await Linking.openURL(pdfUrl);
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to export prompts PDF');
+      Alert.alert("Error", "Failed to export prompts PDF");
     } finally {
       setIsExportingPrompts(false);
     }
@@ -68,36 +68,40 @@ export default function ExportScreen() {
 
   const handleCopyText = async () => {
     try {
-      const response = await api.get(`/projects/${currentProject.id}/export/text`);
+      const response = await api.get(
+        `/projects/${currentProject.id}/export/text`,
+      );
       const text = response.data.text;
-      
-      if (Platform.OS === 'web' && navigator.clipboard) {
+
+      if (Platform.OS === "web" && navigator.clipboard) {
         await navigator.clipboard.writeText(text);
       }
-      
+
       setCopiedText(true);
       setTimeout(() => setCopiedText(false), 3000);
     } catch (err) {
-      Alert.alert('Error', 'Failed to copy text');
+      Alert.alert("Error", "Failed to copy text");
     }
   };
 
   const handleExportJSON = async () => {
     try {
-      const response = await api.get(`/projects/${currentProject.id}/export/json`);
+      const response = await api.get(
+        `/projects/${currentProject.id}/export/json`,
+      );
       const jsonString = JSON.stringify(response.data, null, 2);
-      
-      if (Platform.OS === 'web') {
-        const blob = new Blob([jsonString], { type: 'application/json' });
+
+      if (Platform.OS === "web") {
+        const blob = new Blob([jsonString], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `${currentProject.title.replace(/\s+/g, '_')}_backup.json`;
+        a.download = `${currentProject.title.replace(/\s+/g, "_")}_backup.json`;
         a.click();
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to export JSON');
+      Alert.alert("Error", "Failed to export JSON");
     }
   };
 
@@ -108,7 +112,10 @@ export default function ExportScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
@@ -122,7 +129,7 @@ export default function ExportScreen() {
       <Card style={styles.summaryCard} variant="elevated">
         <Text style={styles.bookTitle}>{currentProject.title}</Text>
         <Text style={styles.bookSummary}>{currentProject.hook}</Text>
-        
+
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{pages.length}</Text>
@@ -133,13 +140,33 @@ export default function ExportScreen() {
             <Text style={styles.statLabel}>Characters</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: pagesWithText === pages.length ? colors.success : colors.warning }]}>
+            <Text
+              style={[
+                styles.statValue,
+                {
+                  color:
+                    pagesWithText === pages.length
+                      ? colors.success
+                      : colors.warning,
+                },
+              ]}
+            >
               {pagesWithText}/{pages.length}
             </Text>
             <Text style={styles.statLabel}>Text Written</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: pagesWithPrompts === pages.length ? colors.success : colors.warning }]}>
+            <Text
+              style={[
+                styles.statValue,
+                {
+                  color:
+                    pagesWithPrompts === pages.length
+                      ? colors.success
+                      : colors.warning,
+                },
+              ]}
+            >
               {pagesWithPrompts}/{pages.length}
             </Text>
             <Text style={styles.statLabel}>Prompts</Text>
@@ -153,7 +180,9 @@ export default function ExportScreen() {
       {/* Story PDF */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: colors.tintPrimary }]}>
+          <View
+            style={[styles.exportIcon, { backgroundColor: colors.tintPrimary }]}
+          >
             <Ionicons name="document" size={24} color={colors.primary} />
           </View>
           <View style={styles.exportInfo}>
@@ -175,7 +204,9 @@ export default function ExportScreen() {
       {/* Prompts PDF */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: colors.tintAccent }]}>
+          <View
+            style={[styles.exportIcon, { backgroundColor: colors.tintAccent }]}
+          >
             <Ionicons name="brush" size={24} color={colors.accent} />
           </View>
           <View style={styles.exportInfo}>
@@ -189,9 +220,15 @@ export default function ExportScreen() {
           title="Export Prompts PDF"
           onPress={handleExportPromptsPDF}
           loading={isExportingPrompts}
-          variant={pagesWithPrompts > 0 ? 'primary' : 'outline'}
+          variant={pagesWithPrompts > 0 ? "primary" : "outline"}
           disabled={pagesWithPrompts === 0}
-          icon={<Ionicons name="download" size={18} color={pagesWithPrompts > 0 ? colors.white : colors.primary} />}
+          icon={
+            <Ionicons
+              name="download"
+              size={18}
+              color={pagesWithPrompts > 0 ? colors.white : colors.primary}
+            />
+          }
           style={styles.exportButton}
         />
       </Card>
@@ -199,7 +236,9 @@ export default function ExportScreen() {
       {/* Copy Text */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: colors.tintSuccess }]}>
+          <View
+            style={[styles.exportIcon, { backgroundColor: colors.tintSuccess }]}
+          >
             <Ionicons name="copy" size={24} color={colors.success} />
           </View>
           <View style={styles.exportInfo}>
@@ -210,10 +249,16 @@ export default function ExportScreen() {
           </View>
         </View>
         <Button
-          title={copiedText ? 'Copied!' : 'Copy Book Text'}
+          title={copiedText ? "Copied!" : "Copy Book Text"}
           onPress={handleCopyText}
           variant="outline"
-          icon={<Ionicons name={copiedText ? 'checkmark' : 'clipboard'} size={18} color={colors.primary} />}
+          icon={
+            <Ionicons
+              name={copiedText ? "checkmark" : "clipboard"}
+              size={18}
+              color={colors.primary}
+            />
+          }
           style={styles.exportButton}
         />
       </Card>
@@ -221,7 +266,7 @@ export default function ExportScreen() {
       {/* JSON Backup */}
       <Card style={styles.exportCard}>
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: '#F3E8FF' }]}>
+          <View style={[styles.exportIcon, { backgroundColor: "#F3E8FF" }]}>
             <Ionicons name="code" size={24} color="#8B5CF6" />
           </View>
           <View style={styles.exportInfo}>
@@ -235,15 +280,24 @@ export default function ExportScreen() {
           title="Download JSON"
           onPress={handleExportJSON}
           variant="ghost"
-          icon={<Ionicons name="cloud-download" size={18} color={colors.primary} />}
+          icon={
+            <Ionicons name="cloud-download" size={18} color={colors.primary} />
+          }
           style={styles.exportButton}
         />
       </Card>
 
       {/* Publishing Center CTA */}
-      <Card style={[styles.exportCard, { borderWidth: 2, borderColor: colors.primary }]}>
+      <Card
+        style={[
+          styles.exportCard,
+          { borderWidth: 2, borderColor: colors.primary },
+        ]}
+      >
         <View style={styles.exportHeader}>
-          <View style={[styles.exportIcon, { backgroundColor: colors.tintPrimary }]}>
+          <View
+            style={[styles.exportIcon, { backgroundColor: colors.tintPrimary }]}
+          >
             <Ionicons name="library" size={24} color={colors.primary} />
           </View>
           <View style={styles.exportInfo}>
@@ -256,8 +310,10 @@ export default function ExportScreen() {
         </View>
         <Button
           title="Open Publishing Center"
-          onPress={() => router.push('/publishing-center')}
-          icon={<Ionicons name="arrow-forward" size={18} color={colors.white} />}
+          onPress={() => router.push("/publishing-center")}
+          icon={
+            <Ionicons name="arrow-forward" size={18} color={colors.white} />
+          }
           style={styles.exportButton}
         />
       </Card>
@@ -266,14 +322,14 @@ export default function ExportScreen() {
       <View style={styles.bottomActions}>
         <Button
           title="Back to Page Builder"
-          onPress={() => router.push('/page-builder')}
+          onPress={() => router.push("/page-builder")}
           variant="outline"
           size="md"
           icon={<Ionicons name="create" size={18} color={colors.primary} />}
         />
         <Button
           title="Start New Story"
-          onPress={() => router.push('/idea-lab')}
+          onPress={() => router.push("/idea-lab")}
           variant="ghost"
           size="md"
           icon={<Ionicons name="add" size={18} color={colors.primary} />}
@@ -293,9 +349,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.lg,
   },
   backButton: {
@@ -303,18 +359,18 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: borderRadius.full,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   headerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   summaryCard: {
@@ -323,7 +379,7 @@ const styles = StyleSheet.create({
   },
   bookTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -331,22 +387,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textSecondary,
     lineHeight: 22,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     marginBottom: spacing.md,
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     borderTopWidth: 1,
     borderTopColor: colors.gray200,
     paddingTop: spacing.md,
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   statLabel: {
@@ -356,7 +412,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
@@ -365,15 +421,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   exportHeader: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: spacing.md,
   },
   exportIcon: {
     width: 48,
     height: 48,
     borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: spacing.md,
   },
   exportInfo: {
@@ -381,7 +437,7 @@ const styles = StyleSheet.create({
   },
   exportTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: 2,
   },
@@ -395,7 +451,7 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     marginTop: spacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.md,
   },
 });

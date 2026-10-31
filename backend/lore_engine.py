@@ -49,6 +49,7 @@ def _db_ref():
 # MODELS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class Universe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -285,6 +286,7 @@ class StoryArcGenerateRequest(BaseModel):
 # HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _clean_json(raw: str) -> str:
     cleaned = raw.strip()
     if cleaned.startswith("```"):
@@ -306,7 +308,11 @@ async def _build_canon_memory(universe_id: str) -> dict:
     factions = await db.lore_factions.find({"universe_id": universe_id}).to_list(50)
     locations = await db.lore_locations.find({"universe_id": universe_id}).to_list(50)
     rules = await db.lore_rules.find({"universe_id": universe_id}).to_list(50)
-    events = await db.lore_timeline_events.find({"universe_id": universe_id}).sort("era_marker", 1).to_list(50)
+    events = (
+        await db.lore_timeline_events.find({"universe_id": universe_id})
+        .sort("era_marker", 1)
+        .to_list(50)
+    )
 
     return {
         "universe": {
@@ -319,19 +325,32 @@ async def _build_canon_memory(universe_id: str) -> dict:
             "current_conflict": universe.get("current_conflict", ""),
         },
         "factions": [
-            {"name": f["name"], "type": f.get("type", ""), "ideology": f.get("ideology", ""), "territory": f.get("territory", "")}
+            {
+                "name": f["name"],
+                "type": f.get("type", ""),
+                "ideology": f.get("ideology", ""),
+                "territory": f.get("territory", ""),
+            }
             for f in factions
         ],
         "characters": [
-            {"name": c["name"], "role": c.get("role", ""), "status": c.get("status", ""), "faction": c.get("faction_id", "")}
+            {
+                "name": c["name"],
+                "role": c.get("role", ""),
+                "status": c.get("status", ""),
+                "faction": c.get("faction_id", ""),
+            }
             for c in characters
         ],
         "world_rules": [
-            {"type": r.get("rule_type", ""), "rule": r["rule"]}
-            for r in rules
+            {"type": r.get("rule_type", ""), "rule": r["rule"]} for r in rules
         ],
         "timeline": [
-            {"title": e["title"], "era": e.get("era_marker", ""), "summary": e.get("summary", "")}
+            {
+                "title": e["title"],
+                "era": e.get("era_marker", ""),
+                "summary": e.get("summary", ""),
+            }
             for e in events
         ],
     }
@@ -348,19 +367,28 @@ def _memory_to_prompt_text(memory: dict) -> str:
     if u.get("current_conflict"):
         lines.append(f"CURRENT CONFLICT: {u['current_conflict']}")
     if memory["world_rules"]:
-        lines.append("WORLD RULES: " + "; ".join(r["rule"] for r in memory["world_rules"]))
+        lines.append(
+            "WORLD RULES: " + "; ".join(r["rule"] for r in memory["world_rules"])
+        )
     if memory["factions"]:
         lines.append("FACTIONS: " + ", ".join(f["name"] for f in memory["factions"]))
     if memory["characters"]:
-        lines.append("KEY CHARACTERS: " + ", ".join(f"{c['name']} ({c['role']})" for c in memory["characters"]))
+        lines.append(
+            "KEY CHARACTERS: "
+            + ", ".join(f"{c['name']} ({c['role']})" for c in memory["characters"])
+        )
     if memory["timeline"]:
-        lines.append("TIMELINE HIGHLIGHTS: " + "; ".join(e["title"] for e in memory["timeline"][:5]))
+        lines.append(
+            "TIMELINE HIGHLIGHTS: "
+            + "; ".join(e["title"] for e in memory["timeline"][:5])
+        )
     return "\n".join(lines)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UNIVERSE ENDPOINTS
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @lore_router.get("", response_model=List[Universe])
 async def list_universes():
@@ -384,12 +412,21 @@ async def list_universes():
                         type(data).__name__,
                     )
                     universes_raw = []
-                logger.info("Received %d universes from SagaArchitect", len(universes_raw))
+                logger.info(
+                    "Received %d universes from SagaArchitect", len(universes_raw)
+                )
                 return universes_raw
             else:
-                logger.warning("SagaArchitect universe list returned %s; falling back to local DB", resp.status_code)
+                logger.warning(
+                    "SagaArchitect universe list returned %s; falling back to local DB",
+                    resp.status_code,
+                )
         except httpx.RequestError as exc:
-            logger.warning("Could not reach SagaArchitect (%s): %s; falling back to local DB", remote_url, exc)
+            logger.warning(
+                "Could not reach SagaArchitect (%s): %s; falling back to local DB",
+                remote_url,
+                exc,
+            )
 
     db = _db_ref()
     docs = await db.lore_universes.find().sort("created_at", -1).to_list(100)
@@ -427,14 +464,21 @@ async def update_universe(universe_id: str, updates: dict):
 @lore_router.delete("/{universe_id}")
 async def delete_universe(universe_id: str):
     db = _db_ref()
-    for coll in ["lore_characters", "lore_factions", "lore_locations",
-                 "lore_timeline_events", "lore_story_arcs", "lore_rules"]:
+    for coll in [
+        "lore_characters",
+        "lore_factions",
+        "lore_locations",
+        "lore_timeline_events",
+        "lore_story_arcs",
+        "lore_rules",
+    ]:
         await getattr(db, coll).delete_many({"universe_id": universe_id})
     await db.lore_universes.delete_one({"id": universe_id})
     return {"message": "Universe and all related lore deleted"}
 
 
 # ── Universe Engine AI Generation ─────────────────────────────────────────────
+
 
 @lore_router.post("/{universe_id}/generate")
 async def generate_universe(universe_id: str, req: UniverseGenerateRequest):
@@ -493,7 +537,9 @@ Return ONLY the JSON, no other text."""
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError as e:
         logger.error(f"Universe generation JSON parse error: {e}\nRaw: {raw[:500]}")
-        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="AI returned invalid JSON. Please try again."
+        )
 
     # Persist generated content into the universe and related collections
     updates = {
@@ -513,24 +559,54 @@ Return ONLY the JSON, no other text."""
     await db.lore_universes.update_one({"id": universe_id}, {"$set": updates})
 
     for faction_data in data.get("factions", []):
-        faction = Faction(universe_id=universe_id, **{
-            k: faction_data.get(k, "")
-            for k in ["name", "type", "ideology", "territory", "objective", "internal_conflict"]
-        })
+        faction = Faction(
+            universe_id=universe_id,
+            **{
+                k: faction_data.get(k, "")
+                for k in [
+                    "name",
+                    "type",
+                    "ideology",
+                    "territory",
+                    "objective",
+                    "internal_conflict",
+                ]
+            },
+        )
         await db.lore_factions.insert_one(faction.dict())
 
     for loc_data in data.get("locations", []):
-        loc = LoreLocation(universe_id=universe_id, **{
-            k: loc_data.get(k, "")
-            for k in ["name", "type", "description", "strategic_value", "mythic_importance"]
-        })
+        loc = LoreLocation(
+            universe_id=universe_id,
+            **{
+                k: loc_data.get(k, "")
+                for k in [
+                    "name",
+                    "type",
+                    "description",
+                    "strategic_value",
+                    "mythic_importance",
+                ]
+            },
+        )
         await db.lore_locations.insert_one(loc.dict())
 
     for char_data in data.get("characters", []):
-        char = LoreCharacter(universe_id=universe_id, **{
-            k: char_data.get(k, "")
-            for k in ["name", "title", "role", "motivations", "powers", "appearance", "arc_potential"]
-        })
+        char = LoreCharacter(
+            universe_id=universe_id,
+            **{
+                k: char_data.get(k, "")
+                for k in [
+                    "name",
+                    "title",
+                    "role",
+                    "motivations",
+                    "powers",
+                    "appearance",
+                    "arc_potential",
+                ]
+            },
+        )
         await db.lore_characters.insert_one(char.dict())
 
     for rule_data in data.get("world_rules", []):
@@ -558,6 +634,7 @@ Return ONLY the JSON, no other text."""
 
 # ── Canon Memory ──────────────────────────────────────────────────────────────
 
+
 @lore_router.get("/{universe_id}/canon-memory")
 async def get_canon_memory(universe_id: str):
     """Return the canon memory packet for a universe."""
@@ -565,6 +642,7 @@ async def get_canon_memory(universe_id: str):
 
 
 # ── Canon Validation ──────────────────────────────────────────────────────────
+
 
 @lore_router.post("/{universe_id}/validate")
 async def validate_canon(universe_id: str):
@@ -579,9 +657,13 @@ async def validate_canon(universe_id: str):
 
     conflicts: List[CanonConflict] = []
 
-    characters = await db.lore_characters.find({"universe_id": universe_id}).to_list(100)
+    characters = await db.lore_characters.find({"universe_id": universe_id}).to_list(
+        100
+    )
     factions = await db.lore_factions.find({"universe_id": universe_id}).to_list(100)
-    events = await db.lore_timeline_events.find({"universe_id": universe_id}).to_list(100)
+    events = await db.lore_timeline_events.find({"universe_id": universe_id}).to_list(
+        100
+    )
     rules = await db.lore_rules.find({"universe_id": universe_id}).to_list(100)
 
     # Duplicate character names
@@ -589,12 +671,14 @@ async def validate_canon(universe_id: str):
     seen_chars: set = set()
     for name in char_names:
         if name in seen_chars:
-            conflicts.append(CanonConflict(
-                severity="conflict",
-                category="duplicate",
-                description=f"Duplicate character name detected: '{name}'",
-                entities=[name],
-            ))
+            conflicts.append(
+                CanonConflict(
+                    severity="conflict",
+                    category="duplicate",
+                    description=f"Duplicate character name detected: '{name}'",
+                    entities=[name],
+                )
+            )
         seen_chars.add(name)
 
     # Duplicate faction names
@@ -602,53 +686,63 @@ async def validate_canon(universe_id: str):
     seen_factions: set = set()
     for name in faction_names:
         if name in seen_factions:
-            conflicts.append(CanonConflict(
-                severity="conflict",
-                category="duplicate",
-                description=f"Duplicate faction name detected: '{name}'",
-                entities=[name],
-            ))
+            conflicts.append(
+                CanonConflict(
+                    severity="conflict",
+                    category="duplicate",
+                    description=f"Duplicate faction name detected: '{name}'",
+                    entities=[name],
+                )
+            )
         seen_factions.add(name)
 
     # Dead characters referenced in later timeline events
-    dead_characters = {c["name"].strip().lower() for c in characters if c.get("status") == "dead"}
+    dead_characters = {
+        c["name"].strip().lower() for c in characters if c.get("status") == "dead"
+    }
     for event in events:
         for affected in event.get("affected_characters", []):
             if affected.strip().lower() in dead_characters:
-                conflicts.append(CanonConflict(
-                    severity="critical_conflict",
-                    category="character",
-                    description=(
-                        f"Dead character '{affected}' is referenced in timeline event "
-                        f"'{event['title']}'. This is a canon contradiction."
-                    ),
-                    entities=[affected, event["title"]],
-                ))
+                conflicts.append(
+                    CanonConflict(
+                        severity="critical_conflict",
+                        category="character",
+                        description=(
+                            f"Dead character '{affected}' is referenced in timeline event "
+                            f"'{event['title']}'. This is a canon contradiction."
+                        ),
+                        entities=[affected, event["title"]],
+                    )
+                )
 
     # Characters referencing non-existent factions
     faction_ids = {f["id"] for f in factions}
     for char in characters:
         fid = char.get("faction_id")
         if fid and fid not in faction_ids:
-            conflicts.append(CanonConflict(
-                severity="warning",
-                category="faction",
-                description=(
-                    f"Character '{char['name']}' references faction ID '{fid}' "
-                    "which no longer exists."
-                ),
-                entities=[char["name"]],
-            ))
+            conflicts.append(
+                CanonConflict(
+                    severity="warning",
+                    category="faction",
+                    description=(
+                        f"Character '{char['name']}' references faction ID '{fid}' "
+                        "which no longer exists."
+                    ),
+                    entities=[char["name"]],
+                )
+            )
 
     # Empty world rules (flag as warnings so builders know to fill them in)
     for rule in rules:
         if not rule.get("rule", "").strip():
-            conflicts.append(CanonConflict(
-                severity="warning",
-                category="magic",
-                description="A world rule entry has an empty rule description.",
-                entities=[rule["id"]],
-            ))
+            conflicts.append(
+                CanonConflict(
+                    severity="warning",
+                    category="magic",
+                    description="A world rule entry has an empty rule description.",
+                    entities=[rule["id"]],
+                )
+            )
 
     return {
         "universe_id": universe_id,
@@ -658,6 +752,7 @@ async def validate_canon(universe_id: str):
 
 
 # ── Rainstorms Integration ─────────────────────────────────────────────────────
+
 
 @lore_router.get("/{universe_id}/story-context")
 async def get_story_context(universe_id: str):
@@ -671,11 +766,25 @@ async def get_story_context(universe_id: str):
     if not universe:
         raise HTTPException(status_code=404, detail="Universe not found")
 
-    characters = await db.lore_characters.find({"universe_id": universe_id, "canon_status": "canon"}).to_list(50)
-    factions = await db.lore_factions.find({"universe_id": universe_id, "canon_status": "canon"}).to_list(50)
-    locations = await db.lore_locations.find({"universe_id": universe_id, "canon_status": "canon"}).to_list(50)
-    rules = await db.lore_rules.find({"universe_id": universe_id, "canon_status": "canon"}).to_list(50)
-    events = await db.lore_timeline_events.find({"universe_id": universe_id, "canon_status": "canon"}).sort("era_marker", 1).to_list(30)
+    characters = await db.lore_characters.find(
+        {"universe_id": universe_id, "canon_status": "canon"}
+    ).to_list(50)
+    factions = await db.lore_factions.find(
+        {"universe_id": universe_id, "canon_status": "canon"}
+    ).to_list(50)
+    locations = await db.lore_locations.find(
+        {"universe_id": universe_id, "canon_status": "canon"}
+    ).to_list(50)
+    rules = await db.lore_rules.find(
+        {"universe_id": universe_id, "canon_status": "canon"}
+    ).to_list(50)
+    events = (
+        await db.lore_timeline_events.find(
+            {"universe_id": universe_id, "canon_status": "canon"}
+        )
+        .sort("era_marker", 1)
+        .to_list(30)
+    )
 
     return {
         "universe_id": universe_id,
@@ -684,7 +793,11 @@ async def get_story_context(universe_id: str):
         "world_overview": universe.get("world_overview", ""),
         "current_conflict": universe.get("current_conflict", ""),
         "world_rules": [
-            {"rule_type": r.get("rule_type", ""), "rule": r["rule"], "consequence": r.get("consequence", "")}
+            {
+                "rule_type": r.get("rule_type", ""),
+                "rule": r["rule"],
+                "consequence": r.get("consequence", ""),
+            }
             for r in rules
         ],
         "relevant_characters": [
@@ -699,21 +812,34 @@ async def get_story_context(universe_id: str):
             for c in characters
         ],
         "relevant_factions": [
-            {"name": f["name"], "ideology": f.get("ideology", ""), "territory": f.get("territory", "")}
+            {
+                "name": f["name"],
+                "ideology": f.get("ideology", ""),
+                "territory": f.get("territory", ""),
+            }
             for f in factions
         ],
         "relevant_locations": [
-            {"name": l["name"], "type": l.get("type", ""), "description": l.get("description", "")}
+            {
+                "name": l["name"],
+                "type": l.get("type", ""),
+                "description": l.get("description", ""),
+            }
             for l in locations
         ],
         "timeline_context": [
-            {"era": e.get("era_marker", ""), "title": e["title"], "summary": e.get("summary", "")}
+            {
+                "era": e.get("era_marker", ""),
+                "title": e["title"],
+                "summary": e.get("summary", ""),
+            }
             for e in events
         ],
     }
 
 
 # ── Character Generator ───────────────────────────────────────────────────────
+
 
 @lore_router.post("/{universe_id}/generate-character", response_model=LoreCharacter)
 async def generate_character(universe_id: str, req: CharacterGenerateRequest):
@@ -752,17 +878,34 @@ Return ONLY the JSON."""
     try:
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="AI returned invalid JSON. Please try again."
+        )
 
-    char = LoreCharacter(universe_id=universe_id, **{k: data.get(k, "") for k in [
-        "name", "title", "role", "motivations", "fears", "powers",
-        "weaknesses", "appearance", "speech_style", "arc_potential",
-    ]})
+    char = LoreCharacter(
+        universe_id=universe_id,
+        **{
+            k: data.get(k, "")
+            for k in [
+                "name",
+                "title",
+                "role",
+                "motivations",
+                "fears",
+                "powers",
+                "weaknesses",
+                "appearance",
+                "speech_style",
+                "arc_potential",
+            ]
+        },
+    )
     await db.lore_characters.insert_one(char.dict())
     return char
 
 
 # ── Faction Generator ─────────────────────────────────────────────────────────
+
 
 @lore_router.post("/{universe_id}/generate-faction", response_model=Faction)
 async def generate_faction(universe_id: str, req: FactionGenerateRequest):
@@ -805,7 +948,9 @@ Return ONLY the JSON."""
     try:
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="AI returned invalid JSON. Please try again."
+        )
 
     faction = Faction(
         universe_id=universe_id,
@@ -826,6 +971,7 @@ Return ONLY the JSON."""
 
 
 # ── Story Arc Generator ───────────────────────────────────────────────────────
+
 
 @lore_router.post("/{universe_id}/generate-arc", response_model=StoryArc)
 async def generate_arc(universe_id: str, req: StoryArcGenerateRequest):
@@ -868,7 +1014,9 @@ Return ONLY the JSON."""
     try:
         data = json.loads(_clean_json(raw))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="AI returned invalid JSON. Please try again."
+        )
 
     arc = StoryArc(
         universe_id=universe_id,
@@ -890,6 +1038,7 @@ Return ONLY the JSON."""
 # CHARACTERS CRUD
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @lore_router.get("/{universe_id}/characters", response_model=List[LoreCharacter])
 async def list_lore_characters(universe_id: str):
     db = _db_ref()
@@ -905,20 +1054,28 @@ async def create_lore_character(universe_id: str, data: LoreCharacterCreate):
     return char
 
 
-@lore_router.get("/{universe_id}/characters/{character_id}", response_model=LoreCharacter)
+@lore_router.get(
+    "/{universe_id}/characters/{character_id}", response_model=LoreCharacter
+)
 async def get_lore_character(universe_id: str, character_id: str):
     db = _db_ref()
-    doc = await db.lore_characters.find_one({"id": character_id, "universe_id": universe_id})
+    doc = await db.lore_characters.find_one(
+        {"id": character_id, "universe_id": universe_id}
+    )
     if not doc:
         raise HTTPException(status_code=404, detail="Character not found")
     return LoreCharacter(**doc)
 
 
-@lore_router.put("/{universe_id}/characters/{character_id}", response_model=LoreCharacter)
+@lore_router.put(
+    "/{universe_id}/characters/{character_id}", response_model=LoreCharacter
+)
 async def update_lore_character(universe_id: str, character_id: str, updates: dict):
     db = _db_ref()
     updates["updated_at"] = datetime.utcnow()
-    await db.lore_characters.update_one({"id": character_id, "universe_id": universe_id}, {"$set": updates})
+    await db.lore_characters.update_one(
+        {"id": character_id, "universe_id": universe_id}, {"$set": updates}
+    )
     doc = await db.lore_characters.find_one({"id": character_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Character not found")
@@ -928,13 +1085,16 @@ async def update_lore_character(universe_id: str, character_id: str, updates: di
 @lore_router.delete("/{universe_id}/characters/{character_id}")
 async def delete_lore_character(universe_id: str, character_id: str):
     db = _db_ref()
-    await db.lore_characters.delete_one({"id": character_id, "universe_id": universe_id})
+    await db.lore_characters.delete_one(
+        {"id": character_id, "universe_id": universe_id}
+    )
     return {"message": "Character deleted"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FACTIONS CRUD
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @lore_router.get("/{universe_id}/factions", response_model=List[Faction])
 async def list_factions(universe_id: str):
@@ -954,7 +1114,9 @@ async def create_faction(universe_id: str, data: FactionCreate):
 @lore_router.get("/{universe_id}/factions/{faction_id}", response_model=Faction)
 async def get_faction(universe_id: str, faction_id: str):
     db = _db_ref()
-    doc = await db.lore_factions.find_one({"id": faction_id, "universe_id": universe_id})
+    doc = await db.lore_factions.find_one(
+        {"id": faction_id, "universe_id": universe_id}
+    )
     if not doc:
         raise HTTPException(status_code=404, detail="Faction not found")
     return Faction(**doc)
@@ -964,7 +1126,9 @@ async def get_faction(universe_id: str, faction_id: str):
 async def update_faction(universe_id: str, faction_id: str, updates: dict):
     db = _db_ref()
     updates["updated_at"] = datetime.utcnow()
-    await db.lore_factions.update_one({"id": faction_id, "universe_id": universe_id}, {"$set": updates})
+    await db.lore_factions.update_one(
+        {"id": faction_id, "universe_id": universe_id}, {"$set": updates}
+    )
     doc = await db.lore_factions.find_one({"id": faction_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Faction not found")
@@ -981,6 +1145,7 @@ async def delete_faction(universe_id: str, faction_id: str):
 # ══════════════════════════════════════════════════════════════════════════════
 # LOCATIONS CRUD
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @lore_router.get("/{universe_id}/locations", response_model=List[LoreLocation])
 async def list_locations(universe_id: str):
@@ -1000,7 +1165,9 @@ async def create_location(universe_id: str, data: LoreLocationCreate):
 @lore_router.get("/{universe_id}/locations/{location_id}", response_model=LoreLocation)
 async def get_location(universe_id: str, location_id: str):
     db = _db_ref()
-    doc = await db.lore_locations.find_one({"id": location_id, "universe_id": universe_id})
+    doc = await db.lore_locations.find_one(
+        {"id": location_id, "universe_id": universe_id}
+    )
     if not doc:
         raise HTTPException(status_code=404, detail="Location not found")
     return LoreLocation(**doc)
@@ -1010,7 +1177,9 @@ async def get_location(universe_id: str, location_id: str):
 async def update_location(universe_id: str, location_id: str, updates: dict):
     db = _db_ref()
     updates["updated_at"] = datetime.utcnow()
-    await db.lore_locations.update_one({"id": location_id, "universe_id": universe_id}, {"$set": updates})
+    await db.lore_locations.update_one(
+        {"id": location_id, "universe_id": universe_id}, {"$set": updates}
+    )
     doc = await db.lore_locations.find_one({"id": location_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Location not found")
@@ -1028,10 +1197,15 @@ async def delete_location(universe_id: str, location_id: str):
 # TIMELINE EVENTS CRUD
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @lore_router.get("/{universe_id}/timeline", response_model=List[TimelineEvent])
 async def list_timeline_events(universe_id: str):
     db = _db_ref()
-    docs = await db.lore_timeline_events.find({"universe_id": universe_id}).sort("era_marker", 1).to_list(100)
+    docs = (
+        await db.lore_timeline_events.find({"universe_id": universe_id})
+        .sort("era_marker", 1)
+        .to_list(100)
+    )
     return [TimelineEvent(**d) for d in docs]
 
 
@@ -1046,7 +1220,9 @@ async def create_timeline_event(universe_id: str, data: TimelineEventCreate):
 @lore_router.get("/{universe_id}/timeline/{event_id}", response_model=TimelineEvent)
 async def get_timeline_event(universe_id: str, event_id: str):
     db = _db_ref()
-    doc = await db.lore_timeline_events.find_one({"id": event_id, "universe_id": universe_id})
+    doc = await db.lore_timeline_events.find_one(
+        {"id": event_id, "universe_id": universe_id}
+    )
     if not doc:
         raise HTTPException(status_code=404, detail="Timeline event not found")
     return TimelineEvent(**doc)
@@ -1056,7 +1232,9 @@ async def get_timeline_event(universe_id: str, event_id: str):
 async def update_timeline_event(universe_id: str, event_id: str, updates: dict):
     db = _db_ref()
     updates["updated_at"] = datetime.utcnow()
-    await db.lore_timeline_events.update_one({"id": event_id, "universe_id": universe_id}, {"$set": updates})
+    await db.lore_timeline_events.update_one(
+        {"id": event_id, "universe_id": universe_id}, {"$set": updates}
+    )
     doc = await db.lore_timeline_events.find_one({"id": event_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Timeline event not found")
@@ -1066,13 +1244,16 @@ async def update_timeline_event(universe_id: str, event_id: str, updates: dict):
 @lore_router.delete("/{universe_id}/timeline/{event_id}")
 async def delete_timeline_event(universe_id: str, event_id: str):
     db = _db_ref()
-    await db.lore_timeline_events.delete_one({"id": event_id, "universe_id": universe_id})
+    await db.lore_timeline_events.delete_one(
+        {"id": event_id, "universe_id": universe_id}
+    )
     return {"message": "Timeline event deleted"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STORY ARCS CRUD
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @lore_router.get("/{universe_id}/arcs", response_model=List[StoryArc])
 async def list_story_arcs(universe_id: str):
@@ -1102,7 +1283,9 @@ async def get_story_arc(universe_id: str, arc_id: str):
 async def update_story_arc(universe_id: str, arc_id: str, updates: dict):
     db = _db_ref()
     updates["updated_at"] = datetime.utcnow()
-    await db.lore_story_arcs.update_one({"id": arc_id, "universe_id": universe_id}, {"$set": updates})
+    await db.lore_story_arcs.update_one(
+        {"id": arc_id, "universe_id": universe_id}, {"$set": updates}
+    )
     doc = await db.lore_story_arcs.find_one({"id": arc_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Story arc not found")
@@ -1119,6 +1302,7 @@ async def delete_story_arc(universe_id: str, arc_id: str):
 # ══════════════════════════════════════════════════════════════════════════════
 # LORE RULES CRUD
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @lore_router.get("/{universe_id}/rules", response_model=List[LoreRule])
 async def list_lore_rules(universe_id: str):
@@ -1139,7 +1323,9 @@ async def create_lore_rule(universe_id: str, data: LoreRuleCreate):
 async def update_lore_rule(universe_id: str, rule_id: str, updates: dict):
     db = _db_ref()
     updates["updated_at"] = datetime.utcnow()
-    await db.lore_rules.update_one({"id": rule_id, "universe_id": universe_id}, {"$set": updates})
+    await db.lore_rules.update_one(
+        {"id": rule_id, "universe_id": universe_id}, {"$set": updates}
+    )
     doc = await db.lore_rules.find_one({"id": rule_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Lore rule not found")
@@ -1156,6 +1342,7 @@ async def delete_lore_rule(universe_id: str, rule_id: str):
 # ══════════════════════════════════════════════════════════════════════════════
 # META — SAGAARCHITECT SYNC
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class SyncPayload(BaseModel):
     """
@@ -1178,6 +1365,7 @@ class SyncPayload(BaseModel):
       "lore_rules":  [ { id, rule_type, rule, consequence, … }, … ]
     }
     """
+
     universe: Dict[str, Any]
     factions: List[Dict[str, Any]] = []
     characters: List[Dict[str, Any]] = []
@@ -1226,12 +1414,12 @@ async def sync_from_sagaarchitect(payload: SyncPayload):
 
     # ── entity collections ────────────────────────────────────────────────────
     collection_map = [
-        ("lore_factions",        payload.factions,    "factions"),
-        ("lore_characters",      payload.characters,  "characters"),
-        ("lore_locations",       payload.locations,   "locations"),
-        ("lore_timeline_events", payload.timeline,    "timeline"),
-        ("lore_story_arcs",      payload.story_arcs,  "story_arcs"),
-        ("lore_rules",           payload.lore_rules,  "lore_rules"),
+        ("lore_factions", payload.factions, "factions"),
+        ("lore_characters", payload.characters, "characters"),
+        ("lore_locations", payload.locations, "locations"),
+        ("lore_timeline_events", payload.timeline, "timeline"),
+        ("lore_story_arcs", payload.story_arcs, "story_arcs"),
+        ("lore_rules", payload.lore_rules, "lore_rules"),
     ]
 
     counts: Dict[str, Dict[str, int]] = {"created": {}, "updated": {}}
@@ -1277,6 +1465,7 @@ async def sync_from_sagaarchitect(payload: SyncPayload):
 # META — DEMO SEEDING
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @meta_router.post("/seed-demo")
 async def seed_demo_universe():
     """Seed 'The Ashen Veil' demo universe."""
@@ -1284,7 +1473,10 @@ async def seed_demo_universe():
 
     existing = await db.lore_universes.find_one({"name": "The Ashen Veil"})
     if existing:
-        return {"message": "Demo universe already exists", "universe_id": existing["id"]}
+        return {
+            "message": "Demo universe already exists",
+            "universe_id": existing["id"],
+        }
 
     universe = Universe(
         name="The Ashen Veil",
@@ -1581,8 +1773,16 @@ async def seed_demo_universe():
             title="The Present Crisis",
             era_marker="Year 800 — Post-Reckoning (Current)",
             summary="The Empress is dying, the Covenant is fracturing, and the Hollow Prophets are moving toward the Sunken Spire",
-            affected_characters=["Solen Ashveil", "Empress Vael Duskmore", "Lira Flameheld"],
-            affected_factions=["The Ashen Throne", "Covenant of Embers", "The Hollow Prophets"],
+            affected_characters=[
+                "Solen Ashveil",
+                "Empress Vael Duskmore",
+                "Lira Flameheld",
+            ],
+            affected_factions=[
+                "The Ashen Throne",
+                "Covenant of Embers",
+                "The Hollow Prophets",
+            ],
             affected_locations=["The Sunken Spire"],
             consequences="All three factions converge — war is inevitable unless someone finds another way",
             hidden_truths="The Sunken Spire contains the last god's voice — and it has been waiting to be heard",
@@ -1605,7 +1805,12 @@ async def seed_demo_universe():
         end_point="Solen must cast the most powerful storm spell ever attempted — knowing he will forget everything — to awaken the last god",
         characters=["Solen Ashveil", "Empress Vael Duskmore", "Lira Flameheld"],
         factions=["Covenant of Embers", "The Ashen Throne", "The Hollow Prophets"],
-        themes=["Memory and identity", "Sacrifice", "The cost of power", "What gods owe mortals"],
+        themes=[
+            "Memory and identity",
+            "Sacrifice",
+            "The cost of power",
+            "What gods owe mortals",
+        ],
         turning_points=[
             "Solen discovers his journal reveals he once worked for the Ashen Throne",
             "The Empress offers to restore Solen's memories if he delivers the Spire to the Throne",
@@ -1615,7 +1820,10 @@ async def seed_demo_universe():
     )
     await db.lore_story_arcs.insert_one(arc.dict())
 
-    return {"message": "Demo universe 'The Ashen Veil' seeded successfully", "universe_id": uid}
+    return {
+        "message": "Demo universe 'The Ashen Veil' seeded successfully",
+        "universe_id": uid,
+    }
 
 
 @meta_router.get("/demo-universe")
@@ -1632,7 +1840,11 @@ async def get_demo_universe():
     factions = await db.lore_factions.find({"universe_id": uid}).to_list(50)
     locations = await db.lore_locations.find({"universe_id": uid}).to_list(50)
     rules = await db.lore_rules.find({"universe_id": uid}).to_list(50)
-    events = await db.lore_timeline_events.find({"universe_id": uid}).sort("era_marker", 1).to_list(50)
+    events = (
+        await db.lore_timeline_events.find({"universe_id": uid})
+        .sort("era_marker", 1)
+        .to_list(50)
+    )
     arcs = await db.lore_story_arcs.find({"universe_id": uid}).to_list(20)
 
     return {

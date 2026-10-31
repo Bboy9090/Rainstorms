@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   TouchableOpacity,
   Text,
@@ -7,20 +7,20 @@ import {
   ViewStyle,
   TextStyle,
   Pressable,
-} from 'react-native';
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-} from 'react-native-reanimated';
-import { colors, borderRadius, shadows } from '../utils/theme';
-import { springConfigs } from '../utils/animations';
+} from "react-native-reanimated";
+import { colors, borderRadius, shadows } from "../utils/theme";
+import { springConfigs } from "../utils/animations";
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "outline" | "ghost";
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
@@ -33,8 +33,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function Button({
   title,
   onPress,
-  variant = 'primary',
-  size = 'md',
+  variant = "primary",
+  size = "md",
   disabled = false,
   loading = false,
   style,
@@ -57,49 +57,49 @@ export function Button({
 
   const getButtonStyle = (): ViewStyle[] => {
     const base: ViewStyle[] = [styles.button, styles[`size_${size}`]];
-    
+
     switch (variant) {
-      case 'primary':
+      case "primary":
         base.push(styles.primary);
         break;
-      case 'secondary':
+      case "secondary":
         base.push(styles.secondary);
         break;
-      case 'outline':
+      case "outline":
         base.push(styles.outline);
         break;
-      case 'ghost':
+      case "ghost":
         base.push(styles.ghost);
         break;
     }
-    
+
     if (disabled) {
       base.push(styles.disabled);
     }
-    
+
     return base;
   };
 
   const getTextStyle = (): TextStyle[] => {
     const base: TextStyle[] = [styles.text, styles[`text_${size}`]];
-    
+
     switch (variant) {
-      case 'primary':
+      case "primary":
         base.push(styles.textPrimary);
         break;
-      case 'secondary':
+      case "secondary":
         base.push(styles.textSecondary);
         break;
-      case 'outline':
-      case 'ghost':
+      case "outline":
+      case "ghost":
         base.push(styles.textOutline);
         break;
     }
-    
+
     if (disabled) {
       base.push(styles.textDisabled);
     }
-    
+
     return base;
   };
 
@@ -113,7 +113,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? colors.white : colors.primary}
+          color={variant === "primary" ? colors.white : colors.primary}
           size="small"
         />
       ) : (
@@ -128,9 +128,9 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: borderRadius.md,
     gap: 8,
   },
@@ -155,18 +155,18 @@ const styles = StyleSheet.create({
     ...shadows.md,
   },
   outline: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 2,
     borderColor: colors.primary,
   },
   ghost: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   disabled: {
     opacity: 0.5,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   text_sm: {
     fontSize: 14,

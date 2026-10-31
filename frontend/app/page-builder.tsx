@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,43 +10,64 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Loading } from '../src/components/Loading';
-import { SaveIndicator } from '../src/components/SaveIndicator';
-import { useProject } from '../src/context/ProjectContext';
-import { api, BASE_URL, buildImageUrl, formatApiError } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Loading } from "../src/components/Loading";
+import { SaveIndicator } from "../src/components/SaveIndicator";
+import { useProject } from "../src/context/ProjectContext";
+import { api, BASE_URL, buildImageUrl, formatApiError } from "../src/utils/api";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const IMPROVE_MODIFIERS = [
-  { id: 'funnier', label: 'Make funnier', icon: 'happy-outline', color: '#FBBF24' },
-  { id: 'cozier', label: 'Make cozier', icon: 'heart-outline', color: '#F472B6' },
-  { id: 'dialogue', label: 'Add dialogue', icon: 'chatbubbles-outline', color: '#6366F1' },
-  { id: 'simpler', label: 'Simplify', icon: 'leaf-outline', color: '#10B981' },
-  { id: 'emotional', label: 'More emotional', icon: 'water-outline', color: '#3B82F6' },
+  {
+    id: "funnier",
+    label: "Make funnier",
+    icon: "happy-outline",
+    color: "#FBBF24",
+  },
+  {
+    id: "cozier",
+    label: "Make cozier",
+    icon: "heart-outline",
+    color: "#F472B6",
+  },
+  {
+    id: "dialogue",
+    label: "Add dialogue",
+    icon: "chatbubbles-outline",
+    color: "#6366F1",
+  },
+  { id: "simpler", label: "Simplify", icon: "leaf-outline", color: "#10B981" },
+  {
+    id: "emotional",
+    label: "More emotional",
+    icon: "water-outline",
+    color: "#3B82F6",
+  },
 ];
 
 export default function PageBuilderScreen() {
   const router = useRouter();
-  const { 
-    currentProject, 
-    pages, 
+  const {
+    currentProject,
+    pages,
     updatePage,
     saveStatus,
     lastSaved,
-    isLoading, 
-    setError 
+    isLoading,
+    setError,
   } = useProject();
-  
+
   const [activePage, setActivePage] = useState(0);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [isGeneratingIllustration, setIsGeneratingIllustration] = useState(false);
+  const [isGeneratingIllustration, setIsGeneratingIllustration] =
+    useState(false);
   const [isImproving, setIsImproving] = useState<string | null>(null);
   const [showImprovePanel, setShowImprovePanel] = useState(false);
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
@@ -62,7 +83,7 @@ export default function PageBuilderScreen() {
     if (!currentPageData) return;
     setIsGeneratingText(true);
     try {
-      const response = await api.post('/generate/page-text', {
+      const response = await api.post("/generate/page-text", {
         project_id: currentProject.id,
         page_number: currentPageData.page_number,
         outline_beat: currentPageData.outline_beat,
@@ -73,7 +94,7 @@ export default function PageBuilderScreen() {
         emotional_beat: response.data.emotional_beat,
       });
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to generate page text'));
+      setError(formatApiError(err, "Failed to generate page text"));
     } finally {
       setIsGeneratingText(false);
     }
@@ -83,7 +104,7 @@ export default function PageBuilderScreen() {
     if (!currentPageData || !currentPageData.page_text) return;
     setIsGeneratingPrompt(true);
     try {
-      const response = await api.post('/generate/illustration-prompt', {
+      const response = await api.post("/generate/illustration-prompt", {
         project_id: currentProject.id,
         page_number: currentPageData.page_number,
         page_text: currentPageData.page_text,
@@ -93,7 +114,7 @@ export default function PageBuilderScreen() {
         illustration_prompt: response.data.illustration_prompt,
       });
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to generate illustration prompt'));
+      setError(formatApiError(err, "Failed to generate illustration prompt"));
     } finally {
       setIsGeneratingPrompt(false);
     }
@@ -102,17 +123,22 @@ export default function PageBuilderScreen() {
   const handleGenerateIllustration = async () => {
     if (!currentPageData) return;
     if (!currentPageData.illustration_prompt) {
-      Alert.alert('No Prompt', 'Generate an illustration prompt first.');
+      Alert.alert("No Prompt", "Generate an illustration prompt first.");
       return;
     }
     setIsGeneratingIllustration(true);
     try {
       const response = await api.post(
-        `/projects/${currentProject.id}/pages/${currentPageData.id}/illustrations/generate`
+        `/projects/${currentProject.id}/pages/${currentPageData.id}/illustrations/generate`,
       );
-      updatePage(currentPageData.id, { illustration_url: response.data.illustration_url });
+      updatePage(currentPageData.id, {
+        illustration_url: response.data.illustration_url,
+      });
     } catch (err: any) {
-      Alert.alert('Generation Failed', formatApiError(err, 'Failed to generate illustration.'));
+      Alert.alert(
+        "Generation Failed",
+        formatApiError(err, "Failed to generate illustration."),
+      );
     } finally {
       setIsGeneratingIllustration(false);
     }
@@ -122,7 +148,7 @@ export default function PageBuilderScreen() {
     if (!currentPageData || !currentPageData.page_text) return;
     setIsImproving(modifier);
     try {
-      const response = await api.post('/generate/improve-page', {
+      const response = await api.post("/generate/improve-page", {
         project_id: currentProject.id,
         page_id: currentPageData.id,
         page_text: currentPageData.page_text,
@@ -134,7 +160,7 @@ export default function PageBuilderScreen() {
       });
       setShowImprovePanel(false);
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to improve page text'));
+      setError(formatApiError(err, "Failed to improve page text"));
     } finally {
       setIsImproving(null);
     }
@@ -144,10 +170,16 @@ export default function PageBuilderScreen() {
     if (currentPageData) {
       // Add to history if the difference is significant or if it's the first manual change
       const history = textHistory[currentPageData.id] || [];
-      if (history.length === 0 || Math.abs(history[history.length - 1].length - text.length) > 20) {
-        setTextHistory(prev => ({
+      if (
+        history.length === 0 ||
+        Math.abs(history[history.length - 1].length - text.length) > 20
+      ) {
+        setTextHistory((prev) => ({
           ...prev,
-          [currentPageData.id]: [...(prev[currentPageData.id] || []), currentPageData.page_text]
+          [currentPageData.id]: [
+            ...(prev[currentPageData.id] || []),
+            currentPageData.page_text,
+          ],
         }));
       }
       updatePage(currentPageData.id, { page_text: text });
@@ -160,7 +192,7 @@ export default function PageBuilderScreen() {
     if (history.length > 0) {
       const lastText = history[history.length - 1];
       const newHistory = history.slice(0, -1);
-      setTextHistory(prev => ({ ...prev, [currentPageData.id]: newHistory }));
+      setTextHistory((prev) => ({ ...prev, [currentPageData.id]: newHistory }));
       updatePage(currentPageData.id, { page_text: lastText });
     }
   };
@@ -168,14 +200,17 @@ export default function PageBuilderScreen() {
   const handleBatchGenerate = async () => {
     setIsBatchGenerating(true);
     try {
-      const pagesToProcess = pages.filter(p => !p.page_text);
+      const pagesToProcess = pages.filter((p) => !p.page_text);
       if (pagesToProcess.length === 0) {
-        Alert.alert('All Clear', 'All pages already have text. Use regenerate on individual pages if needed.');
+        Alert.alert(
+          "All Clear",
+          "All pages already have text. Use regenerate on individual pages if needed.",
+        );
         return;
       }
 
       for (const page of pagesToProcess) {
-        const response = await api.post('/generate/page-text', {
+        const response = await api.post("/generate/page-text", {
           project_id: currentProject.id,
           page_number: page.page_number,
           outline_beat: page.outline_beat,
@@ -185,7 +220,7 @@ export default function PageBuilderScreen() {
           emotional_beat: response.data.emotional_beat,
         });
         // Also generate prompt automatically during batch
-        const promptRes = await api.post('/generate/illustration-prompt', {
+        const promptRes = await api.post("/generate/illustration-prompt", {
           project_id: currentProject.id,
           page_number: page.page_number,
           page_text: response.data.page_text,
@@ -194,9 +229,15 @@ export default function PageBuilderScreen() {
           illustration_prompt: promptRes.data.illustration_prompt,
         });
       }
-      Alert.alert('Success', `Batch generation complete for ${pagesToProcess.length} pages.`);
+      Alert.alert(
+        "Success",
+        `Batch generation complete for ${pagesToProcess.length} pages.`,
+      );
     } catch (err: any) {
-      Alert.alert('Batch Error', 'Some pages failed to generate. Check your connection.');
+      Alert.alert(
+        "Batch Error",
+        "Some pages failed to generate. Check your connection.",
+      );
     } finally {
       setIsBatchGenerating(false);
     }
@@ -212,7 +253,10 @@ export default function PageBuilderScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -224,23 +268,34 @@ export default function PageBuilderScreen() {
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.headerButton, isBatchGenerating && styles.headerButtonActive]}
+            style={[
+              styles.headerButton,
+              isBatchGenerating && styles.headerButtonActive,
+            ]}
             onPress={handleBatchGenerate}
             disabled={isBatchGenerating}
           >
-            <Ionicons name="sparkles-outline" size={20} color={isBatchGenerating ? colors.white : colors.primary} />
+            <Ionicons
+              name="sparkles-outline"
+              size={20}
+              color={isBatchGenerating ? colors.white : colors.primary}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
-            onPress={() => router.push('/storybook-preview')}
+            onPress={() => router.push("/storybook-preview")}
           >
             <Ionicons name="albums-outline" size={20} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
-            onPress={() => router.push('/export')}
+            onPress={() => router.push("/export")}
           >
-            <Ionicons name="download-outline" size={20} color={colors.primary} />
+            <Ionicons
+              name="download-outline"
+              size={20}
+              color={colors.primary}
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -272,9 +327,21 @@ export default function PageBuilderScreen() {
             {(page.page_text || page.illustration_prompt) && (
               <View style={styles.pageIndicator}>
                 <Ionicons
-                  name={page.illustration_url ? 'image' : page.page_text && page.illustration_prompt ? 'checkmark-circle' : 'ellipse'}
+                  name={
+                    page.illustration_url
+                      ? "image"
+                      : page.page_text && page.illustration_prompt
+                        ? "checkmark-circle"
+                        : "ellipse"
+                  }
                   size={12}
-                  color={page.illustration_url ? colors.primary : page.page_text && page.illustration_prompt ? colors.success : colors.warning}
+                  color={
+                    page.illustration_url
+                      ? colors.primary
+                      : page.page_text && page.illustration_prompt
+                        ? colors.success
+                        : colors.warning
+                  }
                 />
               </View>
             )}
@@ -283,7 +350,10 @@ export default function PageBuilderScreen() {
       </ScrollView>
 
       {/* Page Content */}
-      <ScrollView style={styles.contentScroll} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.contentScroll}
+        contentContainerStyle={styles.content}
+      >
         {currentPageData && (
           <>
             {/* Outline Beat */}
@@ -292,14 +362,20 @@ export default function PageBuilderScreen() {
                 <Ionicons name="map-outline" size={18} color={colors.primary} />
                 <Text style={styles.cardLabel}>Story Beat</Text>
               </View>
-              <Text style={styles.outlineText}>{currentPageData.outline_beat}</Text>
+              <Text style={styles.outlineText}>
+                {currentPageData.outline_beat}
+              </Text>
             </Card>
 
             {/* Page Text */}
             <Card style={styles.textCard} variant="elevated">
               <View style={styles.cardHeaderRow}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="document-text" size={18} color={colors.primary} />
+                  <Ionicons
+                    name="document-text"
+                    size={18}
+                    color={colors.primary}
+                  />
                   <Text style={styles.cardLabel}>Page Text</Text>
                 </View>
                 <View style={styles.buttonGroup}>
@@ -308,7 +384,11 @@ export default function PageBuilderScreen() {
                       style={styles.undoButton}
                       onPress={handleUndoText}
                     >
-                      <Ionicons name="arrow-undo" size={16} color={colors.textSecondary} />
+                      <Ionicons
+                        name="arrow-undo"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
                     </TouchableOpacity>
                   )}
                   {currentPageData.page_text && (
@@ -316,17 +396,29 @@ export default function PageBuilderScreen() {
                       style={styles.improveToggle}
                       onPress={() => setShowImprovePanel(!showImprovePanel)}
                     >
-                      <Ionicons name="sparkles" size={16} color={colors.accent} />
+                      <Ionicons
+                        name="sparkles"
+                        size={16}
+                        color={colors.accent}
+                      />
                       <Text style={styles.improveToggleText}>Improve</Text>
                     </TouchableOpacity>
                   )}
                   <Button
-                    title={currentPageData.page_text ? 'Regenerate' : 'Generate'}
+                    title={
+                      currentPageData.page_text ? "Regenerate" : "Generate"
+                    }
                     onPress={handleGeneratePageText}
                     variant="outline"
                     size="sm"
                     loading={isGeneratingText}
-                    icon={<Ionicons name="refresh" size={14} color={colors.primary} />}
+                    icon={
+                      <Ionicons
+                        name="refresh"
+                        size={14}
+                        color={colors.primary}
+                      />
+                    }
                   />
                 </View>
               </View>
@@ -334,7 +426,9 @@ export default function PageBuilderScreen() {
               {/* Improve This Page Panel */}
               {showImprovePanel && currentPageData.page_text && (
                 <View style={styles.improvePanel}>
-                  <Text style={styles.improvePanelTitle}>Improve this page:</Text>
+                  <Text style={styles.improvePanelTitle}>
+                    Improve this page:
+                  </Text>
                   <View style={styles.improveButtons}>
                     {IMPROVE_MODIFIERS.map((mod) => (
                       <TouchableOpacity
@@ -347,16 +441,25 @@ export default function PageBuilderScreen() {
                         onPress={() => handleImproveText(mod.id)}
                         disabled={!!isImproving}
                       >
-                        <Ionicons 
-                          name={mod.icon as any} 
-                          size={16} 
-                          color={isImproving === mod.id ? colors.white : mod.color} 
+                        <Ionicons
+                          name={mod.icon as any}
+                          size={16}
+                          color={
+                            isImproving === mod.id ? colors.white : mod.color
+                          }
                         />
-                        <Text style={[
-                          styles.improveButtonText,
-                          { color: isImproving === mod.id ? colors.white : mod.color }
-                        ]}>
-                          {isImproving === mod.id ? 'Improving...' : mod.label}
+                        <Text
+                          style={[
+                            styles.improveButtonText,
+                            {
+                              color:
+                                isImproving === mod.id
+                                  ? colors.white
+                                  : mod.color,
+                            },
+                          ]}
+                        >
+                          {isImproving === mod.id ? "Improving..." : mod.label}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -390,13 +493,23 @@ export default function PageBuilderScreen() {
                   <Text style={styles.cardLabel}>Illustration Prompt</Text>
                 </View>
                 <Button
-                  title={currentPageData.illustration_prompt ? 'Regenerate' : 'Generate'}
+                  title={
+                    currentPageData.illustration_prompt
+                      ? "Regenerate"
+                      : "Generate"
+                  }
                   onPress={handleGenerateIllustrationPrompt}
                   variant="outline"
                   size="sm"
                   loading={isGeneratingPrompt}
                   disabled={!currentPageData.page_text}
-                  icon={<Ionicons name="color-palette" size={14} color={colors.primary} />}
+                  icon={
+                    <Ionicons
+                      name="color-palette"
+                      size={14}
+                      color={colors.primary}
+                    />
+                  }
                 />
               </View>
               {currentPageData.illustration_prompt ? (
@@ -427,24 +540,44 @@ export default function PageBuilderScreen() {
                     const hasRaw = !!currentPageData.illustration_url;
                     return (
                       <Button
-                        title={isGeneratingIllustration ? 'Generating…' : hasRaw ? 'Regenerate' : 'Generate Image'}
+                        title={
+                          isGeneratingIllustration
+                            ? "Generating…"
+                            : hasRaw
+                              ? "Regenerate"
+                              : "Generate Image"
+                        }
                         onPress={handleGenerateIllustration}
-                        variant={hasRaw ? 'outline' : 'primary'}
+                        variant={hasRaw ? "outline" : "primary"}
                         size="sm"
                         loading={isGeneratingIllustration}
-                        icon={<Ionicons name="sparkles" size={14} color={hasRaw ? colors.primary : colors.white} />}
+                        icon={
+                          <Ionicons
+                            name="sparkles"
+                            size={14}
+                            color={hasRaw ? colors.primary : colors.white}
+                          />
+                        }
                       />
                     );
                   })()}
                 </View>
                 {(() => {
-                  const resolvedUrl = buildImageUrl(currentPageData.illustration_url || '');
-                  const isLost = !!currentPageData.illustration_url && !resolvedUrl;
+                  const resolvedUrl = buildImageUrl(
+                    currentPageData.illustration_url || "",
+                  );
+                  const isLost =
+                    !!currentPageData.illustration_url && !resolvedUrl;
                   if (isGeneratingIllustration) {
                     return (
                       <View style={styles.illustrationGenerating}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                        <Text style={styles.generatingText}>Generating illustration…</Text>
+                        <ActivityIndicator
+                          size="large"
+                          color={colors.primary}
+                        />
+                        <Text style={styles.generatingText}>
+                          Generating illustration…
+                        </Text>
                       </View>
                     );
                   }
@@ -459,10 +592,14 @@ export default function PageBuilderScreen() {
                   }
                   return (
                     <View style={styles.illustrationEmptyState}>
-                      <Ionicons name="images-outline" size={32} color={colors.gray300} />
+                      <Ionicons
+                        name="images-outline"
+                        size={32}
+                        color={colors.gray300}
+                      />
                       <Text style={styles.illustrationEmptyText}>
                         {isLost
-                          ? 'Image was lost — tap Regenerate above to recreate it'
+                          ? "Image was lost — tap Regenerate above to recreate it"
                           : 'Tap "Generate Image" to create the illustration'}
                       </Text>
                     </View>
@@ -477,7 +614,10 @@ export default function PageBuilderScreen() {
       {/* Bottom Actions */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={[styles.navButton, activePage === 0 && styles.navButtonDisabled]}
+          style={[
+            styles.navButton,
+            activePage === 0 && styles.navButtonDisabled,
+          ]}
           onPress={() => setActivePage(Math.max(0, activePage - 1))}
           disabled={activePage === 0}
         >
@@ -486,7 +626,12 @@ export default function PageBuilderScreen() {
             size={20}
             color={activePage === 0 ? colors.gray300 : colors.textPrimary}
           />
-          <Text style={[styles.navButtonText, activePage === 0 && styles.navButtonTextDisabled]}>
+          <Text
+            style={[
+              styles.navButtonText,
+              activePage === 0 && styles.navButtonTextDisabled,
+            ]}
+          >
             Previous
           </Text>
         </TouchableOpacity>
@@ -496,8 +641,13 @@ export default function PageBuilderScreen() {
         </Text>
 
         <TouchableOpacity
-          style={[styles.navButton, activePage === pages.length - 1 && styles.navButtonDisabled]}
-          onPress={() => setActivePage(Math.min(pages.length - 1, activePage + 1))}
+          style={[
+            styles.navButton,
+            activePage === pages.length - 1 && styles.navButtonDisabled,
+          ]}
+          onPress={() =>
+            setActivePage(Math.min(pages.length - 1, activePage + 1))
+          }
           disabled={activePage === pages.length - 1}
         >
           <Text
@@ -511,7 +661,11 @@ export default function PageBuilderScreen() {
           <Ionicons
             name="chevron-forward"
             size={20}
-            color={activePage === pages.length - 1 ? colors.gray300 : colors.textPrimary}
+            color={
+              activePage === pages.length - 1
+                ? colors.gray300
+                : colors.textPrimary
+            }
           />
         </TouchableOpacity>
       </View>
@@ -525,9 +679,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgStart,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
@@ -537,27 +691,27 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: borderRadius.full,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   headerCenter: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.xs,
   },
   headerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   headerActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   headerButton: {
@@ -565,8 +719,8 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: borderRadius.full,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   headerButtonActive: {
@@ -587,8 +741,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: borderRadius.md,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   pageTabActive: {
@@ -596,14 +750,14 @@ const styles = StyleSheet.create({
   },
   pageTabText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   pageTabTextActive: {
     color: colors.white,
   },
   pageIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: -4,
     right: -4,
   },
@@ -619,29 +773,29 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   cardLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   buttonGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   improveToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -650,7 +804,7 @@ const styles = StyleSheet.create({
   },
   improveToggleText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.accent,
   },
   improvePanel: {
@@ -661,18 +815,18 @@ const styles = StyleSheet.create({
   },
   improvePanelTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
   improveButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   improveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -686,7 +840,7 @@ const styles = StyleSheet.create({
   },
   improveButtonText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   outlineText: {
     fontSize: 15,
@@ -703,11 +857,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     lineHeight: 26,
     minHeight: 120,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   emotionalBeat: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     marginTop: spacing.md,
     paddingTop: spacing.sm,
@@ -717,7 +871,7 @@ const styles = StyleSheet.create({
   emotionalBeatText: {
     fontSize: 14,
     color: colors.secondary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   promptCard: {
     padding: spacing.lg,
@@ -728,12 +882,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 22,
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   promptPlaceholder: {
     fontSize: 14,
     color: colors.gray400,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   // Illustration card styles
   illustrationCard: {
@@ -741,38 +895,38 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   illustrationGenerating: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: spacing.xl,
     gap: spacing.sm,
   },
   generatingText: {
     fontSize: 13,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   illustrationPreviewImage: {
-    width: '100%',
+    width: "100%",
     height: 240,
     borderRadius: borderRadius.md,
     marginTop: spacing.sm,
   },
   illustrationEmptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: spacing.xl,
     gap: spacing.sm,
   },
   illustrationEmptyText: {
     fontSize: 13,
     color: colors.gray400,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
   bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.cardBg,
@@ -780,8 +934,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.gray200,
   },
   navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -791,7 +945,7 @@ const styles = StyleSheet.create({
   },
   navButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   navButtonTextDisabled: {
@@ -800,14 +954,14 @@ const styles = StyleSheet.create({
   pageIndicatorText: {
     fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   undoButton: {
     width: 32,
     height: 32,
     borderRadius: borderRadius.full,
     backgroundColor: colors.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

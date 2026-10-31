@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,26 +6,35 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Loading } from '../src/components/Loading';
-import { useProject } from '../src/context/ProjectContext';
-import { api, formatApiError } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Loading } from "../src/components/Loading";
+import { useProject } from "../src/context/ProjectContext";
+import { api, formatApiError } from "../src/utils/api";
 
 export default function BlueprintScreen() {
   const router = useRouter();
-  const { currentProject, setCurrentProject, pages, setPages, isLoading, setIsLoading, setError, error } = useProject();
-  
+  const {
+    currentProject,
+    setCurrentProject,
+    pages,
+    setPages,
+    isLoading,
+    setIsLoading,
+    setError,
+    error,
+  } = useProject();
+
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
   const [isRegeneratingOutline, setIsRegeneratingOutline] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [tempTitle, setTempTitle] = useState('');
+  const [tempTitle, setTempTitle] = useState("");
   const [editingBeatId, setEditingBeatId] = useState<string | null>(null);
-  const [tempBeat, setTempBeat] = useState('');
+  const [tempBeat, setTempBeat] = useState("");
 
   if (isLoading || !currentProject) {
     return <Loading message="Loading blueprint..." fullScreen />;
@@ -34,10 +43,12 @@ export default function BlueprintScreen() {
   const handleRegenerateTitle = async () => {
     setIsRegeneratingTitle(true);
     try {
-      const response = await api.post(`/generate/title?project_id=${currentProject.id}`);
+      const response = await api.post(
+        `/generate/title?project_id=${currentProject.id}`,
+      );
       setCurrentProject({ ...currentProject, title: response.data.title });
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to regenerate title'));
+      setError(formatApiError(err, "Failed to regenerate title"));
     } finally {
       setIsRegeneratingTitle(false);
     }
@@ -46,7 +57,7 @@ export default function BlueprintScreen() {
   const handleRegenerateOutline = async () => {
     setIsRegeneratingOutline(true);
     try {
-      const blueprintRes = await api.post('/generate/blueprint', {
+      const blueprintRes = await api.post("/generate/blueprint", {
         original_idea: currentProject.original_idea,
         tone: currentProject.tone,
         age_range: currentProject.age_range,
@@ -61,27 +72,32 @@ export default function BlueprintScreen() {
       });
 
       // Recreate pages from new outline
-      const pagesData = blueprint.outline.map((beat: string, index: number) => ({
-        page_number: index + 1,
-        outline_beat: beat,
-        page_text: '',
-        illustration_prompt: '',
-        emotional_beat: '',
-      }));
+      const pagesData = blueprint.outline.map(
+        (beat: string, index: number) => ({
+          page_number: index + 1,
+          outline_beat: beat,
+          page_text: "",
+          illustration_prompt: "",
+          emotional_beat: "",
+        }),
+      );
 
       await api.post(`/projects/${currentProject.id}/pages/bulk`, pagesData);
-      
+
       // Update characters from blueprint
       if (blueprint.characters && Array.isArray(blueprint.characters)) {
         const charactersData = blueprint.characters.map((char: any) => ({
-          name: char.name || 'Unknown',
-          role: char.role || 'supporting',
-          personality: char.personality || '',
-          appearance: char.appearance || '',
-          special_trait: char.special_trait || '',
-          notes: '',
+          name: char.name || "Unknown",
+          role: char.role || "supporting",
+          personality: char.personality || "",
+          appearance: char.appearance || "",
+          special_trait: char.special_trait || "",
+          notes: "",
         }));
-        await api.post(`/projects/${currentProject.id}/characters/bulk`, charactersData);
+        await api.post(
+          `/projects/${currentProject.id}/characters/bulk`,
+          charactersData,
+        );
       }
 
       // Reload all
@@ -89,15 +105,15 @@ export default function BlueprintScreen() {
         api.get(`/projects/${currentProject.id}/pages`),
         api.get(`/projects/${currentProject.id}/characters`),
       ]);
-      
+
       setPages(newPagesRes.data);
-      // We assume ProjectContext has a setCharacters or similar if needed, 
+      // We assume ProjectContext has a setCharacters or similar if needed,
       // but usually the pages carry the core story.
       // Actually we need to make sure characters are updated in the context if they exist.
       // For now let's focus on pages.
       setCurrentProject({ ...currentProject, outline: blueprint.outline });
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to regenerate outline'));
+      setError(formatApiError(err, "Failed to regenerate outline"));
     } finally {
       setIsRegeneratingOutline(false);
     }
@@ -110,7 +126,9 @@ export default function BlueprintScreen() {
 
   const handleSaveTitle = async () => {
     if (tempTitle.trim() && tempTitle !== currentProject.title) {
-      await api.put(`/projects/${currentProject.id}`, { title: tempTitle.trim() });
+      await api.put(`/projects/${currentProject.id}`, {
+        title: tempTitle.trim(),
+      });
       setCurrentProject({ ...currentProject, title: tempTitle.trim() });
     }
     setEditingTitle(false);
@@ -125,23 +143,30 @@ export default function BlueprintScreen() {
     if (tempBeat.trim()) {
       try {
         await api.put(`/pages/${pageId}`, { outline_beat: tempBeat.trim() });
-        setPages(pages.map(p => p.id === pageId ? { ...p, outline_beat: tempBeat.trim() } : p));
+        setPages(
+          pages.map((p) =>
+            p.id === pageId ? { ...p, outline_beat: tempBeat.trim() } : p,
+          ),
+        );
       } catch (err: any) {
-        setError(formatApiError(err, 'Failed to save page beat'));
+        setError(formatApiError(err, "Failed to save page beat"));
       }
     }
     setEditingBeatId(null);
   };
 
   const handleAcceptBlueprint = () => {
-    router.push('/characters');
+    router.push("/characters");
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
@@ -165,7 +190,10 @@ export default function BlueprintScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionLabel}>Title</Text>
           <View style={styles.sectionActions}>
-            <TouchableOpacity style={styles.iconButton} onPress={handleEditTitle}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleEditTitle}
+            >
               <Ionicons name="pencil" size={18} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -174,7 +202,7 @@ export default function BlueprintScreen() {
               disabled={isRegeneratingTitle}
             >
               <Ionicons
-                name={isRegeneratingTitle ? 'sync' : 'refresh'}
+                name={isRegeneratingTitle ? "sync" : "refresh"}
                 size={18}
                 color={colors.primary}
               />
@@ -189,7 +217,10 @@ export default function BlueprintScreen() {
               onChangeText={setTempTitle}
               autoFocus
             />
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveTitle}>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSaveTitle}
+            >
               <Ionicons name="checkmark" size={20} color={colors.white} />
             </TouchableOpacity>
           </View>
@@ -240,7 +271,7 @@ export default function BlueprintScreen() {
             disabled={isRegeneratingOutline}
           >
             <Ionicons
-              name={isRegeneratingOutline ? 'sync' : 'refresh'}
+              name={isRegeneratingOutline ? "sync" : "refresh"}
               size={16}
               color={colors.primary}
             />
@@ -266,17 +297,29 @@ export default function BlueprintScreen() {
                       multiline
                       autoFocus
                     />
-                    <TouchableOpacity style={styles.saveBeatButton} onPress={() => handleSaveBeat(page.id)}>
-                      <Ionicons name="checkmark" size={18} color={colors.white} />
+                    <TouchableOpacity
+                      style={styles.saveBeatButton}
+                      onPress={() => handleSaveBeat(page.id)}
+                    >
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={colors.white}
+                      />
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity 
-                    style={styles.beatTextContainer} 
+                  <TouchableOpacity
+                    style={styles.beatTextContainer}
                     onPress={() => handleEditBeat(page.id, page.outline_beat)}
                   >
                     <Text style={styles.outlineBeat}>{page.outline_beat}</Text>
-                    <Ionicons name="pencil" size={14} color={colors.gray300} style={styles.editIcon} />
+                    <Ionicons
+                      name="pencil"
+                      size={14}
+                      color={colors.gray300}
+                      style={styles.editIcon}
+                    />
                   </TouchableOpacity>
                 )}
               </View>
@@ -291,7 +334,9 @@ export default function BlueprintScreen() {
           title="Accept Blueprint"
           onPress={handleAcceptBlueprint}
           size="lg"
-          icon={<Ionicons name="checkmark-circle" size={22} color={colors.white} />}
+          icon={
+            <Ionicons name="checkmark-circle" size={22} color={colors.white} />
+          }
           style={styles.acceptButton}
         />
         <Button
@@ -315,9 +360,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.lg,
   },
   backButton: {
@@ -325,18 +370,18 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: borderRadius.full,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   headerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   titleCard: {
@@ -348,21 +393,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   sectionLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textMuted,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
   sectionActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   iconButton: {
@@ -370,24 +415,24 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: borderRadius.full,
     backgroundColor: colors.gray100,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   bookTitle: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
     lineHeight: 36,
   },
   editTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   titleInput: {
     flex: 1,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     borderBottomWidth: 2,
     borderBottomColor: colors.primary,
@@ -398,14 +443,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: borderRadius.full,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   hookText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     lineHeight: 26,
   },
   bodyText: {
@@ -419,13 +464,13 @@ const styles = StyleSheet.create({
     marginVertical: spacing.md,
   },
   metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginBottom: spacing.md,
   },
   metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     backgroundColor: colors.cardBg,
     paddingVertical: spacing.sm,
@@ -436,7 +481,7 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   outlineCard: {
     padding: spacing.lg,
@@ -444,12 +489,12 @@ const styles = StyleSheet.create({
   },
   outlineTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   regenerateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
@@ -457,14 +502,14 @@ const styles = StyleSheet.create({
   regenerateText: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   outlineList: {
     gap: spacing.md,
   },
   outlineItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.md,
   },
   pageNumber: {
@@ -472,12 +517,12 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: borderRadius.full,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   pageNumberText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.white,
   },
   outlineBeat: {
@@ -488,10 +533,10 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   acceptButton: {
-    width: '100%',
+    width: "100%",
     maxWidth: 320,
   },
   errorCard: {
@@ -500,8 +545,8 @@ const styles = StyleSheet.create({
     borderColor: colors.error,
   },
   errorRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.sm,
   },
   errorText: {
@@ -512,8 +557,8 @@ const styles = StyleSheet.create({
   },
   editBeatContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.sm,
   },
   beatInput: {
@@ -530,14 +575,14 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: borderRadius.full,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 2,
   },
   beatTextContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.xs,
   },
   editIcon: {
