@@ -325,10 +325,6 @@ export default function StorybookPreviewScreen() {
   const [isBatchLayouting, setIsBatchLayouting] = useState(false);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
 
-  if (isLoading || !currentProject) {
-    return <Loading message="Loading storybook..." fullScreen />;
-  }
-
   const currentPageData = pages[activePage];
   const illustratedCount = pages.filter((p) => p.illustration_url).length;
   const laidOutCount = pages.filter((p) => p.page_layout).length;
@@ -517,6 +513,10 @@ export default function StorybookPreviewScreen() {
       ]
     );
   }, [pages, currentProject, updatePage]);
+
+  if (isLoading || !currentProject) {
+    return <Loading message="Loading storybook..." fullScreen />;
+  }
 
   const isGeneratingCurrent = generatingPageId === currentPageData?.id;
   const rawIllustrationUrl = currentPageData?.illustration_url ?? '';
