@@ -634,6 +634,8 @@ export default function StorybookPreviewScreen() {
   }, [pages, currentProject, updatePage]);
 
   const handleBatchGenerate = useCallback(async () => {
+    if (!currentProject) return;
+    const projectId = currentProject.id;
     const pagesWithPrompts = pages.filter((p) => p.illustration_prompt);
     if (pagesWithPrompts.length === 0) {
       Alert.alert(
@@ -655,7 +657,7 @@ export default function StorybookPreviewScreen() {
             setBatchProgress({ current: 0, total: pagesWithPrompts.length });
             try {
               const res = await api.post(
-                `/projects/${currentProject.id}/illustrations/batch`,
+                `/projects/${projectId}/illustrations/batch`,
               );
               const results: Array<{
                 page_id: string;
