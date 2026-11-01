@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,17 +12,22 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Loading } from '../src/components/Loading';
-import { SaveIndicator } from '../src/components/SaveIndicator';
-import { useProject, Character } from '../src/context/ProjectContext';
-import { api, buildImageUrl, formatApiError, getImageFileExtension } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Loading } from "../src/components/Loading";
+import { SaveIndicator } from "../src/components/SaveIndicator";
+import { useProject, Character } from "../src/context/ProjectContext";
+import {
+  api,
+  buildImageUrl,
+  formatApiError,
+  getImageFileExtension,
+} from "../src/utils/api";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -37,15 +42,15 @@ function getRoleColor(role: string): string {
 }
 
 const EMPTY_NEW_CHAR = {
-  name: '',
-  role: 'supporting',
-  personality: '',
-  appearance: '',
-  special_trait: '',
-  notes: '',
-  color_palette: '',
-  clothing: '',
-  unique_traits: '',
+  name: "",
+  role: "supporting",
+  personality: "",
+  appearance: "",
+  special_trait: "",
+  notes: "",
+  color_palette: "",
+  clothing: "",
+  unique_traits: "",
 };
 
 // ── Screen ───────────────────────────────────────────────────────────────────
@@ -68,7 +73,9 @@ export default function CharactersScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newChar, setNewChar] = useState(EMPTY_NEW_CHAR);
   // Per-character loading state for reference sheet and lock actions
-  const [generatingRefSheet, setGeneratingRefSheet] = useState<string | null>(null);
+  const [generatingRefSheet, setGeneratingRefSheet] = useState<string | null>(
+    null,
+  );
   const [togglingLock, setTogglingLock] = useState<string | null>(null);
 
   if (isLoading || !currentProject) {
@@ -80,10 +87,12 @@ export default function CharactersScreen() {
   const handleGenerateCharacters = async () => {
     setIsGenerating(true);
     try {
-      const response = await api.post(`/generate/characters?project_id=${currentProject.id}`);
+      const response = await api.post(
+        `/generate/characters?project_id=${currentProject.id}`,
+      );
       setCharacters(response.data);
     } catch (err: any) {
-      setError(formatApiError(err, 'Failed to generate characters'));
+      setError(formatApiError(err, "Failed to generate characters"));
     } finally {
       setIsGenerating(false);
     }
@@ -113,12 +122,15 @@ export default function CharactersScreen() {
 
   const handleAddCharacter = async () => {
     try {
-      const response = await api.post(`/projects/${currentProject.id}/characters`, newChar);
+      const response = await api.post(
+        `/projects/${currentProject.id}/characters`,
+        newChar,
+      );
       setCharacters([...characters, response.data]);
       setShowAddModal(false);
       setNewChar(EMPTY_NEW_CHAR);
     } catch {
-      setError('Failed to add character');
+      setError("Failed to add character");
     }
   };
 
@@ -127,30 +139,35 @@ export default function CharactersScreen() {
       await api.delete(`/characters/${charId}`);
       setCharacters(characters.filter((c) => c.id !== charId));
     } catch {
-      setError('Failed to delete character');
+      setError("Failed to delete character");
     }
   };
 
-  const handleGenerateReferenceSheet = useCallback(async (char: Character) => {
+  const handleGenerateReferenceSheet = async (char: Character) => {
     if (!char.appearance && !char.color_palette && !char.unique_traits) {
       Alert.alert(
-        'No Visual Profile',
-        'Fill in Appearance, Color Palette, or Unique Traits before generating a reference sheet.'
+        "No Visual Profile",
+        "Fill in Appearance, Color Palette, or Unique Traits before generating a reference sheet.",
       );
       return;
     }
     setGeneratingRefSheet(char.id);
     try {
       const res = await api.post(`/characters/${char.id}/reference-sheet`);
-      updateCharacter(char.id, { reference_sheet_url: res.data.reference_sheet_url });
+      updateCharacter(char.id, {
+        reference_sheet_url: res.data.reference_sheet_url,
+      });
     } catch (err: any) {
-      Alert.alert('Generation Failed', formatApiError(err, 'Failed to generate reference sheet.'));
+      Alert.alert(
+        "Generation Failed",
+        formatApiError(err, "Failed to generate reference sheet."),
+      );
     } finally {
       setGeneratingRefSheet(null);
     }
-  }, [updateCharacter]);
+  };
 
-  const handleToggleLock = useCallback(async (char: Character) => {
+  const handleToggleLock = async (char: Character) => {
     setTogglingLock(char.id);
     try {
       const endpoint = char.appearance_locked
@@ -159,24 +176,24 @@ export default function CharactersScreen() {
       await api.post(endpoint);
       updateCharacter(char.id, { appearance_locked: !char.appearance_locked });
     } catch {
-      Alert.alert('Error', 'Failed to update appearance lock.');
+      Alert.alert("Error", "Failed to update appearance lock.");
     } finally {
       setTogglingLock(null);
     }
-  }, [updateCharacter]);
+  };
 
-  const handleDownloadRefSheet = useCallback(async (refSheetUrl: string) => {
+  const handleDownloadRefSheet = async (refSheetUrl: string) => {
     const url = buildImageUrl(refSheetUrl);
     if (!url) return;
-    if (Platform.OS === 'web') {
-      const a = document.createElement('a');
+    if (Platform.OS === "web") {
+      const a = document.createElement("a");
       a.href = url;
       a.download = `reference_sheet.${getImageFileExtension(url)}`;
       a.click();
     } else {
       await Linking.openURL(url);
     }
-  }, []);
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -184,7 +201,10 @@ export default function CharactersScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -198,18 +218,27 @@ export default function CharactersScreen() {
       </View>
 
       <Text style={styles.subtitle}>
-        Build your cast. Visual profiles keep characters consistent across every illustration.
+        Build your cast. Visual profiles keep characters consistent across every
+        illustration.
       </Text>
 
       {/* Actions */}
       <View style={styles.topActions}>
         <Button
-          title={characters.length > 0 ? 'Regenerate All' : 'Generate Characters'}
+          title={
+            characters.length > 0 ? "Regenerate All" : "Generate Characters"
+          }
           onPress={handleGenerateCharacters}
-          variant={characters.length > 0 ? 'outline' : 'primary'}
+          variant={characters.length > 0 ? "outline" : "primary"}
           size="md"
           loading={isGenerating}
-          icon={<Ionicons name="sparkles" size={18} color={characters.length > 0 ? colors.primary : colors.white} />}
+          icon={
+            <Ionicons
+              name="sparkles"
+              size={18}
+              color={characters.length > 0 ? colors.primary : colors.white}
+            />
+          }
         />
         <Button
           title="Add Character"
@@ -242,12 +271,21 @@ export default function CharactersScreen() {
                     <Text style={styles.charName}>{char.name}</Text>
                     {char.appearance_locked && (
                       <View style={styles.lockBadge}>
-                        <Ionicons name="lock-closed" size={11} color={colors.white} />
+                        <Ionicons
+                          name="lock-closed"
+                          size={11}
+                          color={colors.white}
+                        />
                         <Text style={styles.lockBadgeText}>Locked</Text>
                       </View>
                     )}
                   </View>
-                  <View style={[styles.roleBadge, { backgroundColor: getRoleColor(char.role) }]}>
+                  <View
+                    style={[
+                      styles.roleBadge,
+                      { backgroundColor: getRoleColor(char.role) },
+                    ]}
+                  >
                     <Text style={styles.roleText}>{char.role}</Text>
                   </View>
                 </View>
@@ -262,20 +300,29 @@ export default function CharactersScreen() {
                     style={styles.cardButton}
                     onPress={() => handleDeleteCharacter(char.id)}
                   >
-                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                    <Ionicons
+                      name="trash-outline"
+                      size={16}
+                      color={colors.error}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
 
               {/* Reference Sheet Image */}
               {(() => {
-                const resolvedRefUrl = buildImageUrl(char.reference_sheet_url || '');
-                const refSheetLost = !!char.reference_sheet_url && !resolvedRefUrl;
+                const resolvedRefUrl = buildImageUrl(
+                  char.reference_sheet_url || "",
+                );
+                const refSheetLost =
+                  !!char.reference_sheet_url && !resolvedRefUrl;
                 if (generatingRefSheet === char.id) {
                   return (
                     <View style={styles.refSheetGenerating}>
                       <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={styles.refSheetGeneratingText}>Generating reference sheet...</Text>
+                      <Text style={styles.refSheetGeneratingText}>
+                        Generating reference sheet...
+                      </Text>
                     </View>
                   );
                 }
@@ -291,9 +338,14 @@ export default function CharactersScreen() {
                 if (refSheetLost) {
                   return (
                     <View style={styles.refSheetGenerating}>
-                      <Ionicons name="image-outline" size={20} color={colors.gray300} />
+                      <Ionicons
+                        name="image-outline"
+                        size={20}
+                        color={colors.gray300}
+                      />
                       <Text style={styles.refSheetGeneratingText}>
-                        Image was lost — tap "Regenerate Sheet" to recreate it
+                        Image was lost — tap &quot;Regenerate Sheet&quot; to
+                        recreate it
                       </Text>
                     </View>
                   );
@@ -343,26 +395,49 @@ export default function CharactersScreen() {
               {/* Consistency Engine Actions */}
               <View style={styles.charActions}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, generatingRefSheet === char.id && styles.actionBtnDisabled]}
+                  style={[
+                    styles.actionBtn,
+                    generatingRefSheet === char.id && styles.actionBtnDisabled,
+                  ]}
                   onPress={() => handleGenerateReferenceSheet(char)}
                   disabled={generatingRefSheet === char.id}
                 >
                   <Ionicons
                     name="image-outline"
                     size={14}
-                    color={generatingRefSheet === char.id ? colors.gray400 : colors.primary}
+                    color={
+                      generatingRefSheet === char.id
+                        ? colors.gray400
+                        : colors.primary
+                    }
                   />
-                  <Text style={[styles.actionBtnText, generatingRefSheet === char.id && { color: colors.gray400 }]}>
-                    {char.reference_sheet_url ? 'Regenerate Sheet' : 'Generate Sheet'}
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      generatingRefSheet === char.id && {
+                        color: colors.gray400,
+                      },
+                    ]}
+                  >
+                    {char.reference_sheet_url
+                      ? "Regenerate Sheet"
+                      : "Generate Sheet"}
                   </Text>
                 </TouchableOpacity>
 
-                {char.reference_sheet_url && buildImageUrl(char.reference_sheet_url) ? (
+                {char.reference_sheet_url &&
+                buildImageUrl(char.reference_sheet_url) ? (
                   <TouchableOpacity
                     style={styles.actionBtn}
-                    onPress={() => handleDownloadRefSheet(char.reference_sheet_url!)}
+                    onPress={() =>
+                      handleDownloadRefSheet(char.reference_sheet_url!)
+                    }
                   >
-                    <Ionicons name="download-outline" size={14} color={colors.primary} />
+                    <Ionicons
+                      name="download-outline"
+                      size={14}
+                      color={colors.primary}
+                    />
                     <Text style={styles.actionBtnText}>Download</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -377,12 +452,23 @@ export default function CharactersScreen() {
                   disabled={togglingLock === char.id}
                 >
                   <Ionicons
-                    name={char.appearance_locked ? 'lock-closed' : 'lock-open-outline'}
+                    name={
+                      char.appearance_locked
+                        ? "lock-closed"
+                        : "lock-open-outline"
+                    }
                     size={14}
-                    color={char.appearance_locked ? colors.white : colors.primary}
+                    color={
+                      char.appearance_locked ? colors.white : colors.primary
+                    }
                   />
-                  <Text style={[styles.actionBtnText, char.appearance_locked && { color: colors.white }]}>
-                    {char.appearance_locked ? 'Locked' : 'Lock Appearance'}
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      char.appearance_locked && { color: colors.white },
+                    ]}
+                  >
+                    {char.appearance_locked ? "Locked" : "Lock Appearance"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -396,17 +482,21 @@ export default function CharactersScreen() {
         <View style={styles.bottomActions}>
           <Button
             title="Story Memory"
-            onPress={() => router.push('/story-memory')}
+            onPress={() => router.push("/story-memory")}
             variant="outline"
             size="md"
-            icon={<Ionicons name="brain" size={18} color={colors.primary} />}
+            icon={
+              <Ionicons name="bulb-outline" size={18} color={colors.primary} />
+            }
             style={styles.memoryButton}
           />
           <Button
             title="Continue to Page Builder"
-            onPress={() => router.push('/page-builder')}
+            onPress={() => router.push("/page-builder")}
             size="lg"
-            icon={<Ionicons name="arrow-forward" size={22} color={colors.white} />}
+            icon={
+              <Ionicons name="arrow-forward" size={22} color={colors.white} />
+            }
             style={styles.continueButton}
           />
         </View>
@@ -414,8 +504,14 @@ export default function CharactersScreen() {
 
       {/* ── Edit Character Modal ── */}
       <Modal visible={!!editingChar} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setEditingChar(null)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setEditingChar(null)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Character</Text>
               <TouchableOpacity onPress={() => setEditingChar(null)}>
@@ -425,20 +521,71 @@ export default function CharactersScreen() {
 
             {editingChar && (
               <ScrollView style={styles.modalScroll}>
-                <ModalField label="Name" value={editingChar.name} onChangeText={(v) => handleEditField('name', v)} />
-                <ModalField label="Role" value={editingChar.role} onChangeText={(v) => handleEditField('role', v)} placeholder="main, supporting, or minor" />
-                <ModalField label="Personality" value={editingChar.personality} onChangeText={(v) => handleEditField('personality', v)} multiline />
-                <ModalField label="Appearance" value={editingChar.appearance} onChangeText={(v) => handleEditField('appearance', v)} multiline />
+                <ModalField
+                  label="Name"
+                  value={editingChar.name}
+                  onChangeText={(v) => handleEditField("name", v)}
+                />
+                <ModalField
+                  label="Role"
+                  value={editingChar.role}
+                  onChangeText={(v) => handleEditField("role", v)}
+                  placeholder="main, supporting, or minor"
+                />
+                <ModalField
+                  label="Personality"
+                  value={editingChar.personality}
+                  onChangeText={(v) => handleEditField("personality", v)}
+                  multiline
+                />
+                <ModalField
+                  label="Appearance"
+                  value={editingChar.appearance}
+                  onChangeText={(v) => handleEditField("appearance", v)}
+                  multiline
+                />
 
-                <Text style={styles.sectionSeparatorLabel}>Visual Profile (for illustration consistency)</Text>
+                <Text style={styles.sectionSeparatorLabel}>
+                  Visual Profile (for illustration consistency)
+                </Text>
 
-                <ModalField label="Color Palette" value={editingChar.color_palette} onChangeText={(v) => handleEditField('color_palette', v)} placeholder="e.g. deep blue, silver, warm gold" />
-                <ModalField label="Clothing" value={editingChar.clothing} onChangeText={(v) => handleEditField('clothing', v)} multiline placeholder="e.g. flowing quilt cape with star patterns" />
-                <ModalField label="Unique Traits" value={editingChar.unique_traits} onChangeText={(v) => handleEditField('unique_traits', v)} multiline placeholder="e.g. glowing star eyes, stitched seams visible" />
-                <ModalField label="Special Trait" value={editingChar.special_trait} onChangeText={(v) => handleEditField('special_trait', v)} />
-                <ModalField label="Notes" value={editingChar.notes} onChangeText={(v) => handleEditField('notes', v)} multiline />
+                <ModalField
+                  label="Color Palette"
+                  value={editingChar.color_palette}
+                  onChangeText={(v) => handleEditField("color_palette", v)}
+                  placeholder="e.g. deep blue, silver, warm gold"
+                />
+                <ModalField
+                  label="Clothing"
+                  value={editingChar.clothing}
+                  onChangeText={(v) => handleEditField("clothing", v)}
+                  multiline
+                  placeholder="e.g. flowing quilt cape with star patterns"
+                />
+                <ModalField
+                  label="Unique Traits"
+                  value={editingChar.unique_traits}
+                  onChangeText={(v) => handleEditField("unique_traits", v)}
+                  multiline
+                  placeholder="e.g. glowing star eyes, stitched seams visible"
+                />
+                <ModalField
+                  label="Special Trait"
+                  value={editingChar.special_trait}
+                  onChangeText={(v) => handleEditField("special_trait", v)}
+                />
+                <ModalField
+                  label="Notes"
+                  value={editingChar.notes}
+                  onChangeText={(v) => handleEditField("notes", v)}
+                  multiline
+                />
 
-                <Button title="Save Changes" onPress={handleSaveCharacter} style={styles.modalButton} />
+                <Button
+                  title="Save Changes"
+                  onPress={handleSaveCharacter}
+                  style={styles.modalButton}
+                />
               </ScrollView>
             )}
           </Pressable>
@@ -447,8 +594,14 @@ export default function CharactersScreen() {
 
       {/* ── Add Character Modal ── */}
       <Modal visible={showAddModal} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowAddModal(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Character</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
@@ -457,17 +610,67 @@ export default function CharactersScreen() {
             </View>
 
             <ScrollView style={styles.modalScroll}>
-              <ModalField label="Name *" value={newChar.name} onChangeText={(v) => setNewChar({ ...newChar, name: v })} placeholder="Character name" />
-              <ModalField label="Role" value={newChar.role} onChangeText={(v) => setNewChar({ ...newChar, role: v })} placeholder="main, supporting, or minor" />
-              <ModalField label="Personality" value={newChar.personality} onChangeText={(v) => setNewChar({ ...newChar, personality: v })} multiline placeholder="Describe their personality" />
-              <ModalField label="Appearance" value={newChar.appearance} onChangeText={(v) => setNewChar({ ...newChar, appearance: v })} multiline placeholder="Visual description for illustrations" />
+              <ModalField
+                label="Name *"
+                value={newChar.name}
+                onChangeText={(v) => setNewChar({ ...newChar, name: v })}
+                placeholder="Character name"
+              />
+              <ModalField
+                label="Role"
+                value={newChar.role}
+                onChangeText={(v) => setNewChar({ ...newChar, role: v })}
+                placeholder="main, supporting, or minor"
+              />
+              <ModalField
+                label="Personality"
+                value={newChar.personality}
+                onChangeText={(v) => setNewChar({ ...newChar, personality: v })}
+                multiline
+                placeholder="Describe their personality"
+              />
+              <ModalField
+                label="Appearance"
+                value={newChar.appearance}
+                onChangeText={(v) => setNewChar({ ...newChar, appearance: v })}
+                multiline
+                placeholder="Visual description for illustrations"
+              />
 
               <Text style={styles.sectionSeparatorLabel}>Visual Profile</Text>
 
-              <ModalField label="Color Palette" value={newChar.color_palette} onChangeText={(v) => setNewChar({ ...newChar, color_palette: v })} placeholder="e.g. deep blue, silver, warm gold" />
-              <ModalField label="Clothing" value={newChar.clothing} onChangeText={(v) => setNewChar({ ...newChar, clothing: v })} multiline placeholder="e.g. flowing quilt cape" />
-              <ModalField label="Unique Traits" value={newChar.unique_traits} onChangeText={(v) => setNewChar({ ...newChar, unique_traits: v })} multiline placeholder="e.g. glowing star eyes" />
-              <ModalField label="Special Trait" value={newChar.special_trait} onChangeText={(v) => setNewChar({ ...newChar, special_trait: v })} placeholder="What makes them unique" />
+              <ModalField
+                label="Color Palette"
+                value={newChar.color_palette}
+                onChangeText={(v) =>
+                  setNewChar({ ...newChar, color_palette: v })
+                }
+                placeholder="e.g. deep blue, silver, warm gold"
+              />
+              <ModalField
+                label="Clothing"
+                value={newChar.clothing}
+                onChangeText={(v) => setNewChar({ ...newChar, clothing: v })}
+                multiline
+                placeholder="e.g. flowing quilt cape"
+              />
+              <ModalField
+                label="Unique Traits"
+                value={newChar.unique_traits}
+                onChangeText={(v) =>
+                  setNewChar({ ...newChar, unique_traits: v })
+                }
+                multiline
+                placeholder="e.g. glowing star eyes"
+              />
+              <ModalField
+                label="Special Trait"
+                value={newChar.special_trait}
+                onChangeText={(v) =>
+                  setNewChar({ ...newChar, special_trait: v })
+                }
+                placeholder="What makes them unique"
+              />
 
               <Button
                 title="Add Character"
@@ -520,120 +723,223 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.md,
   },
   backButton: {
-    width: 40, height: 40, borderRadius: borderRadius.full,
-    backgroundColor: colors.cardBg, alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.cardBg,
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
-  headerCenter: { flex: 1, alignItems: 'center', gap: spacing.xs },
-  headerTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
-  subtitle: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.lg },
+  headerCenter: { flex: 1, alignItems: "center", gap: spacing.xs },
+  headerTitle: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  title: { fontSize: 22, fontWeight: "700", color: colors.textPrimary },
+  subtitle: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
 
-  topActions: { flexDirection: 'row', justifyContent: 'center', gap: spacing.md, marginBottom: spacing.lg },
+  topActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
 
   characterGrid: { gap: spacing.md },
   characterCard: { padding: spacing.lg },
 
   cardHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: spacing.md,
   },
   charInfo: { flex: 1 },
-  charNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap', marginBottom: spacing.xs },
-  charName: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  charNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+    marginBottom: spacing.xs,
+  },
+  charName: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
   lockBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: colors.primary, borderRadius: borderRadius.full,
-    paddingHorizontal: 8, paddingVertical: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  lockBadgeText: { fontSize: 11, fontWeight: '700', color: colors.white },
+  lockBadgeText: { fontSize: 11, fontWeight: "700", color: colors.white },
   roleBadge: {
-    paddingVertical: 2, paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.full, alignSelf: 'flex-start',
+    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    alignSelf: "flex-start",
   },
-  roleText: { fontSize: 12, fontWeight: '600', color: colors.white, textTransform: 'capitalize' },
-  cardActions: { flexDirection: 'row', gap: spacing.sm },
+  roleText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.white,
+    textTransform: "capitalize",
+  },
+  cardActions: { flexDirection: "row", gap: spacing.sm },
   cardButton: {
-    width: 32, height: 32, borderRadius: borderRadius.full,
-    backgroundColor: colors.gray100, alignItems: 'center', justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.gray100,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   referenceSheetImage: {
-    width: '100%', height: 200, borderRadius: borderRadius.md,
+    width: "100%",
+    height: 200,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
   refSheetGenerating: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    justifyContent: 'center', paddingVertical: spacing.md,
-    backgroundColor: colors.tintPrimary, borderRadius: borderRadius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    justifyContent: "center",
+    paddingVertical: spacing.md,
+    backgroundColor: colors.tintPrimary,
+    borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
-  refSheetGeneratingText: { fontSize: 13, color: colors.primary, fontWeight: '500' },
+  refSheetGeneratingText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: "500",
+  },
 
   charField: { marginBottom: spacing.sm },
   fieldLabel: {
-    fontSize: 11, fontWeight: '600', color: colors.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   fieldValue: { fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
-  specialTrait: { fontSize: 14, color: colors.primary, fontWeight: '500', lineHeight: 20 },
+  specialTrait: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "500",
+    lineHeight: 20,
+  },
 
   charActions: {
-    flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md,
-    paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.gray200,
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200,
+    flexWrap: "wrap",
   },
   actionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: spacing.md, paddingVertical: 6,
-    borderRadius: borderRadius.full, borderWidth: 1, borderColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
     backgroundColor: colors.cardBg,
   },
-  actionBtnLocked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  actionBtnLocked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   actionBtnDisabled: { opacity: 0.5 },
-  actionBtnText: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+  actionBtnText: { fontSize: 12, color: colors.primary, fontWeight: "600" },
 
-  emptyCard: { padding: spacing.xxl, alignItems: 'center' },
-  emptyText: { fontSize: 18, fontWeight: '600', color: colors.textSecondary, marginTop: spacing.md },
-  emptySubtext: { fontSize: 14, color: colors.textMuted, marginTop: spacing.xs },
+  emptyCard: { padding: spacing.xxl, alignItems: "center" },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
 
-  bottomActions: { marginTop: spacing.xl, alignItems: 'center' },
-  continueButton: { width: '100%', maxWidth: 320 },
+  bottomActions: { marginTop: spacing.xl, alignItems: "center" },
+  continueButton: { width: "100%", maxWidth: 320 },
   memoryButton: { marginBottom: spacing.md },
 
   // Modal
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center', padding: spacing.lg,
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
   },
   modalContent: {
-    backgroundColor: colors.cardBg, borderRadius: borderRadius.lg,
-    width: '100%', maxWidth: 500, maxHeight: '90%', ...shadows.lg,
+    backgroundColor: colors.cardBg,
+    borderRadius: borderRadius.lg,
+    width: "100%",
+    maxWidth: 500,
+    maxHeight: "90%",
+    ...shadows.lg,
   },
   modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.gray200,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray200,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary },
+  modalTitle: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
   modalScroll: { padding: spacing.lg },
   sectionSeparatorLabel: {
-    fontSize: 12, fontWeight: '700', color: colors.primary,
-    textTransform: 'uppercase', letterSpacing: 0.5,
-    marginTop: spacing.md, marginBottom: spacing.sm,
-    paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: colors.gray200,
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray200,
   },
   inputGroup: { marginBottom: spacing.md },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.xs },
-  input: {
-    backgroundColor: colors.gray100, borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    fontSize: 16, color: colors.textPrimary,
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
-  multilineInput: { minHeight: 72, textAlignVertical: 'top' },
+  input: {
+    backgroundColor: colors.gray100,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  multilineInput: { minHeight: 72, textAlignVertical: "top" },
   modalButton: { marginTop: spacing.md },
 });
-

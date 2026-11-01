@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,16 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/utils/theme';
-import { Button } from '../src/components/Button';
-import { Card } from '../src/components/Card';
-import { Loading } from '../src/components/Loading';
-import { SaveIndicator } from '../src/components/SaveIndicator';
-import { useProject } from '../src/context/ProjectContext';
-import { api, formatApiError } from '../src/utils/api';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
+import { Button } from "../src/components/Button";
+import { Card } from "../src/components/Card";
+import { Loading } from "../src/components/Loading";
+import { SaveIndicator } from "../src/components/SaveIndicator";
+import { useProject } from "../src/context/ProjectContext";
+import { api, formatApiError } from "../src/utils/api";
 
 interface StoryMemoryData {
   characters: Array<{ name: string; key_traits: string; visual_key: string }>;
@@ -28,13 +28,20 @@ interface StoryMemoryData {
 
 export default function StoryMemoryScreen() {
   const router = useRouter();
-  const { currentProject, characters, saveStatus, lastSaved, isLoading, setError } = useProject();
+  const {
+    currentProject,
+    characters,
+    saveStatus,
+    lastSaved,
+    isLoading,
+    setError,
+  } = useProject();
   const [memory, setMemory] = useState<StoryMemoryData | null>(null);
   const [isLoadingMemory, setIsLoadingMemory] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editedToneNotes, setEditedToneNotes] = useState('');
-  const [editedStyleGuide, setEditedStyleGuide] = useState('');
+  const [editedToneNotes, setEditedToneNotes] = useState("");
+  const [editedStyleGuide, setEditedStyleGuide] = useState("");
 
   useEffect(() => {
     if (currentProject) {
@@ -46,12 +53,14 @@ export default function StoryMemoryScreen() {
     if (!currentProject) return;
     setIsLoadingMemory(true);
     try {
-      const response = await api.get(`/projects/${currentProject.id}/story-memory`);
+      const response = await api.get(
+        `/projects/${currentProject.id}/story-memory`,
+      );
       setMemory(response.data);
-      setEditedToneNotes(response.data.tone_notes || '');
-      setEditedStyleGuide(response.data.style_guide || '');
+      setEditedToneNotes(response.data.tone_notes || "");
+      setEditedStyleGuide(response.data.style_guide || "");
     } catch (err) {
-      console.error('Failed to load story memory:', err);
+      console.error("Failed to load story memory:", err);
     } finally {
       setIsLoadingMemory(false);
     }
@@ -61,12 +70,14 @@ export default function StoryMemoryScreen() {
     if (!currentProject) return;
     setIsGenerating(true);
     try {
-      const response = await api.post(`/projects/${currentProject.id}/story-memory/generate`);
+      const response = await api.post(
+        `/projects/${currentProject.id}/story-memory/generate`,
+      );
       setMemory(response.data);
-      setEditedToneNotes(response.data.tone_notes || '');
-      setEditedStyleGuide(response.data.style_guide || '');
+      setEditedToneNotes(response.data.tone_notes || "");
+      setEditedStyleGuide(response.data.style_guide || "");
     } catch (err) {
-      setError(formatApiError(err, 'Failed to generate story memory'));
+      setError(formatApiError(err, "Failed to generate story memory"));
     } finally {
       setIsGenerating(false);
     }
@@ -81,7 +92,7 @@ export default function StoryMemoryScreen() {
         style_guide: editedStyleGuide,
       });
     } catch (err) {
-      setError(formatApiError(err, 'Failed to save story memory'));
+      setError(formatApiError(err, "Failed to save story memory"));
     } finally {
       setIsSaving(false);
     }
@@ -95,12 +106,15 @@ export default function StoryMemoryScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={styles.headerTitle}>
-            <Ionicons name="brain" size={24} color={colors.primary} />
+            <Ionicons name="bulb-outline" size={24} color={colors.primary} />
             <Text style={styles.title}>Story Memory</Text>
           </View>
           <SaveIndicator status={saveStatus} lastSaved={lastSaved} />
@@ -115,7 +129,9 @@ export default function StoryMemoryScreen() {
       {/* Generate Button */}
       <View style={styles.actionBar}>
         <Button
-          title={memory?.characters?.length ? 'Refresh Memory' : 'Generate Memory'}
+          title={
+            memory?.characters?.length ? "Refresh Memory" : "Generate Memory"
+          }
           onPress={handleGenerate}
           loading={isGenerating}
           icon={<Ionicons name="sparkles" size={18} color={colors.white} />}
@@ -146,7 +162,8 @@ export default function StoryMemoryScreen() {
               </View>
             ) : (
               <Text style={styles.emptyText}>
-                No characters in memory. Generate or add them on the Character Forge screen.
+                No characters in memory. Generate or add them on the Character
+                Forge screen.
               </Text>
             )}
           </Card>
@@ -162,21 +179,25 @@ export default function StoryMemoryScreen() {
                 {memory.settings.map((setting, idx) => (
                   <View key={idx} style={styles.settingItem}>
                     <Text style={styles.settingName}>{setting.name}</Text>
-                    <Text style={styles.settingDesc}>{setting.description}</Text>
+                    <Text style={styles.settingDesc}>
+                      {setting.description}
+                    </Text>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.emptyText}>
-                No settings recorded yet.
-              </Text>
+              <Text style={styles.emptyText}>No settings recorded yet.</Text>
             )}
           </Card>
 
           {/* Tone Notes */}
           <Card style={styles.section} variant="elevated">
             <View style={styles.sectionHeader}>
-              <Ionicons name="musical-notes" size={20} color={colors.secondary} />
+              <Ionicons
+                name="musical-notes"
+                size={20}
+                color={colors.secondary}
+              />
               <Text style={styles.sectionTitle}>Tone Notes</Text>
             </View>
             <TextInput
@@ -219,9 +240,15 @@ export default function StoryMemoryScreen() {
           <View style={styles.continueContainer}>
             <Button
               title="Continue to Page Builder"
-              onPress={() => router.push('/page-builder')}
+              onPress={() => router.push("/page-builder")}
               variant="outline"
-              icon={<Ionicons name="arrow-forward" size={18} color={colors.primary} />}
+              icon={
+                <Ionicons
+                  name="arrow-forward"
+                  size={18}
+                  color={colors.primary}
+                />
+              }
             />
           </View>
         </>
@@ -240,9 +267,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.md,
   },
   backButton: {
@@ -250,33 +277,33 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: borderRadius.full,
     backgroundColor: colors.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   headerCenter: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.xs,
   },
   headerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 15,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: spacing.lg,
   },
   actionBar: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: spacing.lg,
   },
   section: {
@@ -284,14 +311,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   charList: {
@@ -304,7 +331,7 @@ const styles = StyleSheet.create({
   },
   charName: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
     marginBottom: 4,
   },
@@ -316,7 +343,7 @@ const styles = StyleSheet.create({
   charVisual: {
     fontSize: 12,
     color: colors.textMuted,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   settingsList: {
     gap: spacing.sm,
@@ -328,7 +355,7 @@ const styles = StyleSheet.create({
   },
   settingName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.accent,
     marginBottom: 2,
   },
@@ -339,8 +366,8 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: colors.gray400,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    fontStyle: "italic",
+    textAlign: "center",
     padding: spacing.md,
   },
   textInput: {
@@ -350,14 +377,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textPrimary,
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   saveContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: spacing.md,
   },
   continueContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: spacing.md,
   },
 });

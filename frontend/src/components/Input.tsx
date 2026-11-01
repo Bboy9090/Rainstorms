@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,8 @@ import {
   ViewStyle,
   TextStyle,
   TextInputProps,
-} from 'react-native';
-import { colors, borderRadius, spacing, shadows } from '../utils/theme';
+} from "react-native";
+import { colors, borderRadius, spacing, shadows } from "../utils/theme";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -32,7 +32,11 @@ export function Input({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, isFocused && styles.labelFocused]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, isFocused && styles.labelFocused]}>
+          {label}
+        </Text>
+      )}
       <TextInput
         style={[
           styles.input,
@@ -45,7 +49,7 @@ export function Input({
         placeholderTextColor={colors.textMuted}
         multiline={multiline}
         numberOfLines={numberOfLines}
-        textAlignVertical={multiline ? 'top' : 'center'}
+        textAlignVertical={multiline ? "top" : "center"}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         {...props}
@@ -61,7 +65,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: spacing.xs,
     marginLeft: 4,
@@ -78,7 +82,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 4,
     fontSize: 16,
     color: colors.textPrimary,
-    ...shadows.inner,
   },
   inputFocused: {
     borderColor: colors.primary,

@@ -1,10 +1,10 @@
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { colors } from '../src/utils/theme';
-import { AuthProvider } from '../src/context/AuthContext';
-import { ProjectProvider } from '../src/context/ProjectContext';
-import { ErrorBoundary } from '../src/components/ErrorBoundary';
-import { NativeBackendGuard } from '../src/components/NativeBackendGuard';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { colors } from "../src/utils/theme";
+import { AuthProvider } from "../src/context/AuthContext";
+import { ProjectProvider } from "../src/context/ProjectContext";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
+import { NativeBackendGuard } from "../src/components/NativeBackendGuard";
 
 export default function RootLayout() {
   return (
@@ -17,7 +17,7 @@ export default function RootLayout() {
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.bgStart },
-                animation: 'fade',
+                animation: "fade",
               }}
             />
           </ProjectProvider>

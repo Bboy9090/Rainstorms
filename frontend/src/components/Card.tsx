@@ -1,27 +1,27 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, borderRadius, shadows, spacing } from '../utils/theme';
+import React from "react";
+import { View, StyleSheet, ViewStyle, StyleProp } from "react-native";
+import { colors, borderRadius, shadows, spacing } from "../utils/theme";
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
-  variant?: 'default' | 'elevated' | 'outlined' | 'glass';
-  padding?: 'none' | 'sm' | 'md' | 'lg';
+  style?: StyleProp<ViewStyle>;
+  variant?: "default" | "elevated" | "outlined" | "glass";
+  padding?: "none" | "sm" | "md" | "lg";
 }
 
 export function Card({
   children,
   style,
-  variant = 'default',
-  padding = 'md',
+  variant = "default",
+  padding = "md",
 }: CardProps) {
   const getPaddingStyle = (): ViewStyle => {
     switch (padding) {
-      case 'none':
+      case "none":
         return { padding: 0 };
-      case 'sm':
+      case "sm":
         return { padding: spacing.sm };
-      case 'lg':
+      case "lg":
         return { padding: spacing.lg };
       default:
         return { padding: spacing.md };
@@ -32,13 +32,13 @@ export function Card({
     const baseStyles: ViewStyle[] = [styles.card, getPaddingStyle()];
 
     switch (variant) {
-      case 'elevated':
+      case "elevated":
         baseStyles.push(styles.elevated);
         break;
-      case 'outlined':
+      case "outlined":
         baseStyles.push(styles.outlined);
         break;
-      case 'glass':
+      case "glass":
         baseStyles.push(styles.glass);
         break;
       default:
@@ -49,11 +49,7 @@ export function Card({
     return baseStyles;
   };
 
-  return (
-    <View style={[...getVariantStyles(), style]}>
-      {children}
-    </View>
-  );
+  return <View style={[...getVariantStyles(), style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({

@@ -1,15 +1,18 @@
-import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from auth_config import validate_jwt_secret
 
 ROOT_DIR = Path(__file__).parent
+
 
 class Settings(BaseSettings):
     """
     Enterprise Configuration for Rainstorms.
     Supports environment variable overrides and .env file loading.
     """
+
     # API Metadata
     APP_TITLE: str = "Rainstorms API"
     APP_VERSION: str = "1.1.0"
@@ -22,7 +25,7 @@ class Settings(BaseSettings):
     MONGO_TLS_SKIP_VERIFY: bool = False
 
     # Security
-    JWT_SECRET: str = "rainstorms_secret_key_2024_v1"
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 72
     CORS_ORIGINS: str = "*"
@@ -42,16 +45,20 @@ class Settings(BaseSettings):
     CHARACTERS_DIR: Path = ROOT_DIR / "static" / "characters"
 
     model_config = SettingsConfigDict(
-        env_file=ROOT_DIR / ".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
+        env_file=ROOT_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    @field_validator("JWT_SECRET")
+    @classmethod
+    def check_jwt_secret(cls, value: str) -> str:
+        return validate_jwt_secret(value)
 
     @property
     def cors_origins_list(self) -> List[str]:
         if not self.CORS_ORIGINS:
             return ["*"]
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
 
 # Singleton instance for the application
 settings = Settings()

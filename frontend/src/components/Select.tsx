@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,9 @@ import {
   Modal,
   FlatList,
   Pressable,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, borderRadius, spacing, shadows } from '../utils/theme';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, borderRadius, spacing, shadows } from "../utils/theme";
 
 interface Option {
   label: string;
@@ -29,10 +29,10 @@ export function Select({
   value,
   options,
   onChange,
-  placeholder = 'Select an option',
+  placeholder = "Select an option",
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
@@ -43,7 +43,9 @@ export function Select({
         onPress={() => setIsOpen(true)}
         activeOpacity={0.8}
       >
-        <Text style={[styles.selectText, !selectedOption && styles.placeholder]}>
+        <Text
+          style={[styles.selectText, !selectedOption && styles.placeholder]}
+        >
           {selectedOption?.label || placeholder}
         </Text>
         <Ionicons name="chevron-down" size={20} color={colors.gray500} />
@@ -57,7 +59,7 @@ export function Select({
       >
         <Pressable style={styles.overlay} onPress={() => setIsOpen(false)}>
           <View style={styles.modal}>
-            <Text style={styles.modalTitle}>{label || 'Select'}</Text>
+            <Text style={styles.modalTitle}>{label || "Select"}</Text>
             <FlatList
               data={options}
               keyExtractor={(item) => item.value}
@@ -81,7 +83,11 @@ export function Select({
                     {item.label}
                   </Text>
                   {item.value === value && (
-                    <Ionicons name="checkmark" size={20} color={colors.primary} />
+                    <Ionicons
+                      name="checkmark"
+                      size={20}
+                      color={colors.primary}
+                    />
                   )}
                 </TouchableOpacity>
               )}
@@ -99,7 +105,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
@@ -110,9 +116,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   selectText: {
     fontSize: 16,
@@ -123,31 +129,31 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: spacing.lg,
   },
   modal: {
     backgroundColor: colors.cardBg,
     borderRadius: borderRadius.lg,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    maxHeight: '70%',
+    maxHeight: "70%",
     ...shadows.lg,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
   option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
@@ -162,6 +168,6 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

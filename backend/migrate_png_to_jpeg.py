@@ -45,13 +45,14 @@ DRY_RUN = "--dry-run" in sys.argv
 JPEG_QUALITY = 85
 
 TARGETS = [
-    ("pages",      "illustration_url"),
-    ("books",      "front_cover_url"),
+    ("pages", "illustration_url"),
+    ("books", "front_cover_url"),
     ("characters", "reference_sheet_url"),
 ]
 
 
 # ── image helpers ─────────────────────────────────────────────────────────────
+
 
 def _parse_data_uri(uri: str):
     """Return (mime_type, raw_bytes) for a data URI, or (None, None) on failure."""
@@ -97,6 +98,7 @@ def _to_jpeg_data_uri(png_uri: str):
 
 # ── database-specific migration ───────────────────────────────────────────────
 
+
 async def _migrate_mongo(db, dry_run: bool):
     """Migrate PNG images in a Motor / MongoDB database."""
     total_converted = 0
@@ -105,9 +107,9 @@ async def _migrate_mongo(db, dry_run: bool):
     for collection_name, field in TARGETS:
         col = db[collection_name]
         # Find documents whose field starts with a PNG data URI
-        docs = await col.find(
-            {field: {"$regex": r"^data:image/png;base64,"}}
-        ).to_list(length=None)
+        docs = await col.find({field: {"$regex": r"^data:image/png;base64,"}}).to_list(
+            length=None
+        )
 
         converted = 0
         saved = 0
@@ -121,8 +123,11 @@ async def _migrate_mongo(db, dry_run: bool):
             doc_id = doc.get("id") or doc.get("_id")
             logger.info(
                 "  %s/%s  %s → %s bytes  (saved %s bytes)",
-                collection_name, doc_id,
-                orig_len, jpeg_len, orig_len - jpeg_len,
+                collection_name,
+                doc_id,
+                orig_len,
+                jpeg_len,
+                orig_len - jpeg_len,
             )
 
             if not dry_run:
@@ -136,7 +141,9 @@ async def _migrate_mongo(db, dry_run: bool):
 
         logger.info(
             "[%s] converted %d image(s), saved ~%.1f KB",
-            collection_name, converted, saved / 1024,
+            collection_name,
+            converted,
+            saved / 1024,
         )
         total_converted += converted
         total_saved_bytes += saved
@@ -169,8 +176,11 @@ async def _migrate_pg(pool, dry_run: bool):
                 doc_id = row["doc_id"]
                 logger.info(
                     "  %s/%s  %s → %s bytes  (saved %s bytes)",
-                    collection_name, doc_id,
-                    orig_len, jpeg_len, orig_len - jpeg_len,
+                    collection_name,
+                    doc_id,
+                    orig_len,
+                    jpeg_len,
+                    orig_len - jpeg_len,
                 )
 
                 if not dry_run:
@@ -178,7 +188,9 @@ async def _migrate_pg(pool, dry_run: bool):
                     await conn.execute(
                         "UPDATE documents SET data = $1::jsonb, updated_at = NOW() "
                         "WHERE collection = $2 AND doc_id = $3",
-                        json.dumps(doc), collection_name, doc_id,
+                        json.dumps(doc),
+                        collection_name,
+                        doc_id,
                     )
 
                 converted += 1
@@ -186,7 +198,9 @@ async def _migrate_pg(pool, dry_run: bool):
 
             logger.info(
                 "[%s] converted %d image(s), saved ~%.1f KB",
-                collection_name, converted, saved / 1024,
+                collection_name,
+                converted,
+                saved / 1024,
             )
             total_converted += converted
             total_saved_bytes += saved
@@ -195,6 +209,7 @@ async def _migrate_pg(pool, dry_run: bool):
 
 
 # ── entry point ───────────────────────────────────────────────────────────────
+
 
 async def main():
     if DRY_RUN:
@@ -213,7 +228,9 @@ async def main():
         tls_kwargs = {}
         if mongo_url.startswith("mongodb+srv://"):
             tls_kwargs["tlsCAFile"] = certifi.where()
-        client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=15000, **tls_kwargs)
+        client = AsyncIOMotorClient(
+            mongo_url, serverSelectionTimeoutMS=15000, **tls_kwargs
+        )
         db_name = os.environ.get("DB_NAME", "rainstorms_db")
         db = client[db_name]
         total_converted, total_saved = await _migrate_mongo(db, DRY_RUN)

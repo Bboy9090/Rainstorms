@@ -59,7 +59,10 @@ module.exports = {
       EXPO_PUBLIC_BACKEND_URL: BACKEND_URL,
       privacyPolicyUrl: PRIVACY_POLICY_URL,
       eas: {
-        projectId: process.env.EAS_PROJECT_ID ?? appJson.expo?.extra?.eas?.projectId ?? "",
+        projectId:
+          process.env.EAS_PROJECT_ID ??
+          appJson.expo?.extra?.eas?.projectId ??
+          "",
       },
     },
   },
