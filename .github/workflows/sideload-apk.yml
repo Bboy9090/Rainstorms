@@ -1,0 +1,42 @@
+name: Sideload APK
+on:
+  push:
+    branches: [artifact/sideload-apk-20261101]
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: npm ci --legacy-peer-deps --ignore-scripts
+      - run: npx expo prebuild --platform android --clean --non-interactive
+        env:
+          EXPO_PUBLIC_BACKEND_URL: https://rainstorms-production.up.railway.app
+      - name: Build installable debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../Rainstorms-sideload.apk
+          sha256sum ../Rainstorms-sideload.apk > ../Rainstorms-sideload.sha256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rainstorms-sideload-apk
+          path: |
+            frontend/Rainstorms-sideload.apk
+            frontend/Rainstorms-sideload.sha256
+          if-no-files-found: error
