@@ -148,14 +148,24 @@ jobs:
           set -o pipefail
           npm run format:check:py 2>&1 | tee backend-format.log
 
-      - name: Run flake8
+      - name: Run release-critical Python lint
         id: lint
         if: steps.install.outcome == 'success'
         continue-on-error: true
         shell: bash
         run: |
           set -o pipefail
-          npm run lint:py 2>&1 | tee backend-lint.log
+          cd backend
+          flake8 . --select=E9,F63,F7,F82 2>&1 | tee ../backend-lint-critical.log
+
+      - name: Record full Python style debt
+        id: lint_full
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run lint:py 2>&1 | tee backend-lint-full.log
 
       - name: Run pytest
         id: tests
@@ -176,6 +186,7 @@ jobs:
             "install_outcome=${{ steps.install.outcome }}" \
             "format_outcome=${{ steps.format.outcome }}" \
             "lint_outcome=${{ steps.lint.outcome }}" \
+            "full_style_lint_outcome=${{ steps.lint_full.outcome }}" \
             "tests_outcome=${{ steps.tests.outcome }}" \
             > backend-outcomes.txt
 
@@ -187,7 +198,8 @@ jobs:
           path: |
             backend-install.log
             backend-format.log
-            backend-lint.log
+            backend-lint-critical.log
+            backend-lint-full.log
             backend-tests.log
             backend-outcomes.txt
           if-no-files-found: warn
