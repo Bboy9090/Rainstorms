@@ -48,6 +48,11 @@ jobs:
         run: npx expo prebuild --platform android --clean --non-interactive
         env:
           EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+      - name: Assert Google Play API 36 target
+        run: |
+          set -euo pipefail
+          grep -R -E 'compileSdkVersion.*36|compileSdk.*36' android | head -20
+          grep -R -E 'targetSdkVersion.*36|targetSdk.*36' android | head -20
       - name: Build release App Bundle
         run: |
           cd android
