@@ -48,18 +48,19 @@ jobs:
         run: npx expo prebuild --platform android --clean --non-interactive
         env:
           EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
-      - name: Assert Google Play API 36 target
-        run: |
-          set -euo pipefail
-          grep -R -E 'compileSdkVersion.*36|compileSdk.*36' android | head -20
-          grep -R -E 'targetSdkVersion.*36|targetSdk.*36' android | head -20
       - name: Build release App Bundle
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease --stacktrace
-          test -s app/build/outputs/bundle/release/app-release.aab
-          sha256sum app/build/outputs/bundle/release/app-release.aab > app/build/outputs/bundle/release/AAB-SHA256.txt
+          ./gradlew bundleRelease assembleRelease --stacktrace
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$AAB"
+          test -s "$APK"
+          TARGET_SDK="$("$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest target-sdk "$APK")"
+          test "$TARGET_SDK" = "36"
+          echo "Verified packaged targetSdkVersion=$TARGET_SDK"
+          sha256sum "$AAB" > app/build/outputs/bundle/release/AAB-SHA256.txt
       - uses: actions/upload-artifact@v7
         with:
           name: rainstorms-android-aab-unsigned
