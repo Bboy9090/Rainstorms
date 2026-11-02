@@ -16,8 +16,8 @@ jobs:
         working-directory: frontend
 
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
@@ -43,11 +43,12 @@ jobs:
       - run: npm ci --legacy-peer-deps --ignore-scripts
 
       - name: Generate Android project
-        run: npx expo prebuild --platform android --clean --non-interactive
         env:
-          EXPO_PUBLIC_BACKEND_URL: ${{ vars.EXPO_PUBLIC_BACKEND_URL }}
+          EXPO_PUBLIC_BACKEND_URL: https://rainstormsbackend.up.railway.app
+        run: npx expo prebuild --platform android --clean --non-interactive
 
-      - name: Install production keystore
+
+      - name: Install upload keystore and release signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -55,65 +56,32 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/rainstorms-upload.jks
-          cat > android/keystore.properties <<EOF
-          storeFile=rainstorms-upload.jks
-          storePassword=$ANDROID_KEYSTORE_PASSWORD
-          keyAlias=$ANDROID_KEY_ALIAS
-          keyPassword=$ANDROID_KEY_PASSWORD
-          EOF
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path("android/app/build.gradle")
-          s = p.read_text()
-          anchor = "android {"
-          prelude = """def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file("keystore.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/rainstorms-upload.jks
+          {
+            printf 'storeFile=rainstorms-upload.jks\n'
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > android/keystore.properties
+          python3 scripts/configure_android_release_signing.py
 
-"""
-          if prelude.strip() not in s:
-              s = s.replace(anchor, prelude + anchor, 1)
-
-          debug_block = """        debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
-        }
-"""
-          release_block = debug_block + """        release {
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-        }
-"""
-          if "signingConfigs {" not in s:
-              raise SystemExit("signingConfigs block not found")
-          if "keystoreProperties['storeFile']" not in s:
-              s = s.replace(debug_block, release_block, 1)
-
-          import re
-          release_pattern = re.compile(r"(release\s*\{[\s\S]*?)(signingConfig\s+signingConfigs\.debug)([\s\S]*?\n\s*\})")
-          s, count = release_pattern.subn(r"\1signingConfig signingConfigs.release\3", s, count=1)
-          if count != 1:
-              raise SystemExit("release signingConfig not found or ambiguous")
-          p.write_text(s)
-          PY
-
-      - name: Build signed release App Bundle
+      - name: Build and verify signed AAB
         run: |
+          set -euo pipefail
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease --stacktrace
-          test -s app/build/outputs/bundle/release/app-release.aab
-          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
-          sha256sum app/build/outputs/bundle/release/app-release.aab > app/build/outputs/bundle/release/AAB-SHA256.txt
+          ./gradlew bundleRelease assembleRelease --stacktrace
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$AAB"
+          test -s "$APK"
+          TARGET_SDK="$("$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest target-sdk "$APK")"
+          test "$TARGET_SDK" = "36"
+          echo "Verified packaged targetSdkVersion=$TARGET_SDK"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
+          sha256sum "$AAB" > app/build/outputs/bundle/release/AAB-SHA256.txt
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: rainstorms-android-aab-signed
           path: |
