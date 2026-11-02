@@ -17,6 +17,15 @@ permissions:
   contents: read
 
 jobs:
+  backend-production-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify production backend health
+        run: |
+          curl --fail --silent --show-error --location --max-time 30 \
+            https://rainstormsbackend.up.railway.app/api/health
+
   android-aab:
     runs-on: ubuntu-latest
     timeout-minutes: 55
