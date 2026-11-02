@@ -96,7 +96,11 @@ if (keystorePropertiesFile.exists()) {
           if "keystoreProperties['storeFile']" not in s:
               s = s.replace(debug_block, release_block, 1)
 
-          s = s.replace("signingConfig signingConfigs.debug", "signingConfig signingConfigs.release", 1 if "release {" in s else 0)
+          import re
+          release_pattern = re.compile(r"(release\s*\{[\s\S]*?)(signingConfig\s+signingConfigs\.debug)([\s\S]*?\n\s*\})")
+          s, count = release_pattern.subn(r"\1signingConfig signingConfigs.release\3", s, count=1)
+          if count != 1:
+              raise SystemExit("release signingConfig not found or ambiguous")
           p.write_text(s)
           PY
 
