@@ -341,7 +341,7 @@ export default function PublishingCenterScreen() {
       } else {
         Alert.alert(
           "Export on Mobile",
-          "For the full publishing package download, please open Rainstorms in a web browser and export from there.",
+          "For the full publishing package download, please open Bobby's Story Bench in a web browser and export from there.",
         );
       }
     } catch {
