@@ -1489,7 +1489,7 @@ const styles = StyleSheet.create({
 
   // Publish Overlay
   publishOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.6)",
     alignItems: "center",
     justifyContent: "center",
