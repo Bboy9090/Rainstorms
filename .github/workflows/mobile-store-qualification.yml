@@ -91,12 +91,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          WORKSPACE=$(find ios -maxdepth 2 -name '*.xcworkspace' -print -quit)
-          PROJECT=$(find ios -maxdepth 2 -name '*.xcodeproj' -print -quit)
+          WORKSPACE=$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          PROJECT=$(find ios -maxdepth 1 -name '*.xcodeproj' -print -quit)
           if [[ -n "$WORKSPACE" ]]; then
-            xcodebuild -workspace "$WORKSPACE" -scheme Rainstorms -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+            SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+            echo "Building generated iOS scheme: $SCHEME"
+            xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
           elif [[ -n "$PROJECT" ]]; then
-            xcodebuild -project "$PROJECT" -scheme Rainstorms -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+            SCHEME=$(basename "$PROJECT" .xcodeproj)
+            echo "Building generated iOS scheme: $SCHEME"
+            xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
           else
             echo "No generated Xcode project/workspace found."
             exit 1
