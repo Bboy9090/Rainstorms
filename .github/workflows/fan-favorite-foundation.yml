@@ -136,7 +136,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m pip install --upgrade pip 2>&1 | tee backend-install.log
+          python -m pip install --upgrade pip setuptools==84.1.0 2>&1 | tee backend-install.log
           python -m pip install -r backend/requirements.txt 2>&1 | tee -a backend-install.log
 
       - name: Check Black formatting

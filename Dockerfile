@@ -6,7 +6,8 @@ WORKDIR /app
 
 # Install deps only (faster rebuilds when code changes)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools==84.1.0 \
+    && python -m pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
