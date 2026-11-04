@@ -27,7 +27,7 @@ const SECTIONS: { heading: string; body: string }[] = [
   },
   {
     heading: "How AI generation works",
-    body: "When you ask Rainstorms to write story text or generate an illustration, your prompt is sent to our AI providers (currently Groq, Google Gemini and Google Imagen) for processing. We do not send your account email or password to these providers. Generated text and images are returned to you and stored under your account.",
+    body: "When you ask Bobby's Story Bench to write story text or generate an illustration, your prompt is sent to our AI providers (currently Groq, Google Gemini and Google Imagen) for processing. We do not send your account email or password to these providers. Generated text and images are returned to you and stored under your account.",
   },
   {
     heading: "Account deletion",
@@ -39,7 +39,7 @@ const SECTIONS: { heading: string; body: string }[] = [
   },
   {
     heading: "Children",
-    body: "Rainstorms is designed for parents, teachers and authors. The app is not directed to children under 13 and we do not knowingly collect personal information from children.",
+    body: "Bobby's Story Bench is designed for parents, teachers and authors. The app is not directed to children under 13 and we do not knowingly collect personal information from children.",
   },
   {
     heading: "Contact",

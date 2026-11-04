@@ -243,7 +243,9 @@ export default function SettingsScreen() {
           )}
         </Card>
 
-        <Text style={styles.versionText}>Rainstorms v{APP_VERSION}</Text>
+        <Text style={styles.versionText}>
+          Bobby&apos;s Story Bench v{APP_VERSION}
+        </Text>
       </ScrollView>
     </View>
   );

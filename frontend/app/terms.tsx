@@ -17,11 +17,11 @@ const SECTIONS: { heading: string; body: string }[] = [
   },
   {
     heading: "Your content",
-    body: "You own the books, characters and AI-generated illustrations you create inside Rainstorms. By using the AI generation features you confirm that your prompts do not violate any law or third-party right.",
+    body: "You own the books, characters and AI-generated illustrations you create inside Bobby's Story Bench. By using the AI generation features you confirm that your prompts do not violate any law or third-party right.",
   },
   {
     heading: "Acceptable use",
-    body: "You agree not to use Rainstorms to generate content that is unlawful, sexually explicit, hateful, violent towards real people, or that targets, exploits or endangers minors. We may suspend or remove accounts that violate these rules.",
+    body: "You agree not to use Bobby's Story Bench to generate content that is unlawful, sexually explicit, hateful, violent towards real people, or that targets, exploits or endangers minors. We may suspend or remove accounts that violate these rules.",
   },
   {
     heading: "AI-generated output",

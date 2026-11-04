@@ -106,7 +106,7 @@ const VISIBILITY_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const SOURCE_APP_LABELS: Record<string, string> = {
-  rainstorms: "🌧 Rainstorms",
+  rainstorms: "📚 Bobby's Story Bench",
   sagaarch: "📜 SagaARCH",
 };
 

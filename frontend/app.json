@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Rainstorms",
+    "name": "Bobby's Story Bench",
     "slug": "rainstorms",
     "version": "1.1.0",
-    "description": "Create beautiful children's picture books with AI-powered story generation.",
+    "description": "Build complete children's picture books from idea to page, illustration plan, and export.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rainstorms",
@@ -15,10 +15,10 @@
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "Rainstorms uses your photo library to let you save and share your children's book pages and covers.",
-        "NSPhotoLibraryAddUsageDescription": "Rainstorms saves generated book pages and covers to your photo library.",
-        "NSCameraUsageDescription": "Rainstorms uses the camera to let you add custom photos to your book.",
-        "NSFaceIDUsageDescription": "Rainstorms uses Face ID to keep your login credentials secure."
+        "NSPhotoLibraryUsageDescription": "Bobby's Story Bench uses your photo library to let you save and share your children's book pages and covers.",
+        "NSPhotoLibraryAddUsageDescription": "Bobby's Story Bench saves generated book pages and covers to your photo library.",
+        "NSCameraUsageDescription": "Bobby's Story Bench uses the camera to let you add custom photos to your book.",
+        "NSFaceIDUsageDescription": "Bobby's Story Bench uses Face ID to keep your login credentials secure."
       }
     },
     "android": {
