@@ -96,7 +96,7 @@ export default function AuthScreen() {
           <View style={styles.logoContainer}>
             <Ionicons name="rainy" size={48} color={colors.primary} />
           </View>
-          <Text style={styles.logoText}>Rainstorms</Text>
+          <Text style={styles.logoText}>Bobby&apos;s Story Bench</Text>
           <Text style={styles.tagline}>Save your stories, create magic</Text>
         </View>
 
