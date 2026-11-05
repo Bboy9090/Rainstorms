@@ -29,8 +29,7 @@ GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
 # Operators may set provider-specific models without changing credentials.
 OPENAI_MODEL: str = os.environ.get("OPENAI_MODEL", "gpt-4.1").strip() or "gpt-4.1"
 GEMINI_MODEL: str = (
-    os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip()
-    or "gemini-3.6-flash"
+    os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
 )
 GROQ_MODEL: str = (
     os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
