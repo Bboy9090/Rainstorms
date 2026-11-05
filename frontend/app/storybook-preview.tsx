@@ -487,7 +487,10 @@ export default function StorybookPreviewScreen() {
   const handleNarratePage = useCallback(async () => {
     const text = currentPageData?.page_text?.trim();
     if (!text) {
-      Alert.alert("Nothing to Read", "Add page text before starting narration.");
+      Alert.alert(
+        "Nothing to Read",
+        "Add page text before starting narration.",
+      );
       return;
     }
 
@@ -876,7 +879,8 @@ export default function StorybookPreviewScreen() {
         <TouchableOpacity
           style={[
             styles.pageControlBtn,
-            !currentPageData?.page_text?.trim() && styles.pageControlBtnDisabled,
+            !currentPageData?.page_text?.trim() &&
+              styles.pageControlBtnDisabled,
           ]}
           onPress={isNarrating ? stopNarration : handleNarratePage}
           disabled={!currentPageData?.page_text?.trim()}
