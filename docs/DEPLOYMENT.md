@@ -225,17 +225,21 @@ No code rewrite is needed — Expo supports this out of the box.
 
 ### Setup
 
+The repository already includes `frontend/eas.json` with development, preview, and production profiles. Production targets Android App Bundle output and remote app-version management.
+
 ```bash
 # Install Expo Application Services CLI
 npm install -g eas-cli
 
-# Log in to your Expo account
+# Log in to the Expo account that owns the app
 eas login
 
-# Configure builds
 cd frontend
-eas build:configure
+eas build --platform ios --profile production
+eas build --platform android --profile production
 ```
+
+The repository's Mobile Store Release Preflight validates configuration and emits a release-state receipt. A passing preflight does **not** mean an IPA/AAB was signed or submitted; those claims require the credentialed EAS build/submission run itself.
 
 ### Build
 
