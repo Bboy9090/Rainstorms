@@ -1,0 +1,84 @@
+name: Mobile Store Release Preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/app.json'
+      - 'frontend/eas.json'
+      - '.github/workflows/mobile-store-release-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/app.json'
+      - 'frontend/eas.json'
+      - '.github/workflows/mobile-store-release-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-config:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps --ignore-scripts
+
+      - name: Validate store release configuration
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+
+          const failures = [];
+          if (!app?.name || !app?.slug || !app?.version) failures.push('Expo name/slug/version missing');
+          if (!app?.ios?.bundleIdentifier) failures.push('iOS bundleIdentifier missing');
+          if (!app?.android?.package) failures.push('Android package missing');
+          if (!Number.isInteger(app?.android?.versionCode) || app.android.versionCode < 1) failures.push('Android versionCode invalid');
+          if (!String(app?.ios?.buildNumber || '').trim()) failures.push('iOS buildNumber missing');
+          if (eas?.build?.production?.android?.buildType !== 'app-bundle') failures.push('EAS production Android build must be app-bundle');
+          if (!eas?.build?.production) failures.push('EAS production build profile missing');
+          if (!eas?.submit?.production) failures.push('EAS production submit profile missing');
+
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+
+          const state = {
+            schema: 'rainstorms.mobile-release-state.v1',
+            sourceCommit: process.env.GITHUB_SHA,
+            appName: app.name,
+            version: app.version,
+            iosBundleIdentifier: app.ios.bundleIdentifier,
+            iosBuildNumber: app.ios.buildNumber,
+            androidPackage: app.android.package,
+            androidVersionCode: app.android.versionCode,
+            easProductionConfigured: true,
+            signedArtifactsProduced: false,
+            appStoreSubmitted: false,
+            playStoreSubmitted: false,
+            status: 'store-config-qualified-awaiting-credentialed-build-submit'
+          };
+          fs.writeFileSync('mobile-release-state.json', JSON.stringify(state, null, 2) + '\n');
+          console.log(JSON.stringify(state));
+          NODE
+
+      - name: Verify Expo config resolves
+        run: npx expo config --type public >/tmp/expo-config.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rainstorms-mobile-release-preflight
+          path: frontend/mobile-release-state.json
+          if-no-files-found: error
