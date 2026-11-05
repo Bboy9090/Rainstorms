@@ -32,8 +32,7 @@ GEMINI_MODEL: str = (
     os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
 )
 GROQ_MODEL: str = (
-    os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
-    or "openai/gpt-oss-120b"
+    os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip() or "openai/gpt-oss-120b"
 )
 
 _openai_client = None
