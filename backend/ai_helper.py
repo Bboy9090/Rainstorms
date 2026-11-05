@@ -28,8 +28,14 @@ GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
 # Defaults deliberately avoid provider model IDs discontinued in 2026.
 # Operators may set provider-specific models without changing credentials.
 OPENAI_MODEL: str = os.environ.get("OPENAI_MODEL", "gpt-4.1").strip() or "gpt-4.1"
-GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite").strip() or "gemini-3.1-flash-lite"
-GROQ_MODEL: str = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip() or "openai/gpt-oss-120b"
+GEMINI_MODEL: str = (
+    os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite").strip()
+    or "gemini-3.1-flash-lite"
+)
+GROQ_MODEL: str = (
+    os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
+    or "openai/gpt-oss-120b"
+)
 
 _openai_client = None
 _gemini_client = None
