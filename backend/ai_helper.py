@@ -1,15 +1,18 @@
 """Shared LLM text-generation helper for Rainstorms.
 
 Routing strategy:
-  LLM_PROVIDER=groq   → Groq (llama-3.3-70b), falls back to Gemini on failure
-  LLM_PROVIDER=gemini → Gemini 2.0 Flash only
-  LLM_PROVIDER=openai → OpenAI GPT-4.1 only
+  LLM_PROVIDER=groq   → Groq, with best-effort fallback to other configured providers
+  LLM_PROVIDER=gemini → Gemini, with best-effort fallback to other configured providers
+  LLM_PROVIDER=openai → OpenAI, with best-effort fallback to other configured providers
 
 Environment variables:
   LLM_PROVIDER   – "openai" (default), "gemini", or "groq"
   OPENAI_API_KEY – required when LLM_PROVIDER=openai
   GEMINI_API_KEY – required when LLM_PROVIDER=gemini, or as Groq fallback
   GROQ_API_KEY   – required when LLM_PROVIDER=groq
+  OPENAI_MODEL   – optional; defaults to gpt-4.1
+  GEMINI_MODEL   – optional; defaults to gemini-3.6-flash
+  GROQ_MODEL     – optional; defaults to openai/gpt-oss-120b
 """
 
 import os
@@ -21,6 +24,16 @@ LLM_PROVIDER: str = os.environ.get("LLM_PROVIDER", "openai").lower().strip()
 OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
 GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
+
+# Defaults deliberately avoid provider model IDs discontinued in 2026.
+# Operators may set provider-specific models without changing credentials.
+OPENAI_MODEL: str = os.environ.get("OPENAI_MODEL", "gpt-4.1").strip() or "gpt-4.1"
+GEMINI_MODEL: str = (
+    os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip() or "gemini-3.6-flash"
+)
+GROQ_MODEL: str = (
+    os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip() or "openai/gpt-oss-120b"
+)
 
 _openai_client = None
 _gemini_client = None
@@ -79,7 +92,7 @@ async def llm_chat(system_message: str, user_message: str) -> str:
     """Send a chat prompt to the configured LLM with a 3-way failsafe chain.
 
     Priority: [Selected Provider] -> Groq -> OpenAI -> Gemini
-    This ensures zero-downtime generation for the storymaking pipeline.
+    Fallback is best-effort and depends on provider availability, quotas, and credentials.
     """
     # 1. Determine the chain order
     providers = [LLM_PROVIDER]
@@ -113,7 +126,7 @@ async def llm_chat(system_message: str, user_message: str) -> str:
 async def _openai_chat(system_message: str, user_message: str) -> str:
     client = _get_openai()
     response = await client.chat.completions.create(
-        model="gpt-4.1",
+        model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message},
@@ -127,7 +140,7 @@ async def _gemini_chat(system_message: str, user_message: str) -> str:
     from google.genai import types
 
     response = await client.aio.models.generate_content(
-        model="gemini-2.0-flash",
+        model=GEMINI_MODEL,
         contents=user_message,
         config=types.GenerateContentConfig(system_instruction=system_message),
     )
@@ -137,7 +150,7 @@ async def _gemini_chat(system_message: str, user_message: str) -> str:
 async def _groq_chat(system_message: str, user_message: str) -> str:
     client = _get_groq()
     response = await client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message},
