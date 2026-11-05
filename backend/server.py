@@ -9,7 +9,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")  # Edit .env? Restart server to pick up changes.
 
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 import certifi
 from mongo_pg import create_pg_db
 import os
@@ -47,15 +47,15 @@ if _use_mongo:
         _tls_kwargs["tlsCAFile"] = certifi.where()
         if os.environ.get("MONGO_TLS_SKIP_VERIFY", "").lower() in ("1", "true", "yes"):
             _tls_kwargs["tlsAllowInvalidCertificates"] = True
-    _motor_client = AsyncIOMotorClient(
+    _mongo_client = AsyncMongoClient(
         _mongo_url,
         serverSelectionTimeoutMS=15000,
         **_tls_kwargs,
     )
-    db = _motor_client[os.environ.get("DB_NAME", "rainstorms_db")]
+    db = _mongo_client[os.environ.get("DB_NAME", "rainstorms_db")]
     logging.info("Database: MongoDB Atlas")
 else:
-    _motor_client = None
+    _mongo_client = None
     db = None  # will be replaced in startup event
 
 # JWT Configuration
@@ -4706,8 +4706,8 @@ async def ready_check():
     mongo_ok = False
     mongo_err = None
     try:
-        if _motor_client is not None:
-            await _motor_client.admin.command("ping")
+        if _mongo_client is not None:
+            await _mongo_client.admin.command("ping")
         else:
             # PostgreSQL adapter — do a lightweight query
             await db.list_collection_names()
@@ -6476,7 +6476,7 @@ if _frontend_dist.is_dir():
 async def startup_db():
     global db
     if db is not None:
-        return  # Already using MongoDB Atlas
+        return  # Already using MongoDB Atlas via PyMongo Async
     try:
         pg_db = await create_pg_db()
         db = pg_db
@@ -6488,5 +6488,5 @@ async def startup_db():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    if _motor_client is not None:
-        _motor_client.close()
+    if _mongo_client is not None:
+        _mongo_client.close()
