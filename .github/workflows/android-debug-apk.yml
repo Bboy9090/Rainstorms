@@ -1,4 +1,4 @@
-name: Story Bench Installable Android Test APK
+name: Story Bench Self-Contained Android Test APK
 
 on:
   pull_request:
@@ -13,9 +13,11 @@ permissions:
 
 jobs:
   android-test-apk:
-    name: Build installable debug APK (not Play submission)
+    name: Build self-contained QA APK (development signed, not Play submission)
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_BACKEND_URL: https://rainstormsbackend.up.railway.app
     defaults:
       run:
         working-directory: frontend
@@ -38,14 +40,14 @@ jobs:
         run: npx expo prebuild --platform android --clean --non-interactive
         env:
           EXPO_PUBLIC_BACKEND_URL: https://rainstormsbackend.up.railway.app
-      - name: Build and verify installable debug APK
+      - name: Build and verify self-contained QA APK
         shell: bash
         run: |
           set -euo pipefail
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug --stacktrace
-          APK=app/build/outputs/apk/debug/app-debug.apk
+          ./gradlew --no-daemon assembleRelease --stacktrace
+          APK=app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
           test -x "$APKANALYZER"
@@ -53,17 +55,18 @@ jobs:
           test "$("$APKANALYZER" manifest target-sdk "$APK")" = '36'
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
           test -n "$APKSIGNER"
-          "$APKSIGNER" verify --print-certs "$APK" > app/build/outputs/apk/debug/APK-SIGNATURE.txt
-          sha256sum "$APK" > app/build/outputs/apk/debug/APK-SHA256.txt
-          printf 'candidate_sha=%s\nartifact_type=DEBUG_SIDELOAD_ONLY\npackage=com.rainstorms.app\ntarget_sdk=36\nrelease_signed=false\n' \
-            "$(git rev-parse HEAD)" > app/build/outputs/apk/debug/APK-QUALIFICATION.txt
+          "$APKANALYZER" files list "$APK" | grep -qx '/assets/index.android.bundle'
+          "$APKSIGNER" verify --print-certs "$APK" > app/build/outputs/apk/release/APK-SIGNATURE.txt
+          sha256sum "$APK" > app/build/outputs/apk/release/APK-SHA256.txt
+          printf 'candidate_sha=%s\nartifact_type=SELF_CONTAINED_QA_SIDELOAD\npackage=com.rainstorms.app\ntarget_sdk=36\njs_bundle_embedded=true\nplay_store_signed=false\n' \
+            "$(git rev-parse HEAD)" > app/build/outputs/apk/release/APK-QUALIFICATION.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BobbysStoryBench-debug-sideload-APK
+          name: BobbysStoryBench-self-contained-QA-APK
           path: |
-            frontend/android/app/build/outputs/apk/debug/app-debug.apk
-            frontend/android/app/build/outputs/apk/debug/APK-SHA256.txt
-            frontend/android/app/build/outputs/apk/debug/APK-SIGNATURE.txt
-            frontend/android/app/build/outputs/apk/debug/APK-QUALIFICATION.txt
+            frontend/android/app/build/outputs/apk/release/app-release.apk
+            frontend/android/app/build/outputs/apk/release/APK-SHA256.txt
+            frontend/android/app/build/outputs/apk/release/APK-SIGNATURE.txt
+            frontend/android/app/build/outputs/apk/release/APK-QUALIFICATION.txt
           if-no-files-found: error
           retention-days: 30
