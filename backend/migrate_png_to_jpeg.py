@@ -223,12 +223,12 @@ async def main():
     if use_mongo:
         logger.info("Database backend: MongoDB Atlas")
         import certifi
-        from motor.motor_asyncio import AsyncIOMotorClient
+        from pymongo import AsyncMongoClient
 
         tls_kwargs = {}
         if mongo_url.startswith("mongodb+srv://"):
             tls_kwargs["tlsCAFile"] = certifi.where()
-        client = AsyncIOMotorClient(
+        client = AsyncMongoClient(
             mongo_url, serverSelectionTimeoutMS=15000, **tls_kwargs
         )
         db_name = os.environ.get("DB_NAME", "rainstorms_db")
