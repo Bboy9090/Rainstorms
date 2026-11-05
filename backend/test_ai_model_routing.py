@@ -22,7 +22,7 @@ class ProviderModelRoutingTests(unittest.TestCase):
 
             helper = importlib.reload(ai_helper)
             self.assertEqual(helper.OPENAI_MODEL, "gpt-4.1")
-            self.assertEqual(helper.GEMINI_MODEL, "gemini-3.1-flash-lite")
+            self.assertEqual(helper.GEMINI_MODEL, "gemini-3.6-flash")
             self.assertEqual(helper.GROQ_MODEL, "openai/gpt-oss-120b")
 
     def test_provider_model_overrides(self):
