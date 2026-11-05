@@ -16,6 +16,8 @@ jobs:
     name: Build self-contained QA APK (development signed, not Play submission)
     runs-on: ubuntu-22.04
     timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_BACKEND_URL: https://rainstormsbackend.up.railway.app
     defaults:
       run:
         working-directory: frontend
