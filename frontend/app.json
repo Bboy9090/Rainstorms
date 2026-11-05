@@ -5,7 +5,7 @@
     "version": "1.1.0",
     "description": "Build complete children's picture books from idea to page, illustration plan, and export.",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/story-bench-icon.png",
     "scheme": "rainstorms",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -25,7 +25,7 @@
       "package": "com.rainstorms.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/story-bench-adaptive-icon.png",
         "backgroundColor": "#000"
       },
       "edgeToEdgeEnabled": true,
@@ -42,7 +42,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/rainstorms-logo.png",
+          "image": "./assets/images/story-bench-splash.png",
           "imageWidth": 280,
           "resizeMode": "contain",
           "backgroundColor": "#000"
