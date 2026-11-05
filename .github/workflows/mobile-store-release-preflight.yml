@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'frontend/app.json'
+      - 'frontend/app.config.js'
       - 'frontend/eas.json'
       - '.github/workflows/mobile-store-release-preflight.yml'
   push:
     branches: [main]
     paths:
       - 'frontend/app.json'
+      - 'frontend/app.config.js'
       - 'frontend/eas.json'
       - '.github/workflows/mobile-store-release-preflight.yml'
   workflow_dispatch:
