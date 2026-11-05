@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
+import * as Speech from "expo-speech";
 import { colors, spacing, borderRadius, shadows } from "../src/utils/theme";
 import { Card } from "../src/components/Card";
 import { Button } from "../src/components/Button";
@@ -471,8 +472,55 @@ export default function StorybookPreviewScreen() {
   const [isAutoLayouting, setIsAutoLayouting] = useState(false);
   const [isBatchLayouting, setIsBatchLayouting] = useState(false);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
+  const [isNarrating, setIsNarrating] = useState(false);
 
   const currentPageData = pages[activePage];
+
+  const stopNarration = useCallback(async () => {
+    try {
+      await Speech.stop();
+    } finally {
+      setIsNarrating(false);
+    }
+  }, []);
+
+  const handleNarratePage = useCallback(async () => {
+    const text = currentPageData?.page_text?.trim();
+    if (!text) {
+      Alert.alert(
+        "Nothing to Read",
+        "Add page text before starting narration.",
+      );
+      return;
+    }
+
+    await Speech.stop();
+    setIsNarrating(true);
+    Speech.speak(text, {
+      rate: 0.9,
+      pitch: 1.0,
+      onDone: () => setIsNarrating(false),
+      onStopped: () => setIsNarrating(false),
+      onError: () => {
+        setIsNarrating(false);
+        Alert.alert(
+          "Narration Unavailable",
+          "This device could not start text-to-speech. Check the device speech settings and try again.",
+        );
+      },
+    });
+  }, [currentPageData]);
+
+  useEffect(() => {
+    void Speech.stop().finally(() => setIsNarrating(false));
+  }, [activePage]);
+
+  useEffect(() => {
+    return () => {
+      void Speech.stop();
+    };
+  }, []);
+
   const illustratedCount = pages.filter((p) => p.illustration_url).length;
   const laidOutCount = pages.filter((p) => p.page_layout).length;
 
@@ -828,6 +876,41 @@ export default function StorybookPreviewScreen() {
 
       {/* ── Per-page illustration + layout controls ── */}
       <View style={styles.pageControls}>
+        <TouchableOpacity
+          style={[
+            styles.pageControlBtn,
+            !currentPageData?.page_text?.trim() &&
+              styles.pageControlBtnDisabled,
+          ]}
+          onPress={isNarrating ? stopNarration : handleNarratePage}
+          disabled={!currentPageData?.page_text?.trim()}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isNarrating ? "Stop page narration" : "Read page aloud"
+          }
+        >
+          <Ionicons
+            name={isNarrating ? "stop-circle-outline" : "volume-high-outline"}
+            size={16}
+            color={
+              !currentPageData?.page_text?.trim()
+                ? colors.gray400
+                : isNarrating
+                  ? colors.error
+                  : colors.primary
+            }
+          />
+          <Text
+            style={[
+              styles.pageControlText,
+              isNarrating && { color: colors.error },
+              !currentPageData?.page_text?.trim() && { color: colors.gray400 },
+            ]}
+          >
+            {isNarrating ? "Stop" : "Read Page"}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[
             styles.pageControlBtn,
