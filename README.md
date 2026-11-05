@@ -63,7 +63,7 @@ Rainstorms is an AI-powered children's book creation tool. Give it an idea — *
 | Frontend | React Native + Expo (web, iOS, Android) |
 | Navigation | Expo Router (file-based) |
 | Backend | FastAPI (Python 3.10+) |
-| Database | MongoDB (motor async driver) |
+| Database | MongoDB (PyMongo native async driver) |
 | AI (text) | OpenAI GPT-4.1 **or** Google Gemini 2.0 Flash (your own API key) |
 | AI (images) | OpenAI DALL-E 3 (your own OpenAI API key) |
 | PDF | ReportLab |
