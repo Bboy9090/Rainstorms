@@ -6,7 +6,7 @@ AI-powered children's picture book creator. Full-stack monorepo with a Python Fa
 
 - **Backend**: FastAPI (Python 3.12) — `backend/server.py`, runs on port 8000
 - **Frontend**: Expo (React Native for Web) — `frontend/`, runs on port 5000
-- **Database**: MongoDB Atlas (via `motor` async driver)
+- **Database**: MongoDB Atlas (via PyMongo native async driver)
 - **AI**: Supports Groq, OpenAI, and Google Gemini via `litellm`
 
 ## Workflows
