@@ -881,7 +881,9 @@ export default function StorybookPreviewScreen() {
           onPress={isNarrating ? stopNarration : handleNarratePage}
           disabled={!currentPageData?.page_text?.trim()}
           accessibilityRole="button"
-          accessibilityLabel={isNarrating ? "Stop page narration" : "Read page aloud"}
+          accessibilityLabel={
+            isNarrating ? "Stop page narration" : "Read page aloud"
+          }
         >
           <Ionicons
             name={isNarrating ? "stop-circle-outline" : "volume-high-outline"}
