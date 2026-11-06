@@ -15,7 +15,7 @@ services:
       - PORT=8000
       - MONGO_URL=mongodb://mongo:27017
       - DB_NAME=rainstorms_db
-      - JWT_SECRET=${JWT_SECRET:-dev_secret_change_in_production}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a unique random value of at least 32 characters}
       - LLM_PROVIDER=${LLM_PROVIDER:-groq}
       - GROQ_API_KEY=${GROQ_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
