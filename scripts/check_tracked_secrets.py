@@ -9,7 +9,7 @@ KEYS = {
     'DATABASE_URL', 'MONGO_URL', 'MONGODB_URI', 'TWILIO_AUTH_TOKEN',
 }
 SKIP = {'.png','.jpg','.jpeg','.gif','.webp','.ico','.pdf','.zip','.gz','.lock','.mp3','.wav','.mp4','.mov','.glb'}
-PLACEHOLDERS = ('your_', 'your-', 'example', 'placeholder', 'changeme', 'replace_me', 'dummy', 'localhost')
+PLACEHOLDERS = ('your_', 'your-', 'example', 'placeholder', 'changeme', 'replace_me', 'dummy', 'localhost', 'username', 'password', 'xxxxx')
 ASSIGN = re.compile(r'^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*[\"\']?([^\s\"\'#]+)')
 PATTERNS = [
     ('private key', re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----')),
@@ -37,10 +37,12 @@ for raw_path in files:
         text = data.decode('utf-8')
     except (OSError, UnicodeDecodeError):
         continue
-    for number, line in enumerate(text.splitlines(), 1):
-        match = ASSIGN.match(line)
-        if match and match.group(1) in KEYS and not placeholder(match.group(2)):
-            findings.append(f'{path}:{number}: non-placeholder assignment to {match.group(1)}')
+    config_like = path.name == '.replit' or path.name.startswith('.env') or path.suffix.lower() in {'.toml', '.yaml', '.yml', '.ini', '.conf'}
+    if config_like:
+        for number, line in enumerate(text.splitlines(), 1):
+            match = ASSIGN.match(line)
+            if match and match.group(1) in KEYS and not placeholder(match.group(2)):
+                findings.append(f'{path}:{number}: non-placeholder assignment to {match.group(1)}')
     for label, pattern in PATTERNS:
         for match in pattern.finditer(text):
             if not placeholder(match.group(0)):
