@@ -18,6 +18,9 @@ jobs:
         python-version: "3.12"
         cache: 'pip'
 
+    - name: Reject tracked credentials
+      run: python scripts/check_tracked_secrets.py
+
     - name: Install Dependencies & Lint dependencies
       run: |
         cd backend
