@@ -1,3 +1,7 @@
+# Bobby's Story Bench
+
+> **Public Brand Notice**: **Bobby's Story Bench** is the official customer-facing product name for this repository (internal lineage: `Rainstorms`). See [PUBLIC_BRAND_BOUNDARY.md](./PUBLIC_BRAND_BOUNDARY.md).
+
 <div align="center">
 
 # 🌧️ Rainstorms
