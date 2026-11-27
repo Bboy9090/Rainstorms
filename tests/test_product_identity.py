@@ -52,7 +52,7 @@ class ProductIdentityTests(unittest.TestCase):
             gate.verify(self.root)
 
     def test_duplicate_key(self):
-        self.meta.write_text('{"title":"Legacy","title":"Bobby's Story Bench"}')
+        self.meta.write_text('{"title":"Legacy","title":"Other"}')
         with self.assertRaisesRegex(ValueError, "Duplicate JSON key"):
             gate.verify(self.root)
 
