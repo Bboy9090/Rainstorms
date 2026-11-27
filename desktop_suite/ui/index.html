@@ -106,7 +106,7 @@
       <button class="tab active" onclick="openTab('studio',this)">Story &amp; Storyboard Studio</button>
       <button class="tab" onclick="openTab('ms',this)">Compiled Manuscript</button>
       <button class="tab" onclick="openTab('os',this)">OS Exclusive</button></div>
-  <div class="os-pill" id="os-pill">WINDOWS EDITION</div>
+  <div class="os-pill" id="os-pill">HOST CHECK PENDING</div>
 </header>
 
 <main><div class="wrap">
@@ -119,8 +119,9 @@
           </div>
           <input id="r-art" placeholder="Illustration Art Direction / Visual Prompt" style="margin-bottom:10px;">
           <textarea id="r-prose" rows="4" placeholder="Write your chapter narrative..."></textarea>
-          <div style="margin-top:10px;"><button class="btn" onclick="saveChap()">Save Chapter &amp; Blueprint</button></div>
+          <div style="margin-top:10px;"><button id="record-save" class="btn" onclick="saveChap()">Save Chapter &amp; Blueprint</button></div>
         </div>
+        <p id="record-status" role="status" aria-live="polite">Loading local records…</p>
         <div class="grid" id="r-list"></div>
       </section>
       <section id="tab-ms" class="panel"><div class="card"><h3>Exportable Book Manuscript</h3><pre id="r-md"></pre></div></section>
@@ -141,7 +142,7 @@ function openTab(id, btn){
 
 async function loadOsParity(containerId){
   const p = await (await fetch('/api/platform')).json();
-  document.getElementById('os-pill').textContent = (p.os_label || 'WINDOWS').toUpperCase() + ' EDITION';
+  document.getElementById('os-pill').textContent = (p.os_label || 'UNKNOWN').toUpperCase() + ' EDITION';
   const el = document.getElementById(containerId);
   if(!el) return;
   const caps = p.exclusive_capabilities || {};
@@ -152,24 +153,53 @@ async function loadOsParity(containerId){
     </div>`).join('');
 }
 
+
+    const el = id => document.getElementById(id);
+    let saving = false;
+    function status(message){el('record-status').textContent=message;}
+    async function requestRecords(options){
+      const response=await fetch('/api/chapters',options);
+      const data=await response.json();
+      if(!response.ok || data.ok===false) throw new Error(data.error||'Request failed');
+      return data;
+    }
+    function textNode(tag,value,cls){
+      const node=document.createElement(tag);node.textContent=value;if(cls)node.className=cls;return node;
+    }
+    function renderRecords(data){
+      const rows=data.chapters;
+      if(!Array.isArray(rows))throw new Error('Invalid record response');
+      const list=el('r-list');
+      const cards=rows.map(row=>{
+        const card=document.createElement('div');card.className='card';
+        const title=textNode('h3',row.chapter);
+        title.append(' ',textNode('span',row.book,'badge'));
+        card.append(title,textNode('div','Art Direction: '+(row.art_prompt||'None'),'sub'),textNode('p',row.prose));
+        return card;
+      });
+      list.replaceChildren(...cards);
+      el('r-md').textContent=rows.map(e=>'# '+e.book+' — '+e.chapter+'\n> Illustration: '+e.art_prompt+'\n\n'+e.prose).join('\n---\n');
+    }
     async function loadChaps(){
-      const d = await (await fetch('/api/chapters')).json();
-      document.getElementById('r-list').innerHTML = (d.chapters||[]).map(c=>`
-        <div class="card">
-          <h3>${c.chapter} <span class="badge">${c.book}</span></h3>
-          <div class="sub" style="color:var(--primary);margin-bottom:6px;">Art Direction: ${c.art_prompt || 'None'}</div>
-          <p style="font-size:13px;line-height:1.55;">${c.prose}</p>
-        </div>`).join('');
-      document.getElementById('r-md').textContent = (d.chapters||[]).map(c=>`# ${c.book} — ${c.chapter}\n> Illustration: ${c.art_prompt}\n\n${c.prose}\n`).join('\n---\n\n');
+      try{renderRecords(await requestRecords());status('Local records loaded. Full book-generation engine is not integrated in this desktop edition.');}
+      catch(error){status('Load failed: '+error.message+' — existing records were not reset.');}
     }
     async function saveChap(){
-      const chapter = document.getElementById('r-chap').value.trim(); if(!chapter) return;
-      await fetch('/api/chapters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        book:document.getElementById('r-book').value, chapter, art_prompt:document.getElementById('r-art').value, prose:document.getElementById('r-prose').value
-      })});
-      document.getElementById('r-chap').value=''; document.getElementById('r-art').value=''; document.getElementById('r-prose').value=''; loadChaps();
+      if(saving)return;
+      const fields=["book","chapter","art_prompt","prose"];
+      const ids=["r-book","r-chap","r-art","r-prose"];
+      const body=Object.fromEntries(fields.map((key,i)=>[key,el(ids[i]).value]));
+      saving=true;el('record-save').disabled=true;
+      try{
+        const result=await requestRecords({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        if(result.ok!==true)throw new Error('No save receipt');
+        renderRecords(result);
+        for(const id of ["r-chap","r-art","r-prose"])if(el(id).value===body[fields[ids.indexOf(id)]])el(id).value='';
+        status('Saved locally. Original draft text preserved in the record.');
+      }catch(error){status('Save not confirmed: '+error.message+' — draft retained; reload records before retrying.');}
+      finally{saving=false;el('record-save').disabled=false;}
     }
-    loadChaps(); loadOsParity('os-grid');
+    loadChaps(); loadOsParity('os-grid').catch(()=>{el('os-pill').textContent='HOST UNAVAILABLE';});
 </script>
 </body>
 </html>
