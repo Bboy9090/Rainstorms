@@ -1,0 +1,19 @@
+{
+  "title": "Bobby's Story Bench",
+  "slug": "bobbys-story-bench",
+  "exe_name": "BobbysStoryBench",
+  "version": "1.1.0",
+  "width": 1340,
+  "height": 840,
+  "theme": {
+    "bg": "#14110B",
+    "surface": "#211D15",
+    "surface2": "#302B20",
+    "primary": "#FEB107",
+    "accent": "#9601DF",
+    "secondary": "#60A5FA",
+    "text": "#F4F7FC",
+    "muted": "#9CAEC8"
+  },
+  "extra_datas": []
+}
