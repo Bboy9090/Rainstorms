@@ -80,3 +80,14 @@ android-sdk/
 # Environment files
 *.env
 *.env.*
+
+# Desktop packaging & local build artifacts (hygiene guard)
+.venv-desktop/
+dist_windows/
+desktop_suite/.pyi_work/
+desktop_suite/.pyi_spec/
+__pycache__/
+*.pyc
+*.pyo
+*.exe
+*.app/

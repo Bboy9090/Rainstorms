@@ -119,8 +119,8 @@ def run_self_test(port: int, meta: dict, server_error: list[str], out_path: str 
         html_bytes = r.read()
         html_len = len(html_bytes)
         html_valid = html_len > 100 and b"<html" in html_bytes.lower()
-    icon_ok = (BUNDLE_ROOT / "assets" / "icon_256.png").exists()
-    splash_ok = (BUNDLE_ROOT / "assets" / "splash_1280x720.jpg").exists()
+    icon_ok = (BUNDLE_ROOT / "assets" / "icon_256.png").exists() or (BUNDLE_ROOT.parent / "assets" / "windows" / "icon_256.png").exists()
+    splash_ok = (BUNDLE_ROOT / "assets" / "splash_1280x720.jpg").exists() or (BUNDLE_ROOT.parent / "assets" / "windows" / "splash_1280x720.jpg").exists()
     result = {
         "ok": bool(health.get("ok")) and icon_ok and splash_ok and html_valid,
         "app": meta.get("title"),

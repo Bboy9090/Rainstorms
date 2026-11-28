@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "app": "Bobby's Story Bench",
+  "slug": "bobbys-story-bench",
+  "os": "windows",
+  "html_bytes": 16923,
+  "icon_bundled": true,
+  "splash_bundled": true,
+  "health": {
+    "app": "Bobby's Story Bench",
+    "ok": true,
+    "storage_path": "C:\\Users\\hareb\\AppData\\Roaming\\BobbysNextWaveApps\\bobbys-story-bench\\stories.json"
+  },
+  "verified_at": "2026-11-28T21:03:29.884124+00:00"
+}

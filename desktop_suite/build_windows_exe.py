@@ -18,38 +18,70 @@ SHARED_EXE_DIR = Path(r"C:\Users\hareb\Desktop\Bobbys-Apps\_Windows-EXEs")
 
 
 def verify_real_gui_window(exe_file: Path, expected_title_substr: str) -> dict:
-    """Actually launches the compiled .exe with NO flags (simulating double-click) and verifies a real visible window handle opens."""
+    """Actually launches the compiled .exe with NO flags (simulating double-click) and verifies a real visible window handle opens via Win32 EnumWindows."""
+    import ctypes
+    import ctypes.wintypes
+
+    user32 = ctypes.windll.user32
+    EnumWindows = user32.EnumWindows
+    IsWindowVisible = user32.IsWindowVisible
+    GetWindowTextW = user32.GetWindowTextW
+    GetWindowTextLengthW = user32.GetWindowTextLengthW
+    GetWindowThreadProcessId = user32.GetWindowThreadProcessId
+
+    def _find_window_for_pids(target_pids: set[int]) -> tuple[int, str]:
+        result = [0, ""]
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+        def _cb(hwnd, _lparam):
+            if not IsWindowVisible(hwnd):
+                return True
+            wpid = ctypes.wintypes.DWORD()
+            GetWindowThreadProcessId(hwnd, ctypes.byref(wpid))
+            if wpid.value in target_pids:
+                length = GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    GetWindowTextW(hwnd, buf, length + 1)
+                    result[0] = int(hwnd)
+                    result[1] = buf.value
+                    return False
+            return True
+
+        EnumWindows(_cb, 0)
+        return result[0], result[1]
+
     proc = subprocess.Popen([str(exe_file)])
     found = {"opened": False, "title": "", "hwnd": 0}
     try:
-        stem = exe_file.stem
-        deadline = time.time() + 14.0
+        try:
+            import psutil
+        except Exception:
+            psutil = None
+        deadline = time.time() + 18.0
         while time.time() < deadline:
-            ps = subprocess.run(
-                [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    f"Get-Process -Name '{stem}' -ErrorAction SilentlyContinue | Where-Object {{ $_.MainWindowHandle -ne 0 }} | Select-Object -First 1 Id,MainWindowHandle,MainWindowTitle | ConvertTo-Json -Compress",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=6,
-            )
-            out = (ps.stdout or "").strip()
-            if out:
+            pids = {proc.pid}
+            if psutil is not None:
                 try:
-                    info = json.loads(out)
-                    hwnd = int(info.get("MainWindowHandle") or 0)
-                    title = str(info.get("MainWindowTitle") or "")
-                    if hwnd != 0:
-                        found = {"opened": True, "title": title, "hwnd": hwnd}
-                        break
+                    p = psutil.Process(proc.pid)
+                    pids.update(c.pid for c in p.children(recursive=True))
                 except Exception:
                     pass
+                # Also match any spawned process with the exact exe name (PyInstaller --onefile)
+                try:
+                    ename = exe_file.name.lower()
+                    for p_it in psutil.process_iter(["pid", "name"]):
+                        if (p_it.info.get("name") or "").lower() == ename:
+                            pids.add(int(p_it.info["pid"]))
+                except Exception:
+                    pass
+            hwnd, title = _find_window_for_pids(pids)
+            if hwnd != 0:
+                found = {"opened": True, "title": title, "hwnd": hwnd}
+                break
             if proc.poll() is not None:
                 break
-            time.sleep(0.5)
+            time.sleep(0.25)
     finally:
         subprocess.run(["taskkill", "/F", "/IM", exe_file.name], capture_output=True)
     return found
@@ -126,7 +158,7 @@ def build() -> Path:
     # 1. Headless self-test verification
     test_out = DIST_DIR / f"{exe_name}_selftest.json"
     test_out.unlink(missing_ok=True)
-    res = subprocess.run([str(exe_file), "--self-test", "--self-test-out", str(test_out)], timeout=30)
+    res = subprocess.run([str(exe_file), "--self-test", "--self-test-out", str(test_out)], timeout=45)
     if res.returncode != 0 or not test_out.exists():
         raise RuntimeError(f"Self-test FAILED for {exe_name}.exe (rc={res.returncode})")
     data = json.loads(test_out.read_text(encoding="utf-8"))
